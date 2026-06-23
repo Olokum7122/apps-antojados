@@ -1,5 +1,5 @@
 const THEME_STORAGE_KEY = 'antojados.theme'
-const DEFAULT_THEME = 'ambar'
+const DEFAULT_THEME = 'indigo'
 
 const THEME_DEFINITIONS = {
   ambar: {

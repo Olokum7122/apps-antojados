@@ -86,6 +86,8 @@ export default defineConfig((/* ctx */) => {
         viteConf.resolve.alias = [
           ...(Array.isArray(viteConf.resolve.alias) ? viteConf.resolve.alias : []),
           { find: '#q-app/wrappers', replacement: quasarWrappers },
+          { find: /^app\/(.*)$/, replacement: `${__dirname}/$1` },
+          { find: /^boot\/(.*)$/, replacement: `${resolve(__dirname, 'src/boot')}/$1` },
           { find: /^vue$/, replacement: resolve(__dirname, 'node_modules/vue/dist/vue.esm-bundler.js') },
           { find: /^vue-router$/, replacement: resolve(__dirname, 'node_modules/vue-router/dist/vue-router.esm-bundler.js') },
           { find: /^quasar$/, replacement: resolve(__dirname, 'node_modules/quasar/dist/quasar.client.js') },
@@ -145,7 +147,7 @@ export default defineConfig((/* ctx */) => {
     // Full list of options: https://v2.quasar.dev/quasar-cli-vite/quasar-config-file#devserver
     devServer: {
       // https: true,
-      open: true // opens browser window automatically
+      open: false
     },
 
     // https://v2.quasar.dev/quasar-cli-vite/quasar-config-file#framework
