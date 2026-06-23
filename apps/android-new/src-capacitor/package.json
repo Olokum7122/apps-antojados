@@ -1,0 +1,13 @@
+{
+  "name": "antojadosmx-android-v2",
+  "version": "0.0.1",
+  "description": "AntojadosMX Android V2 app built with Quasar + Capacitor",
+  "author": "AntojadosMX Team",
+  "private": true,
+  "dependencies": {
+    "@capacitor/android": "^8.4.0",
+    "@capacitor/app": "^8.0.0",
+    "@capacitor/cli": "^8.0.0",
+    "@capacitor/core": "^8.0.0"
+  }
+}

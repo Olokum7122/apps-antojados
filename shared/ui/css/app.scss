@@ -1,0 +1,48 @@
+:root {
+	--app-primary: #f59e0b;
+	--app-secondary: #10b981;
+	--app-surface: #12151f;
+	--app-bg-start: #0a0c14;
+	--app-bg-end: #111827;
+	--app-bg-page: #0a0c14;
+	--app-bg-card: #12151f;
+	--app-text-primary: #ffffff;
+	--app-text-secondary: rgba(255, 255, 255, 0.72);
+	--app-text-accent: #f59e0b;
+	--app-border: rgba(255, 255, 255, 0.08);
+	--app-accent-bg: rgba(245, 158, 11, 0.12);
+	--app-gradient-feed: radial-gradient(circle at 30% 20%, rgba(255, 122, 0, 0.55), rgba(10, 12, 20, 0.98) 55%);
+	--bar-bg-module: #0f172a;
+	--bar-text-module: #f59e0b;
+	--bar-active-bg-module: #1e293b;
+	--bar-active-text-module: #ffffff;
+	--bar-bg-area: #1e293b;
+	--bar-text-area: #f59e0b;
+	--bar-active-bg-area: #334155;
+	--bar-active-text-area: #ffffff;
+	--bar-bg-component: #334155;
+	--bar-text-component: #f59e0b;
+	--bar-active-bg-component: #475569;
+	--bar-active-text-component: #ffffff;
+	--bar-bg-subtab: #475569;
+	--bar-text-subtab: #f59e0b;
+	--bar-active-bg-subtab: #64748b;
+	--bar-active-text-subtab: #ffffff;
+	--buttonbar-bg-inverted: #f59e0b;
+	--buttonbar-text-inverted: #111827;
+	--buttonbar-active-bg-inverted: #fcd34d;
+	--buttonbar-border-inverted: #b45309;
+	--button-base-text-inverted: #111827;
+	--button-base-primary-bg-inverted: #fcd34d;
+	--button-base-primary-text-inverted: #111827;
+	--app-radius-md: 14px;
+}
+
+body {
+	color: var(--app-text-primary);
+	background: var(--app-gradient-feed);
+}
+
+.app-page-bg {
+	background: var(--app-gradient-feed);
+}

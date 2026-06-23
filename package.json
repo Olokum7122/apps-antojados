@@ -1,0 +1,13 @@
+{
+  "private": true,
+  "scripts": {
+    "v2:ios:dev": "npm --prefix apps/app-ios run dev",
+    "v2:ios:build": "npm --prefix apps/app-ios run build",
+    "v2:android:dev": "npm --prefix apps/android-new run dev",
+    "v2:android:build": "npm --prefix apps/android-new run build",
+    "v2:build": "npm run v2:ios:build && npm run v2:android:build"
+  },
+  "dependencies": {
+    "@capacitor-community/sqlite": "^8.1.0"
+  }
+}

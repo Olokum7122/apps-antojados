@@ -1,0 +1,24 @@
+{
+  "extends": "./.quasar/tsconfig.json",
+  "compilerOptions": {
+    "baseUrl": ".",
+    "paths": {
+      "src/shared/http/*": ["../../shared/http/*"],
+      "src/shared/config/*": ["../../shared/http/config/*"],
+      "src/shared/services/*": ["../../shared/api/services/*"],
+      "src/shared/composables/*": ["../../shared/api/composables/*"],
+      "src/shared/types/*": ["../../shared/api/types/*"],
+      "src/shared/storage/*": ["../../shared/api/storage/*"],
+      "src/components/base/*": ["../../shared/ui/base/*"],
+      "src/components/*": ["../../shared/ui/app/components/*"],
+      "src/pages/*": ["../../shared/ui/app/pages/*"],
+      "src/layouts/*": ["../../shared/ui/app/layouts/*"],
+      "src/router/*": ["../../shared/ui/app/router/*"],
+      "src/areas/*": ["../../shared/ui/app/areas/*"],
+      "src/assets/*": ["../../shared/ui/assets/*"],
+      "src/css/*": ["../../shared/ui/css/*"],
+      "src/constants/navigationDimensions": ["../../shared/ui/dimensions/navigationDimensions.js"],
+      "src/services/dimensions/*": ["../../shared/ui/dimensions/*"]
+    }
+  }
+}

@@ -1,0 +1,13 @@
+{
+  "name": "antojadosmx-ios",
+  "version": "0.0.1",
+  "description": "AntojadosMX iOS app built with Quasar + Capacitor",
+  "author": "AntojadosMX Team",
+  "private": true,
+  "dependencies": {
+    "@capacitor/app": "^8.0.0",
+    "@capacitor/cli": "^8.0.0",
+    "@capacitor/core": "^8.0.0",
+    "@capacitor/ios": "^8.4.0"
+  }
+}

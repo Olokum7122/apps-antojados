@@ -1,0 +1,13 @@
+{
+  "name": "@antojadosmx/ui",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    "./app/*": "./app/*",
+    "./base/*": "./base/*",
+    "./dimensions/*": "./dimensions/*",
+    "./assets/*": "./assets/*",
+    "./css/*": "./css/*"
+  }
+}

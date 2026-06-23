@@ -1,0 +1,12 @@
+{
+  "name": "@antojadosmx/api",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    "./services/*": "./services/*",
+    "./composables/*": "./composables/*",
+    "./types/*": "./types/*",
+    "./storage/*": "./storage/*"
+  }
+}

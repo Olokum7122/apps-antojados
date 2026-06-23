@@ -1,0 +1,13 @@
+{
+  "name": "@antojadosmx/http",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./index.ts",
+    "./client": "./client.ts",
+    "./interceptors": "./interceptors.ts",
+    "./endpoints": "./endpoints.ts",
+    "./config/*": "./config/*"
+  }
+}

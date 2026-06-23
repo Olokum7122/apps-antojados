@@ -1,0 +1,38 @@
+# Node dependencies
+node_modules/
+**/node_modules/
+
+# Python virtual environments
+.venv/
+venv/
+
+# Build artifacts
+dist/
+build/
+coverage/
+.cache/
+.quasar/
+**/.quasar/
+*.apk
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+pnpm-debug.log*
+
+# Environment files
+.env
+.env.*
+!.env.example
+!.env.api-gt.example
+
+# Temporary and ad-hoc diagnostics
+__tmp_*
+tmp-*.png
+
+# OS and editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
