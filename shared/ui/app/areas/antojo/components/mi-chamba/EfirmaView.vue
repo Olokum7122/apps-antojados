@@ -75,7 +75,7 @@ const sectionButtons = [
 
 const fields = computed(() => [
   { key: 'instancia', label: 'Instancia', readonly: true },
-  { key: 'tenantUserId', label: 'Representante tenant user', readonly: true },
+  { key: 'tenantUserId', label: 'Usuario de instancia representante', readonly: true },
   { key: 'representantePassword', label: 'Contrasena representante', type: 'password' },
   { key: 'activationId', label: 'Activation id' },
   { key: 'flujo', label: 'Flujo habilitado', readonly: true },
@@ -158,9 +158,9 @@ async function resolveContext() {
   let instanceId = currentInstanceId.value
   let tenantUserId = currentTenantUserId.value
   if (!instanceId || !tenantUserId) {
-    const tenant = await equipoService.getMiTenant(currentUserId.value)
-    instanceId = tenant.instanceId
-    tenantUserId = tenant.tenantUserId
+    const workspace = await equipoService.getSponsorWorkspace(currentUserId.value)
+    instanceId = workspace.instanceId
+    tenantUserId = workspace.tenantUserId
   }
 
   resolvedInstanceId.value = instanceId
@@ -169,7 +169,7 @@ async function resolveContext() {
   model.value.tenantUserId = tenantUserId || ''
 
   if (!instanceId || !tenantUserId) {
-    statusMessage.value = 'No hay instancia sponsor o representante tenant_user_id vinculado.'
+    statusMessage.value = 'No hay instancia sponsor o usuario de instancia representante vinculado.'
     return false
   }
 

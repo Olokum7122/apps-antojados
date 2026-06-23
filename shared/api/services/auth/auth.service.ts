@@ -1,7 +1,14 @@
 import type { AxiosInstance } from 'axios'
 import { httpClient } from '@antojados/http/client'
 import { API_ENDPOINTS } from '@antojados/http/endpoints'
-import { setTokens } from '@antojados/api/storage/token.storage'
+import {
+  clearTokens,
+  getAccessToken as readAccessToken,
+  getRefreshToken as readRefreshToken,
+  getTokens as readTokens,
+  setTokens,
+} from '@antojados/api/storage/token.storage'
+import type { AuthTokens } from '@antojados/api/storage/token.storage'
 import { secureStorage } from '@antojados/api/storage/secure-storage'
 import { sha256Hex, sha256SecretRef } from '@antojados/api/services/auth/auth-crypto'
 import type { ApiResponse } from '@antojados/api/types/api'
@@ -322,7 +329,10 @@ export class AuthService {
   }
 
   async clearSession(): Promise<void> {
-    await secureStorage.remove(ACTIVE_SESSION_KEY)
+    await Promise.all([
+      secureStorage.remove(ACTIVE_SESSION_KEY),
+      clearTokens(),
+    ])
   }
 
   async getSession(): Promise<TragonSession | null> {
@@ -337,15 +347,15 @@ export class AuthService {
   }
 
   async getAccessToken(): Promise<string | null> {
-    return null
+    return readAccessToken()
   }
 
   async getRefreshToken(): Promise<string | null> {
-    return null
+    return readRefreshToken()
   }
 
-  async getTokens(): Promise<null> {
-    return null
+  async getTokens(): Promise<AuthTokens> {
+    return readTokens()
   }
 
   private async registerAccount(input: {
@@ -410,7 +420,16 @@ export class AuthService {
       user_id?: string
       instance_id?: string | null
       tenant_user_id?: string | null
+      access_token?: string | null
+      refresh_token?: string | null
     }>(endpoint, payload)
+
+    if (data.access_token || data.refresh_token) {
+      await setTokens({
+        accessToken: data.access_token || null,
+        refreshToken: data.refresh_token || null,
+      })
+    }
 
     const session = await this.buildSession({
       userId: String(data.user_id || userId),
@@ -421,7 +440,7 @@ export class AuthService {
       placeId: inviteCode ? null : (input.placeId || null),
       instanceIdHint: data.instance_id || null,
       tenantUserIdHint: data.tenant_user_id || null,
-      instanceTypeHint: input.instanceType,
+      instanceTypeHint: input.instanceType === 'sponsor' || inviteCode || data.tenant_user_id ? 'sponsor' : 'user',
     })
 
     await this.setSession(session)
@@ -461,7 +480,7 @@ export class AuthService {
   ): Promise<AuthContextResolution> {
     let sponsorInstanceId: string | null = null
     let userInstanceId: string | null = null
-    let tenantAccessInstanceId: string | null = null
+    let sponsorWorkspaceInstanceId: string | null = null
     let tenantUserId: string | null = null
 
     try {
@@ -486,18 +505,20 @@ export class AuthService {
       const { data } = await this.http.get<MyTenantResponse>(API_ENDPOINTS.equipo.myTenant, {
         params: { user_id: userId },
       })
-      tenantAccessInstanceId = data.instance_id || null
+      // Shared iOS/TestFlight parity: this endpoint resolves the app workspace
+      // as sponsor instance + tenant_user_id; it does not make tenant the UI axis.
+      sponsorWorkspaceInstanceId = data.instance_id || null
       tenantUserId = data.tenant_user_id || null
     } catch {
-      tenantAccessInstanceId = null
+      sponsorWorkspaceInstanceId = null
       tenantUserId = null
     }
 
-    if (tenantAccessInstanceId) {
+    if (sponsorWorkspaceInstanceId) {
       return {
         domainContext: 'sponsor',
         instanceType: 'sponsor',
-        instanceId: tenantAccessInstanceId,
+        instanceId: sponsorWorkspaceInstanceId,
         tenantUserId,
       }
     }

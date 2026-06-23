@@ -16,6 +16,7 @@ import ButtonBarBase from '@antojados/ui/base/ButtonBarBase.vue'
 import EntityGridBase from '@antojados/ui/base/EntityGridBase.vue'
 import FieldEditorBase from '@antojados/ui/base/FieldEditorBase.vue'
 
+// Accepted test debt: Cuenta remains mock for iOS/TestFlight parity until payment/CFDI API is ready.
 const buttons = [
   { key: 'pago', label: 'Metodo de pago' },
   { key: 'cfdi', label: 'Facturas' },

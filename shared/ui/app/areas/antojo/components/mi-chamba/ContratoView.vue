@@ -184,16 +184,16 @@ async function resolveContext() {
   let instanceId = currentInstanceId.value
   let tenantUserId = currentTenantUserId.value
   if (!instanceId || !tenantUserId) {
-    const tenant = await equipoService.getMiTenant(currentUserId.value)
-    instanceId = tenant.instanceId
-    tenantUserId = tenant.tenantUserId
+    const workspace = await equipoService.getSponsorWorkspace(currentUserId.value)
+    instanceId = workspace.instanceId
+    tenantUserId = workspace.tenantUserId
   }
 
   resolvedInstanceId.value = instanceId
   resolvedTenantUserId.value = tenantUserId
 
   if (!instanceId || !tenantUserId) {
-    statusMessage.value = 'No hay instancia sponsor o tenant_user_id para firmar.'
+    statusMessage.value = 'No hay instancia sponsor o usuario de instancia para firmar.'
     return false
   }
 
@@ -244,7 +244,7 @@ async function signContract() {
     return
   }
   if (!isRegistroApproved.value) {
-    statusMessage.value = 'Contrato bloqueado: Registro Corp aun no aprueba el tenant.'
+    statusMessage.value = 'Contrato bloqueado: Registro Corp aun no aprueba la instancia sponsor.'
     return
   }
   if (!isEfirmaAccepted.value) {

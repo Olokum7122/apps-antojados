@@ -21,6 +21,7 @@ export interface ScopeOption {
   level: ScopeLevel
   label: string
   code: string | null
+  requiresCitySelection?: boolean
 }
 
 export interface GeoScopeCatalogItem {

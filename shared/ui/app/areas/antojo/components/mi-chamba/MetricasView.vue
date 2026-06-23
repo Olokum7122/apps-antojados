@@ -16,6 +16,7 @@ import ButtonBarBase from '@antojados/ui/base/ButtonBarBase.vue'
 import EntityGridBase from '@antojados/ui/base/EntityGridBase.vue'
 import FieldEditorBase from '@antojados/ui/base/FieldEditorBase.vue'
 
+// Accepted test debt: Metricas remains mock for iOS/TestFlight parity until KPI API is ready.
 const buttons = [
   { key: 'saldo', label: 'Saldo' },
   { key: 'placements', label: 'Placements' },

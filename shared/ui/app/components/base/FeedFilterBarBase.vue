@@ -50,9 +50,10 @@
           'base-feed-filter-bar__scope-pill',
           activeScopeLevel === scope.level && 'base-feed-filter-bar__scope-pill--active',
         ]"
-        @click="$emit('select-scope', scope.level)"
+        @click="onScopeClick(scope)"
       >
         {{ scope.label }}
+        <q-tooltip v-if="scope.requiresCitySelection">Elige ciudad para usar este filtro</q-tooltip>
       </button>
     </div>
 
@@ -117,7 +118,7 @@ defineProps({
   codeComponent: { type: String, default: '' },
 })
 
-defineEmits([
+const emit = defineEmits([
   'select-mexico',
   'open-city',
   'toggle-filter',
@@ -128,6 +129,10 @@ defineEmits([
   'select-suggestion',
   'select-scope',
 ])
+
+function onScopeClick(scope) {
+  emit('select-scope', scope.level)
+}
 </script>
 
 <style scoped>

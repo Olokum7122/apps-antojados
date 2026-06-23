@@ -119,12 +119,14 @@ const assignmentRows = ref([])
 const statusMessage = ref('')
 const loading = ref(false)
 const resolvedInstanceId = ref(null)
+const resolvedTenantUserId = ref(null)
 
 const form = ref({
   id: '',
   displayName: '',
   email: '',
   phone: '',
+  channel: 'whatsapp',
   inviteCode: '',
 })
 
@@ -152,7 +154,8 @@ const asignacionesButtons = computed(() => [
 const usuarioFields = [
   { key: 'displayName', label: 'Nombre del empleado' },
   { key: 'email', label: 'Correo' },
-  { key: 'phone', label: 'Telefono' },
+  { key: 'phone', label: 'WhatsApp con lada' },
+  { key: 'channel', label: 'Canal email o whatsapp', hint: 'Usa email o whatsapp' },
   { key: 'inviteCode', label: 'Codigo invitado', readonly: true },
 ]
 
@@ -174,7 +177,7 @@ const selectedEmployee = computed(() => employees.value.find((item) => item.id =
 const selectedAssignment = computed(() => assignmentRows.value.find((item) => item.id === selectedAssignmentId.value) || null)
 const currentInstanceId = computed(() => session.value?.instanceId || resolvedInstanceId.value || null)
 const currentUserId = computed(() => session.value?.userId || null)
-const currentTenantUserId = computed(() => session.value?.tenantUserId || currentUserId.value || null)
+const currentTenantUserId = computed(() => session.value?.tenantUserId || resolvedTenantUserId.value || null)
 const adminProfileId = computed(() => perfiles.value.find((item) => item.type === 'administrador')?.id || null)
 
 const assignmentSummary = computed(() => ({
@@ -200,6 +203,7 @@ function resetForm() {
     displayName: '',
     email: '',
     phone: '',
+    channel: 'whatsapp',
     inviteCode: '',
   }
 }
@@ -216,6 +220,7 @@ function mapUserToEmployee(user) {
     action: user.profileType === 'admin_general' ? 'Titular' : 'Permisos',
     email: user.email || '',
     phone: user.phone || '',
+    channel: '',
     inviteCode: '',
     profileType: user.profileType,
   }
@@ -231,6 +236,7 @@ function mapInvitationToEmployee(invitation) {
     action: 'Invitar',
     email: invitation.email || '',
     phone: invitation.phone || '',
+    channel: invitation.channel || (invitation.phone ? 'whatsapp' : 'email'),
     inviteCode: invitation.inviteCode,
   }
 }
@@ -255,6 +261,7 @@ function selectEmployee(row) {
     displayName: row.item,
     email: row.email,
     phone: row.phone,
+    channel: row.channel || (row.phone ? 'whatsapp' : 'email'),
     inviteCode: row.inviteCode,
   }
 }
@@ -279,11 +286,14 @@ async function loadEquipo() {
   }
 
   let instanceId = currentInstanceId.value
-  if (!instanceId) {
-    const tenant = await equipoService.getMiTenant(currentUserId.value)
-    instanceId = tenant.instanceId
+  let tenantUserId = currentTenantUserId.value
+  if (!instanceId || !tenantUserId) {
+    const workspace = await equipoService.getSponsorWorkspace(currentUserId.value)
+    instanceId = workspace.instanceId
+    tenantUserId = workspace.tenantUserId
   }
   resolvedInstanceId.value = instanceId
+  resolvedTenantUserId.value = tenantUserId
 
   if (!instanceId) {
     statusMessage.value = 'No hay instancia sponsor vinculada.'
@@ -312,40 +322,119 @@ async function loadEquipo() {
 async function saveEmployee() {
   if (!currentInstanceId.value || !currentTenantUserId.value) {
     statusMessage.value = 'No hay contexto sponsor para guardar.'
-    return
+    return null
   }
 
   loading.value = true
   try {
+    let savedInvitation = null
     if (selectedEmployee.value?.rowType === 'invitation') {
       await equipoService.updateInvitacion({
         invitationId: selectedEmployee.value.id,
         email: form.value.email,
         phone: form.value.phone,
+        channel: form.value.channel,
       })
+      savedInvitation = {
+        ...selectedEmployee.value,
+        email: form.value.email,
+        phone: form.value.phone,
+        channel: normalizedChannel(form.value.channel, form.value.phone),
+        inviteCode: form.value.inviteCode,
+      }
     } else {
       const invitation = await equipoService.invitar({
         instanceId: currentInstanceId.value,
         createdBy: currentTenantUserId.value,
         email: form.value.email,
         phone: form.value.phone,
+        channel: form.value.channel,
       })
+      savedInvitation = invitation
       form.value.inviteCode = invitation.inviteCode
     }
     await loadEquipo()
+    const savedRow = savedInvitation?.id
+      ? employees.value.find((item) => item.id === savedInvitation.id)
+      : null
+    if (savedRow) selectEmployee(savedRow)
+    return savedInvitation
   } catch (error) {
     statusMessage.value = error instanceof Error ? error.message : 'No se pudo guardar el empleado.'
+    return null
   } finally {
     loading.value = false
   }
 }
 
 async function inviteEmployee() {
+  let invitation = selectedEmployee.value?.rowType === 'invitation'
+    ? {
+      ...selectedEmployee.value,
+      email: form.value.email,
+      phone: form.value.phone,
+      channel: form.value.channel,
+      inviteCode: form.value.inviteCode,
+    }
+    : null
+
   if (!form.value.inviteCode) {
-    await saveEmployee()
+    invitation = await saveEmployee()
+  }
+
+  if (!invitation?.inviteCode && !form.value.inviteCode) {
+    statusMessage.value = 'Primero genera una invitacion para obtener codigo.'
     return
   }
-  statusMessage.value = `Codigo listo: ${form.value.inviteCode}`
+
+  sendInvitationMessage(invitation)
+}
+
+function normalizedChannel(channel, phone) {
+  const value = String(channel || '').trim().toLowerCase()
+  if (value === 'email' || value === 'whatsapp') return value
+  return String(phone || '').trim() ? 'whatsapp' : 'email'
+}
+
+function invitationMessage(code) {
+  return [
+    'Te invitaron a AntojadosMx Equipo.',
+    `Usa este codigo para crear tu cuenta empleado en Tragon: ${code}.`,
+  ].join('\n')
+}
+
+function openExternal(url) {
+  if (typeof window === 'undefined') return
+  window.location.href = url
+}
+
+function sendInvitationMessage(invitation) {
+  const code = invitation?.inviteCode || form.value.inviteCode
+  const email = String(invitation?.email || form.value.email || '').trim()
+  const phone = String(invitation?.phone || form.value.phone || '').trim()
+  const channel = normalizedChannel(invitation?.channel || form.value.channel, phone)
+  const message = invitationMessage(code)
+
+  if (channel === 'email') {
+    if (!email) {
+      statusMessage.value = `Codigo listo: ${code}. Captura correo para enviarlo.`
+      return
+    }
+    const subject = encodeURIComponent('Invitacion AntojadosMx Equipo')
+    const body = encodeURIComponent(message)
+    openExternal(`mailto:${email}?subject=${subject}&body=${body}`)
+    statusMessage.value = `Correo listo con codigo: ${code}`
+    return
+  }
+
+  const phoneDigits = phone.replace(/\D/g, '')
+  if (!phoneDigits) {
+    statusMessage.value = `Codigo listo: ${code}. Captura WhatsApp con lada para enviarlo.`
+    return
+  }
+
+  openExternal(`https://wa.me/${phoneDigits}?text=${encodeURIComponent(message)}`)
+  statusMessage.value = `WhatsApp listo con codigo: ${code}`
 }
 
 async function deleteEmployee() {

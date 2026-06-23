@@ -1,12 +1,14 @@
 import type { AxiosInstance } from 'axios'
 import { API_ENDPOINTS } from '@antojados/http/endpoints'
 
-export interface EquipoMiTenant {
+export interface SponsorWorkspaceContext {
   instanceId: string | null
   tenantUserId: string | null
   profileType: string | null
   isOwner: boolean
 }
+
+export type EquipoMiTenant = SponsorWorkspaceContext
 
 export interface EquipoUsuario {
   id: string
@@ -35,6 +37,7 @@ export interface EquipoInvitacion {
   inviteCode: string
   email: string | null
   phone: string | null
+  channel: string | null
   profileId: string | null
   status: string
   createdAt: string | null
@@ -72,7 +75,7 @@ function numberFrom(value: unknown): number {
   return Number.isFinite(parsed) ? parsed : 0
 }
 
-function mapMiTenant(raw: Record<string, unknown>): EquipoMiTenant {
+function mapSponsorWorkspace(raw: Record<string, unknown>): SponsorWorkspaceContext {
   return {
     instanceId: stringOrNull(raw.instance_id),
     tenantUserId: stringOrNull(raw.tenant_user_id),
@@ -115,11 +118,18 @@ function mapInvitacion(raw: Record<string, unknown>): EquipoInvitacion {
     inviteCode: code,
     email: stringOrNull(raw.invitee_email) || stringOrNull(raw.email),
     phone: stringOrNull(raw.invitee_phone_e164) || stringOrNull(raw.phone),
+    channel: stringOrNull(raw.channel),
     profileId: stringOrNull(raw.profile_id),
     status: stringOrNull(raw.status) || 'invited',
     createdAt: stringOrNull(raw.created_at),
     rowType: 'invitation',
   }
+}
+
+function invitationChannel(input: { channel?: string | null; email?: string | null; phone?: string | null }): string {
+  const requested = stringOrNull(input.channel)?.toLowerCase()
+  if (requested === 'email' || requested === 'whatsapp') return requested
+  return stringOrNull(input.phone) ? 'whatsapp' : 'email'
 }
 
 function mapAsignacion(raw: Record<string, unknown>): EquipoAsignacion {
@@ -145,11 +155,17 @@ function mapAsignacion(raw: Record<string, unknown>): EquipoAsignacion {
 export class EquipoService {
   constructor(private readonly http: AxiosInstance) {}
 
-  async getMiTenant(userId: string): Promise<EquipoMiTenant> {
+  async getSponsorWorkspace(userId: string): Promise<SponsorWorkspaceContext> {
+    // Shared iOS/TestFlight parity: user identity resolves to sponsor instance plus tenant_user_id.
+    // A tenant is a separate GT/admin entity; app flows must use instanceId as the axis.
     const { data } = await this.http.get<Record<string, unknown>>(API_ENDPOINTS.equipo.myTenant, {
       params: { user_id: userId },
     })
-    return mapMiTenant(data)
+    return mapSponsorWorkspace(data)
+  }
+
+  async getMiTenant(userId: string): Promise<EquipoMiTenant> {
+    return this.getSponsorWorkspace(userId)
   }
 
   async getUsuarios(instanceId: string): Promise<EquipoUsuario[]> {
@@ -178,6 +194,7 @@ export class EquipoService {
     createdBy: string
     email?: string | null
     phone?: string | null
+    channel?: string | null
     profileId?: string | null
     expiresHours?: number
   }): Promise<EquipoInvitacion> {
@@ -186,18 +203,18 @@ export class EquipoService {
       created_by: input.createdBy,
       invitee_email: input.email || null,
       invitee_phone_e164: input.phone || null,
-      channel: 'whatsapp',
+      channel: invitationChannel(input),
       profile_id: input.profileId || null,
       expires_hours: input.expiresHours || 72,
     })
     return mapInvitacion(data)
   }
 
-  async updateInvitacion(input: { invitationId: string; email?: string | null; phone?: string | null }): Promise<void> {
+  async updateInvitacion(input: { invitationId: string; email?: string | null; phone?: string | null; channel?: string | null }): Promise<void> {
     await this.http.patch(API_ENDPOINTS.equipo.invitacionDetalle(input.invitationId), {
       invitee_email: input.email || null,
       invitee_phone_e164: input.phone || null,
-      channel: 'whatsapp',
+      channel: invitationChannel(input),
     })
   }
 

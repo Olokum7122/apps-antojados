@@ -48,6 +48,7 @@
 
     <feed-gallery-base
       :items="filteredPosts"
+      :loading="loading"
       empty-message="Sin publicaciones para este filtro"
       key-field="id"
       stage="S1"
@@ -83,7 +84,7 @@
       </template>
 
       <template #empty>
-        <app-empty-state message="Sin publicaciones en Vas Ir por ahora" />
+        <app-empty-state :message="error || 'Sin publicaciones en Vas Ir por ahora'" />
       </template>
     </feed-gallery-base>
 
@@ -139,11 +140,10 @@ import { useLocationScope } from '@antojados/api/composables/useLocationScope'
 
 const router = useRouter()
 const showTypeFilter = ref(false)
-const spotsCount = ref(4)
 const selectedType = ref('')
 const isCityPickerOpen = ref(false)
 const isSpotsOpen = ref(false)
-const { filteredPosts: apiPosts, load } = useAntojoFeed('vas-ir')
+const { filteredPosts: apiPosts, loading, error, load } = useAntojoFeed('vas-ir')
 const {
   cityCode,
   scopeLevel,
@@ -174,6 +174,7 @@ const filteredPosts = computed(() => {
   if (!selectedType.value) return apiPosts.value
   return apiPosts.value.filter((post) => post.postType === selectedType.value)
 })
+const spotsCount = computed(() => filteredPosts.value.length)
 const savedSpots = computed(() => filteredPosts.value.slice(0, 4))
 
 function typeColor(type) {
@@ -198,7 +199,6 @@ function onOpenCity() {
 }
 
 function onOpenSpots() {
-  spotsCount.value = 4
   isSpotsOpen.value = true
 }
 

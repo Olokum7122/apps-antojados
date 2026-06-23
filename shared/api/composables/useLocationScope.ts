@@ -4,6 +4,7 @@ import { secureStorage } from '@antojados/api/storage/secure-storage'
 import type {
   CityOption,
   GeoBarContextResponse,
+  GeoBarItem,
   GeoCitySearchItem,
   LocationFeedKey,
   LocationSuggestion,
@@ -14,6 +15,8 @@ import type {
 export const CITY_OPTIONS: CityOption[] = []
 
 const DEVICE_CITY_KEY = 'antojados.geo.deviceCity'
+const GEO_PERMISSION_NOTICE_EVENT = 'antojados:geo-permission-request'
+const GEO_PERMISSION_MESSAGE = 'Usamos tu ubicacion para mostrar publicaciones por ciudad y zona.'
 
 export const DEFAULT_ALLOWED_SCOPES: Record<LocationFeedKey, ScopeLevel[]> = {
   vas_ir: ['mexico', 'zona', 'ciudad'],
@@ -23,6 +26,14 @@ export const DEFAULT_ALLOWED_SCOPES: Record<LocationFeedKey, ScopeLevel[]> = {
   pachanga: ['mexico', 'zona', 'ciudad'],
   la_neta: ['mexico', 'zona', 'ciudad'],
   desma: ['mexico', 'zona', 'ciudad'],
+}
+
+const DEFAULT_SCOPE_LABELS: Partial<Record<ScopeLevel, string>> = {
+  global: 'Global',
+  mexico: 'Mexico',
+  zona: 'Zona',
+  ciudad: 'Ciudad',
+  municipio: 'Municipio',
 }
 
 const state = reactive({
@@ -42,10 +53,21 @@ const state = reactive({
   scopeLevel: 'mexico' as ScopeLevel,
   scopeCode: 'MX_52' as string | null,
   scopeLabel: 'Mexico',
+  activeFeedKey: 'los_chidos' as LocationFeedKey,
+  pendingScopeLevel: null as ScopeLevel | null,
 })
 
 let initPromise: Promise<void> | null = null
 let visibilityListenerReady = false
+let deviceLocationPromise: Promise<boolean> | null = null
+let lastDeviceLocationAttemptAt = 0
+
+function emitGeoPermissionNotice() {
+  if (typeof window === 'undefined' || typeof CustomEvent === 'undefined') return
+  window.dispatchEvent(new CustomEvent(GEO_PERMISSION_NOTICE_EVENT, {
+    detail: { message: GEO_PERMISSION_MESSAGE },
+  }))
+}
 
 function normalizeLevel(level: ScopeLevel): ScopeLevel {
   return level === 'metro' ? 'zona' : level
@@ -60,34 +82,65 @@ function mapCity(row: GeoCitySearchItem): CityOption {
   }
 }
 
-function setScope(level: ScopeLevel) {
+function barForFeedKey(context: GeoBarContextResponse | null, feedKey: LocationFeedKey): GeoBarItem[] {
+  // Shared iOS/TestFlight parity: location bars come from API rules, not hardcoded platform state.
+  if (!context) return []
+  return feedKey === 'barrio' ? context.barrioBar || [] : context.normalBar || []
+}
+
+function optionFromBarItem(item: GeoBarItem): ScopeOption {
+  const level = normalizeLevel(item.scopeLevel)
+  const rawLabel = String(item.scopeLabel || '').trim()
+  return {
+    level,
+    label: !rawLabel || rawLabel.toLowerCase() === level ? DEFAULT_SCOPE_LABELS[level] || level : rawLabel,
+    code: item.scopeCode || null,
+    requiresCitySelection: !item.enabled && (level === 'zona' || level === 'ciudad' || level === 'municipio'),
+  }
+}
+
+function findContextScopeOption(feedKey: LocationFeedKey, level: ScopeLevel, enabledOnly = false): ScopeOption | null {
   const normalized = normalizeLevel(level)
+  const item = barForFeedKey(state.activeContext || state.deviceContext, feedKey)
+    .filter((entry) => !enabledOnly || entry.enabled)
+    .find((entry) => normalizeLevel(entry.scopeLevel) === normalized)
+  return item ? optionFromBarItem(item) : null
+}
+
+function setScope(level: ScopeLevel, feedKey: LocationFeedKey = state.activeFeedKey) {
+  const normalized = normalizeLevel(level)
+  const contextOption = findContextScopeOption(feedKey, normalized, true)
   state.scopeLevel = normalized
 
   if (normalized === 'global') {
     state.scopeCode = null
-    state.scopeLabel = 'Global'
+    state.scopeLabel = contextOption?.label || 'Global'
     return
   }
 
   if (normalized === 'mexico') {
-    state.scopeCode = 'MX_52'
-    state.scopeLabel = 'Mexico'
+    state.scopeCode = contextOption?.code || state.deviceContext?.context?.countryScopeCode || 'MX_52'
+    state.scopeLabel = contextOption?.label || state.deviceContext?.context?.countryLabel || 'Mexico'
     return
   }
 
   if (normalized === 'zona') {
-    state.scopeCode = state.zoneScopeCode || state.zoneCode
-    state.scopeLabel = state.zoneLabel || 'Tu zona'
+    state.scopeCode = contextOption?.code || state.zoneScopeCode || state.zoneCode
+    state.scopeLabel = contextOption?.label || state.zoneLabel || 'Tu zona'
     return
   }
 
-  state.scopeCode = state.cityScopeCode || state.cityCode
-  state.scopeLabel = state.cityLabel || 'Ciudad'
+  state.scopeCode = contextOption?.code || state.cityScopeCode || state.cityCode
+  state.scopeLabel = contextOption?.label || state.cityLabel || 'Ciudad'
+}
+
+function uniqueScopeLevels(levels: ScopeLevel[]): ScopeLevel[] {
+  return Array.from(new Set(levels.map(normalizeLevel)))
 }
 
 function applyContext(context: GeoBarContextResponse, feedKey: LocationFeedKey) {
   const resolved = context.context
+  state.activeFeedKey = feedKey
   state.activeContext = context
   state.cityCode = resolved?.cityCode || null
   state.cityScopeCode = resolved?.cityScopeCode || resolved?.cityCode || null
@@ -96,20 +149,29 @@ function applyContext(context: GeoBarContextResponse, feedKey: LocationFeedKey) 
   state.zoneScopeCode = resolved?.zoneScopeCode || resolved?.zoneCode || null
   state.zoneLabel = resolved?.zoneLabel || 'Tu zona'
 
-  const defaultLevel = feedKey === 'barrio'
+  const defaultItem = barForFeedKey(context, feedKey).find((item) => item.enabled && item.isDefault)
+  const defaultLevel = defaultItem?.scopeLevel || (feedKey === 'barrio'
     ? resolved?.barrioDefaultScopeLevel || 'mexico'
-    : resolved?.normalDefaultScopeLevel || 'mexico'
-  setScope(defaultLevel)
+    : resolved?.normalDefaultScopeLevel || 'mexico')
+  setScope(defaultLevel, feedKey)
 }
 
-function applyCity(row: GeoCitySearchItem) {
+function applyCity(
+  row: GeoCitySearchItem,
+  preferredScopeLevel?: ScopeLevel | null,
+  feedKey: LocationFeedKey = state.activeFeedKey,
+) {
+  state.activeFeedKey = feedKey
+  state.activeContext = contextFromCity(row)
   state.cityCode = row.cityCode
   state.cityScopeCode = row.cityScopeCode
   state.cityLabel = row.cityLabel
   state.zoneCode = row.zoneCode
   state.zoneScopeCode = row.zoneScopeCode
   state.zoneLabel = row.zoneLabel
-  setScope('ciudad')
+  const preferred = preferredScopeLevel || state.pendingScopeLevel || 'ciudad'
+  state.pendingScopeLevel = null
+  setScope(preferred, feedKey)
 }
 
 function cityFromContext(context: GeoBarContextResponse): GeoCitySearchItem | null {
@@ -208,6 +270,10 @@ function applyDeviceCity(city: GeoCitySearchItem) {
   state.zoneLabel = city.zoneLabel
 }
 
+function hasDedicatedBarsPopulated() {
+  return Boolean(state.cityScopeCode && state.zoneScopeCode)
+}
+
 async function detectDeviceLocation(): Promise<boolean> {
   const coords = await getBrowserPosition()
   const context = await geoService.resolveBarContext(coords)
@@ -217,6 +283,40 @@ async function detectDeviceLocation(): Promise<boolean> {
   state.deviceContext = context
   applyDeviceCity(city)
   return true
+}
+
+async function requestDeviceLocationForFeed(
+  feedKey: LocationFeedKey,
+  preferredScopeLevel?: ScopeLevel | null,
+  force = false,
+  onlyIfMissing = false,
+): Promise<boolean> {
+  const now = Date.now()
+  if (onlyIfMissing && hasDedicatedBarsPopulated()) return false
+  if (deviceLocationPromise) return deviceLocationPromise
+  if (!force && now - lastDeviceLocationAttemptAt < 15000) return false
+
+  lastDeviceLocationAttemptAt = now
+  emitGeoPermissionNotice()
+  deviceLocationPromise = detectDeviceLocation()
+    .then((resolved) => {
+      if (!resolved) return false
+      if (state.deviceContext) {
+        applyContext(state.deviceContext, feedKey)
+      }
+
+      if (preferredScopeLevel && preferredScopeLevel !== 'global' && preferredScopeLevel !== 'mexico') {
+        setScope(preferredScopeLevel, feedKey)
+        state.pendingScopeLevel = null
+      }
+      return true
+    })
+    .catch(() => false)
+    .finally(() => {
+      deviceLocationPromise = null
+    })
+
+  return deviceLocationPromise
 }
 
 async function loadCityOptions(q: string | null = null, limit = 100) {
@@ -230,12 +330,14 @@ async function loadCityOptions(q: string | null = null, limit = 100) {
 async function initialize(feedKey: LocationFeedKey) {
   if (!initPromise) {
     state.loading = true
-    initPromise = Promise.all([
+    initPromise = Promise.allSettled([
       loadPersistedDeviceCity(),
       geoService.resolveBarContext(),
       loadCityOptions(null, 100),
     ])
-      .then(([persistedCity, context]) => {
+      .then(([persistedResult, contextResult]) => {
+        const persistedCity = persistedResult.status === 'fulfilled' ? persistedResult.value : null
+        const context = contextResult.status === 'fulfilled' ? contextResult.value : null
         state.persistedDeviceCity = persistedCity
         state.deviceContext = persistedCity ? contextFromCity(persistedCity) : context
         state.initialized = true
@@ -249,6 +351,7 @@ async function initialize(feedKey: LocationFeedKey) {
   if (state.deviceContext) {
     applyContext(state.deviceContext, feedKey)
   }
+
 }
 
 function resetToDevice(feedKey: LocationFeedKey) {
@@ -262,18 +365,46 @@ function ensureVisibilityReset(feedKey: LocationFeedKey) {
   visibilityListenerReady = true
   document.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'visible') {
-      resetToDevice(feedKey)
+      void requestDeviceLocationForFeed(feedKey, null, false, true)
     }
   })
 }
 
-function scopeOptionFor(level: ScopeLevel): ScopeOption {
+function scopeOptionFor(feedKey: LocationFeedKey, level: ScopeLevel): ScopeOption {
   const normalized = normalizeLevel(level)
+  const contextOption = findContextScopeOption(feedKey, normalized)
+  if (contextOption) return contextOption
+
   if (normalized === 'global') return { level: normalized, label: 'Global', code: null }
-  if (normalized === 'mexico') return { level: normalized, label: 'Mexico', code: 'MX_52' }
-  if (normalized === 'zona') return { level: normalized, label: state.zoneScopeCode ? state.zoneLabel : 'Zona', code: state.zoneScopeCode }
-  if (normalized === 'municipio') return { level: normalized, label: state.zoneScopeCode ? state.zoneLabel : 'Municipio', code: state.zoneScopeCode }
-  return { level: normalized, label: state.cityScopeCode ? state.cityLabel : 'Ciudad', code: state.cityScopeCode }
+  if (normalized === 'mexico') {
+    return {
+      level: normalized,
+      label: state.deviceContext?.context?.countryLabel || 'Mexico',
+      code: state.deviceContext?.context?.countryScopeCode || 'MX_52',
+    }
+  }
+  if (normalized === 'zona') {
+    return {
+      level: normalized,
+      label: state.zoneScopeCode ? state.zoneLabel : 'Zona',
+      code: state.zoneScopeCode,
+      requiresCitySelection: !state.zoneScopeCode,
+    }
+  }
+  if (normalized === 'municipio') {
+    return {
+      level: normalized,
+      label: state.zoneScopeCode ? state.zoneLabel : 'Municipio',
+      code: state.zoneScopeCode,
+      requiresCitySelection: !state.zoneScopeCode,
+    }
+  }
+  return {
+    level: normalized,
+    label: state.cityScopeCode ? state.cityLabel : 'Ciudad',
+    code: state.cityScopeCode,
+    requiresCitySelection: !state.cityScopeCode,
+  }
 }
 
 function findCityByCode(code: string | null | undefined): GeoCitySearchItem | null {
@@ -282,7 +413,11 @@ function findCityByCode(code: string | null | undefined): GeoCitySearchItem | nu
 
 export function useLocationScope(feedKey: LocationFeedKey, allowedScopes?: ScopeLevel[]) {
   const searchValue = ref('')
-  const selectedScopes = computed(() => (allowedScopes || DEFAULT_ALLOWED_SCOPES[feedKey]).map(normalizeLevel))
+  const selectedScopes = computed(() => {
+    // iOS/TestFlight parity: dedicated bars must keep their scopes visible; API enabled flags
+    // only decide whether zone/city already have a resolved scope code.
+    return uniqueScopeLevels(allowedScopes || DEFAULT_ALLOWED_SCOPES[feedKey])
+  })
 
   void initialize(feedKey)
   ensureVisibilityReset(feedKey)
@@ -313,36 +448,51 @@ export function useLocationScope(feedKey: LocationFeedKey, allowedScopes?: Scope
     }))
   })
 
-  const scopeOptions = computed<ScopeOption[]>(() => selectedScopes.value.map(scopeOptionFor))
+  const scopeOptions = computed<ScopeOption[]>(() => {
+    const contextOptions = new Map(
+      barForFeedKey(state.activeContext || state.deviceContext, feedKey)
+        .map(optionFromBarItem)
+        .filter((option) => selectedScopes.value.includes(option.level))
+        .map((option) => [option.level, option]),
+    )
+
+    return selectedScopes.value.map((level) => contextOptions.get(level) || scopeOptionFor(feedKey, level))
+  })
   const activeScopeLevel = computed(() =>
     selectedScopes.value.includes(state.scopeLevel) ? state.scopeLevel : selectedScopes.value[0],
   )
   const activeScopeCode = computed(() => {
     const active = activeScopeLevel.value
     if (active === state.scopeLevel) return state.scopeCode
-    return scopeOptionFor(active).code
+    return scopeOptions.value.find((option) => option.level === active)?.code || null
   })
 
   function selectScope(level: ScopeLevel) {
     const normalized = normalizeLevel(level)
     if (!selectedScopes.value.includes(normalized)) return
-    if (normalized !== 'global' && normalized !== 'mexico' && !scopeOptionFor(normalized).code) {
-      void detectDeviceLocation().then((resolved) => {
-        if (resolved && scopeOptionFor(normalized).code) setScope(normalized)
-      })
-      return
+    state.activeFeedKey = feedKey
+    const option = scopeOptions.value.find((item) => item.level === normalized) || scopeOptionFor(feedKey, normalized)
+    if (normalized !== 'global' && normalized !== 'mexico') {
+      // Shared iOS/TestFlight parity: tapping Zona/Ciudad refreshes GPS -> API geo context.
+      state.pendingScopeLevel = normalized
+      void requestDeviceLocationForFeed(feedKey, normalized, true)
+      if (!option.code) return
+    } else {
+      state.pendingScopeLevel = null
     }
-    setScope(normalized)
+
+    setScope(normalized, feedKey)
+    state.pendingScopeLevel = null
   }
 
-  async function selectCityByCode(code: string) {
+  async function selectCityByCode(code: string, preferredScopeLevel?: ScopeLevel | null) {
     let city = findCityByCode(code)
     if (!city) {
       const rows = await loadCityOptions(code, 10)
       city = rows.find((row) => row.cityCode === code || row.cityScopeCode === code) || rows[0] || null
     }
     if (!city) return
-    applyCity(city)
+    applyCity(city, preferredScopeLevel, feedKey)
   }
 
   function selectSuggestion(suggestion: { city_code?: string; value?: string }) {
@@ -352,10 +502,8 @@ export function useLocationScope(feedKey: LocationFeedKey, allowedScopes?: Scope
     searchValue.value = ''
   }
 
-  async function requestDeviceGeo() {
-    const resolved = await detectDeviceLocation()
-    if (resolved) resetToDevice(feedKey)
-    return resolved
+  async function requestDeviceGeo(force = true, onlyIfMissing = false) {
+    return requestDeviceLocationForFeed(feedKey, null, force, onlyIfMissing)
   }
 
   return {
@@ -375,6 +523,7 @@ export function useLocationScope(feedKey: LocationFeedKey, allowedScopes?: Scope
     selectCityByCode,
     selectSuggestion,
     requestDeviceGeo,
+    hasDedicatedBarsPopulated: computed(() => hasDedicatedBarsPopulated()),
     resetToDevice: () => resetToDevice(feedKey),
   }
 }

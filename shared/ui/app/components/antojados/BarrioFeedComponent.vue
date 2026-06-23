@@ -24,6 +24,7 @@
 
     <feed-gallery-base
       :items="posts"
+      :loading="loading"
       empty-message="Sin publicaciones de Barrio"
       key-field="id"
       stage="S1"
@@ -42,9 +43,29 @@
       </template>
 
       <template #empty>
-        <app-empty-state message="Aun no hay actividad en Barrio" />
+        <app-empty-state :message="error || 'Aun no hay actividad en Barrio'" />
       </template>
     </feed-gallery-base>
+
+    <q-dialog v-model="isCityPickerOpen" position="bottom">
+      <q-card class="barrio-feed-component__sheet bg-grey-10 text-white">
+        <q-card-section>
+          <div class="barrio-feed-component__sheet-title">Ciudad para Barrio</div>
+          <div class="barrio-feed-component__city-list">
+            <q-btn
+              v-for="city in cityOptions"
+              :key="city.code"
+              no-caps
+              unelevated
+              :color="cityCode === city.code ? 'primary' : 'grey-9'"
+              :text-color="cityCode === city.code ? 'dark' : 'white'"
+              :label="city.label"
+              @click="onSelectCity(city.code)"
+            />
+          </div>
+        </q-card-section>
+      </q-card>
+    </q-dialog>
 
     <publish-fab-base
       color="teal-7"
@@ -66,7 +87,7 @@
 </template>
 
 <script setup>
-import { onMounted, ref, watch } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import AppEmptyState from '@antojados/ui/base/AppEmptyState.vue'
 import FeedFilterBarBase from '@antojados/ui/base/FeedFilterBarBase.vue'
@@ -76,10 +97,20 @@ import { useAntojadosFeed } from '@antojados/api/composables/useAntojadosFeed'
 import { useLocationScope } from '@antojados/api/composables/useLocationScope'
 
 const router = useRouter()
-const { posts, load } = useAntojadosFeed('barrio')
+const { posts, loading, error, load } = useAntojadosFeed('barrio')
 const showVisualFilter = ref(false)
-const spotsCount = ref(3)
-const { cityCode, scopeLevel, scopeCode, scopeLabel, scopeOptions, selectScope } = useLocationScope('barrio')
+const isCityPickerOpen = ref(false)
+const spotsCount = computed(() => posts.value.length)
+const {
+  cityCode,
+  scopeLevel,
+  scopeCode,
+  scopeLabel,
+  cityOptions,
+  scopeOptions,
+  selectScope,
+  selectCityByCode,
+} = useLocationScope('barrio')
 
 function loadFeed() {
   return load({
@@ -106,7 +137,7 @@ function onSelectScope(level) {
 }
 
 function onOpenCity() {
-  selectScope('mexico')
+  isCityPickerOpen.value = true
 }
 
 function refreshFeed() {
@@ -114,11 +145,15 @@ function refreshFeed() {
 }
 
 function onOpenSpots() {
-  spotsCount.value = 3
 }
 
 function onPublish() {
   router.push('/red/barrio/publicar')
+}
+
+function onSelectCity(code) {
+  selectCityByCode(code)
+  isCityPickerOpen.value = false
 }
 
 watch([scopeLevel, scopeCode], () => {
@@ -148,5 +183,22 @@ onMounted(() => {
   font-size: 11px;
   font-weight: 800;
   text-align: center;
+}
+
+.barrio-feed-component__sheet {
+  width: 100vw;
+  max-width: 480px;
+  border-radius: 18px 18px 0 0;
+}
+
+.barrio-feed-component__sheet-title {
+  margin-bottom: 12px;
+  font-size: 16px;
+  font-weight: 850;
+}
+
+.barrio-feed-component__city-list {
+  display: grid;
+  gap: 8px;
 }
 </style>

@@ -61,6 +61,7 @@
 import FeedGalleryBase from '@antojados/ui/base/FeedGalleryBase.vue'
 import FeedPostBase from '@antojados/ui/base/FeedPostBase.vue'
 
+// Accepted test debt: No Vas Ir/ZonaD stays mock for the iOS TestFlight cut.
 const filters = ['Todos', 'Tacos', 'Pizza', 'Sushi', 'Bebidas']
 
 const mockItems = [

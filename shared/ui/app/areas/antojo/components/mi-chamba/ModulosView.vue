@@ -269,9 +269,9 @@ async function resolveContext() {
   let instanceId = currentInstanceId.value
   let tenantUserId = currentTenantUserId.value
   if (!instanceId || !tenantUserId) {
-    const tenant = await equipoService.getMiTenant(currentUserId.value)
-    instanceId = tenant.instanceId
-    tenantUserId = tenant.tenantUserId
+    const workspace = await equipoService.getSponsorWorkspace(currentUserId.value)
+    instanceId = workspace.instanceId
+    tenantUserId = workspace.tenantUserId
   }
 
   resolvedInstanceId.value = instanceId
@@ -279,7 +279,7 @@ async function resolveContext() {
   summaryModel.value.instancia = instanceId || ''
 
   if (!instanceId || !tenantUserId) {
-    statusMessage.value = 'No hay instancia sponsor o representante tenant_user_id vinculado.'
+    statusMessage.value = 'No hay instancia sponsor o usuario de instancia representante vinculado.'
     return false
   }
 
@@ -348,7 +348,7 @@ function buildSignedOrderDocument(requestId, authorization, operation) {
     '',
     `Request ID: ${requestId}`,
     `Instancia sponsor: ${currentInstanceId.value}`,
-    `Representante tenant user: ${currentTenantUserId.value}`,
+    `Usuario de instancia representante: ${currentTenantUserId.value}`,
     `Fecha de emision: ${now}`,
     `Autorizacion E firma: ${authorization?.authorization_id || 'pendiente'}`,
     `Estado autorizacion: ${authorization?.authorization_state || 'authorized'}`,

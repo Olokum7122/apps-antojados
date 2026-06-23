@@ -1,5 +1,6 @@
 import type { AxiosInstance } from 'axios'
 import { API_ENDPOINTS } from '@antojados/http/endpoints'
+import { apiConfig } from '@antojados/http/config/api'
 import type { ApiResponse } from '@antojados/api/types/api'
 import type {
   AntojoFeedScope,
@@ -64,7 +65,8 @@ function resolveMediaUrl(url: unknown): string | null {
   }
 
   if (url.startsWith('/')) {
-    const baseUrl = String(import.meta.env.VITE_API_URL || '').replace(/\/$/, '')
+    // Shared iOS/TestFlight parity: use normalized API config, not raw env with hash routes.
+    const baseUrl = apiConfig.apiUrl
     return baseUrl ? `${baseUrl}${url}` : url
   }
 

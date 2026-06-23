@@ -12,7 +12,18 @@ function parseTimeout(value: string | undefined): number {
 }
 
 function normalizeUrl(value: string): string {
-  return value.trim().replace(/\/+$/, '')
+  const rawValue = value.trim()
+
+  // Shared iOS/TestFlight parity: envs edited from browser URLs may include hash routes.
+  // Axios needs the clean API origin/path or iOS silently looks "offline".
+  try {
+    const parsed = new URL(rawValue)
+    parsed.hash = ''
+    parsed.search = ''
+    return parsed.toString().replace(/\/+$/, '')
+  } catch {
+    return rawValue.split('#')[0]?.split('?')[0]?.replace(/\/+$/, '') || ''
+  }
 }
 
 export const apiConfig: ApiConfig = {

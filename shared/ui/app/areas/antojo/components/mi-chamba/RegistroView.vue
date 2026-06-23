@@ -300,9 +300,9 @@ async function resolveContext() {
   let instanceId = currentInstanceId.value
   let tenantUserId = currentTenantUserId.value
   if (!instanceId || !tenantUserId) {
-    const tenant = await equipoService.getMiTenant(currentUserId.value)
-    instanceId = tenant.instanceId
-    tenantUserId = tenant.tenantUserId
+    const workspace = await equipoService.getSponsorWorkspace(currentUserId.value)
+    instanceId = workspace.instanceId
+    tenantUserId = workspace.tenantUserId
   }
 
   resolvedInstanceId.value = instanceId

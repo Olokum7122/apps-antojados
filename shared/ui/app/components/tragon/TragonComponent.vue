@@ -1,6 +1,6 @@
 <template>
   <section class="tragon-component">
-    <section class="tragon-component__hero">
+    <section v-if="isAuthenticated" class="tragon-component__hero">
       <div class="tragon-component__identity">
         <div class="tragon-component__avatar">{{ profileInitial }}</div>
         <div class="tragon-component__identity-copy">
@@ -20,23 +20,24 @@
 
     <template v-if="!isAuthenticated">
       <app-panel
-        title="Template Tragon"
-        subtitle="Las secciones quedan separadas para migrar despues a dialogs progresivos de login, registro y recuperacion."
+        title="Tragon"
+        subtitle="Acceso y cuenta"
         tone="flat"
         panel-class="tragon-panel tragon-panel--fullbleed"
       >
         <button-bar-base
-          v-model="sectionKey"
-          :buttons="sectionButtons"
-          :grid-columns="2"
+          v-model="authScreenKey"
+          :buttons="authScreenButtons"
+          :grid-columns="4"
           :scrollable="false"
-          :parent-context="{ level: 'COMPONENT', code: 'TRAGON', label: 'Tragon' }"
+        :parent-context="{ level: 'COMPONENT', code: 'TRAGON', label: 'Tragon' }"
         />
       </app-panel>
 
       <app-panel
-        title="Seccion 0: Pantalla Tragon"
-        subtitle="En Android Tragón vive separado de Auth. Aqui queda ya su shell base con Perfil y Bandeja."
+        v-if="authScreenKey === 'tragon'"
+        title="Tragon"
+        subtitle="Perfil y bandeja"
         panel-class="tragon-panel"
       >
         <div class="tragon-shell-template">
@@ -72,15 +73,15 @@
       </app-panel>
 
       <app-panel
-        title="Seccion 1: Acceso"
-        subtitle="Entrada canonica de Tragon para login y sesion local."
+        v-else-if="authScreenKey === 'login'"
+        title="Login Tragon"
+        subtitle="Sesion personal"
         panel-class="tragon-panel"
       >
         <field-editor-base
           title="Login"
           :fields="loginFields"
           :model-value="loginForm"
-          info-text="Este bloque quedara listo para migrarse despues a dialog de login."
           subdim-ik="TRAGON_LOGIN"
           subdim-pc="TRAGON"
           code-component="TRAGON.LOGIN"
@@ -104,8 +105,9 @@
       </app-panel>
 
       <app-panel
-        title="Seccion 2: Crear Cuenta"
-        subtitle="Template desacoplado para usuario social, sponsor y empleado."
+        v-else-if="authScreenKey === 'registro'"
+        title="Registro Tragon"
+        subtitle="Usuario, sponsor o empleado"
         panel-class="tragon-panel"
       >
         <field-editor-base
@@ -137,67 +139,64 @@
                 @action="onAuthAction"
               />
             </div>
-
-            <q-banner v-if="recoveryStatusMessage" rounded class="tragon-banner tragon-banner--info">
-              {{ recoveryStatusMessage }}
-            </q-banner>
           </template>
         </field-editor-base>
       </app-panel>
 
-      <app-panel
-        title="Seccion 3: Recuperacion"
-        subtitle="Template separado para futura navegacion a dialog de recuperacion."
-        panel-class="tragon-panel"
-      >
-        <field-editor-base
-          title="Recuperacion de cuenta"
-          :fields="recoveryFields"
-          :model-value="recoveryForm"
-          info-text="La UI ya no expone el codigo. Falta integrar un canal real de correo o SMS en backend."
-          subdim-ik="TRAGON_RECOVERY_FORM"
-          subdim-pc="TRAGON"
-          code-component="TRAGON.RECOVERY.FORM"
-          @update:model-value="mergeRecoveryForm"
+      <template v-else-if="authScreenKey === 'recuperacion'">
+        <app-panel
+          title="Recuperacion"
+          subtitle="Cuenta Tragon"
+          panel-class="tragon-panel"
         >
-          <template #actions>
-            <div class="tragon-bar-bleed">
-              <button-bar-base
-                model-value="submit"
-                :buttons="recoveryActionButtons"
-                :grid-columns="1"
-                :parent-context="{ level: 'COMPONENT', code: 'TRAGON.RECOVERY', label: 'Recuperacion' }"
-                @action="onRecoveryAction"
-              />
-            </div>
-            <q-banner v-if="recoveryStatusMessage" rounded class="tragon-banner tragon-banner--info">
-              {{ recoveryStatusMessage }}
-            </q-banner>
-          </template>
-        </field-editor-base>
-      </app-panel>
+          <field-editor-base
+            title="Recuperacion de cuenta"
+            :fields="recoveryFields"
+            :model-value="recoveryForm"
+            subdim-ik="TRAGON_RECOVERY_FORM"
+            subdim-pc="TRAGON"
+            code-component="TRAGON.RECOVERY.FORM"
+            @update:model-value="mergeRecoveryForm"
+          >
+            <template #actions>
+              <div class="tragon-bar-bleed">
+                <button-bar-base
+                  model-value="submit"
+                  :buttons="recoveryActionButtons"
+                  :grid-columns="1"
+                  :parent-context="{ level: 'COMPONENT', code: 'TRAGON.RECOVERY', label: 'Recuperacion' }"
+                  @action="onRecoveryAction"
+                />
+              </div>
+              <q-banner v-if="recoveryStatusMessage" rounded class="tragon-banner tragon-banner--info">
+                {{ recoveryStatusMessage }}
+              </q-banner>
+            </template>
+          </field-editor-base>
+        </app-panel>
 
-      <app-panel
-        title="Seccion 4: Estado de Recuperacion"
-        subtitle="Preparado para correo o SMS, sin exponer el codigo en UI."
-        panel-class="tragon-panel"
-      >
-        <entity-grid-base
-          :columns="recoveryColumns"
-          :rows="recoveryRows"
-          row-key="id"
-          empty-message="Aun no se ha solicitado recuperacion."
-          subdim-ik="TRAGON_RECOVERY"
-          subdim-pc="TRAGON"
-          code-component="TRAGON.RECOVERY"
-        />
-      </app-panel>
+        <app-panel
+          title="Estado"
+          subtitle="Recuperacion"
+          panel-class="tragon-panel"
+        >
+          <entity-grid-base
+            :columns="recoveryColumns"
+            :rows="recoveryRows"
+            row-key="id"
+            empty-message="Aun no se ha solicitado recuperacion."
+            subdim-ik="TRAGON_RECOVERY"
+            subdim-pc="TRAGON"
+            code-component="TRAGON.RECOVERY"
+          />
+        </app-panel>
+      </template>
     </template>
 
     <template v-else>
       <app-panel
-        title="Template Tragon"
-        subtitle="Las secciones quedan separadas para migrar despues a dialogs o pasos progresivos sin romper la pantalla."
+        title="Tragon"
+        subtitle="Sesion activa"
         tone="flat"
         panel-class="tragon-panel tragon-panel--fullbleed"
       >
@@ -342,7 +341,7 @@ import { useAuth } from '@antojados/api/composables/useAuth'
 import { useLocationScope } from '@antojados/api/composables/useLocationScope'
 
 const $q = useQuasar()
-const { cityCode: activeCityCode } = useLocationScope('los_chidos')
+const { cityCode: activeCityCode, requestDeviceGeo } = useLocationScope('los_chidos')
 
 const {
   profile,
@@ -371,6 +370,7 @@ const {
 } = useAuth()
 
 const sectionKey = ref('session')
+const authScreenKey = ref('login')
 const authMode = ref('signup-user')
 const showPassword = ref(false)
 const tragonAreaKey = ref('perfil')
@@ -395,6 +395,7 @@ const sponsorForm = reactive({
   confirmPassword: '',
   businessName: '',
   bizType: '',
+  cityCode: '',
   phone: '',
 })
 
@@ -434,6 +435,13 @@ const sectionButtons = computed(() => [
   { key: 'actions', label: 'Acciones' },
 ])
 
+const authScreenButtons = computed(() => [
+  { key: 'login', label: 'Entrar' },
+  { key: 'registro', label: 'Crear' },
+  { key: 'recuperacion', label: 'Recuperar' },
+  { key: 'tragon', label: 'Libre' },
+])
+
 const tragonAreaButtons = computed(() => [
   { key: 'perfil', label: 'Perfil' },
   { key: 'bandeja', label: 'Bandeja' },
@@ -453,6 +461,7 @@ const loginFields = computed(() => {
   ]
 })
 
+// Accepted test debt: password recovery consumes API; the out-of-band delivery channel is pending.
 const recoveryFields = computed(() => {
   const passwordType = showPassword.value ? 'text' : 'password'
   return [
@@ -524,9 +533,9 @@ const authSectionTitle = computed(() => {
 
 const authInfoText = computed(() => {
   if (authMode.value === 'signup-sponsor') {
-    return `La cuenta sponsor se crea incompleta en Tragon. La ciudad operativa se resuelve internamente desde la barra base (${activeCityCode.value || 'sin ciudad'}).`
+    return `Ciudad operativa: ${sponsorForm.cityCode || activeCityCode.value || 'pendiente'}.`
   }
-  return 'Tragon concentra la identidad. Equipo y Registro quedan fuera de esta capa.'
+  return 'Datos de identidad para la cuenta.'
 })
 
 const authFields = computed(() => {
@@ -550,6 +559,7 @@ const authFields = computed(() => {
       { key: 'confirmPassword', label: 'Confirmar contrasena', type: passwordType },
       { key: 'businessName', label: 'Nombre comercial' },
       { key: 'bizType', label: 'Tipo de negocio' },
+      { key: 'cityCode', label: 'Ciudad operativa' },
       { key: 'phone', label: 'Telefono' },
     ]
   }
@@ -684,7 +694,12 @@ const metaRows = computed(() => [
 watch(
   () => isAuthenticated.value,
   (nextValue) => {
-    sectionKey.value = nextValue ? 'session' : 'account'
+    if (nextValue) {
+      sectionKey.value = 'session'
+      return
+    }
+
+    authScreenKey.value = 'login'
   },
   { immediate: true },
 )
@@ -700,8 +715,97 @@ watch(
 )
 
 function notifyError(error, fallback) {
-  const message = error instanceof Error ? error.message : String(error || fallback)
+  const message = error && typeof error === 'object' && 'message' in error
+    ? String(error.message || fallback)
+    : error instanceof Error
+      ? error.message
+      : String(error || fallback)
   $q.notify({ type: 'negative', message: message || fallback })
+}
+
+function notifyWarning(message) {
+  $q.notify({ type: 'warning', message })
+}
+
+function text(value) {
+  return String(value || '').trim()
+}
+
+function normalizedEmail(value) {
+  return text(value).toLowerCase()
+}
+
+function isValidEmail(value) {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedEmail(value))
+}
+
+function requireFields(model, fields) {
+  const missing = fields
+    .filter(({ key }) => !text(model[key]))
+    .map(({ label }) => label)
+
+  if (!missing.length) return true
+  notifyWarning(`Faltan datos: ${missing.join(', ')}.`)
+  return false
+}
+
+function requireEmail(value, label = 'correo') {
+  if (isValidEmail(value)) return true
+  notifyWarning(`Captura un ${label} valido.`)
+  return false
+}
+
+function requirePasswordPair(model) {
+  if (text(model.password).length < 8) {
+    notifyWarning('La contrasena debe tener al menos 8 caracteres.')
+    return false
+  }
+
+  if (text(model.password) !== text(model.confirmPassword || model.password)) {
+    notifyWarning('La confirmacion de contrasena no coincide.')
+    return false
+  }
+
+  return true
+}
+
+function validateLoginForm() {
+  return requireFields(loginForm, [
+    { key: 'email', label: 'correo o username' },
+    { key: 'password', label: 'contrasena' },
+  ])
+}
+
+function validateSocialRegisterForm() {
+  return requireFields(userForm, [
+    { key: 'fullName', label: 'nombre completo' },
+    { key: 'email', label: 'correo' },
+    { key: 'password', label: 'contrasena' },
+    { key: 'confirmPassword', label: 'confirmar contrasena' },
+  ]) && requireEmail(userForm.email) && requirePasswordPair(userForm)
+}
+
+function validateSponsorRegisterForm(cityCode) {
+  // Shared iOS/TestFlight parity: sponsor registration must resolve to an instance axis.
+  return requireFields(sponsorForm, [
+    { key: 'fullName', label: 'nombre del usuario sponsor' },
+    { key: 'email', label: 'correo' },
+    { key: 'username', label: 'username sponsor' },
+    { key: 'password', label: 'contrasena' },
+    { key: 'confirmPassword', label: 'confirmar contrasena' },
+    { key: 'businessName', label: 'nombre comercial' },
+    { key: 'bizType', label: 'tipo de negocio' },
+  ]) && requireEmail(sponsorForm.email) && requirePasswordPair(sponsorForm) && Boolean(cityCode || notifyWarning('Falta ciudad operativa.'))
+}
+
+function validateEmployeeRegisterForm() {
+  return requireFields(employeeForm, [
+    { key: 'fullName', label: 'nombre completo' },
+    { key: 'email', label: 'correo' },
+    { key: 'password', label: 'contrasena' },
+    { key: 'confirmPassword', label: 'confirmar contrasena' },
+    { key: 'inviteCode', label: 'codigo de invitacion' },
+  ]) && requireEmail(employeeForm.email) && requirePasswordPair(employeeForm)
 }
 
 function mergeAuthModel(nextValue) {
@@ -721,50 +825,67 @@ function mergeProfileForm(nextValue) {
   Object.assign(profileForm, nextValue || {})
 }
 
+function refreshLocationContext() {
+  void requestDeviceGeo()
+}
+
 async function hydrateAndRefresh() {
   const currentSession = await hydrateSession()
 
   if (currentSession?.userId) {
     await fetchProfile()
+    refreshLocationContext()
   }
 }
 
 async function submitLogin() {
+  if (!validateLoginForm()) return
+
   try {
-    await login(loginForm)
+    await login({
+      loginIdentifier: text(loginForm.email),
+      password: loginForm.password,
+    })
     $q.notify({ type: 'positive', message: 'Sesion iniciada.' })
+    refreshLocationContext()
   } catch (error) {
     notifyError(error, 'No fue posible iniciar sesion.')
   }
 }
 
 async function submitSocialRegister() {
+  if (!validateSocialRegisterForm()) return
+
   try {
     await registerSocial({
-      fullName: userForm.fullName,
-      email: userForm.email,
+      fullName: text(userForm.fullName),
+      email: normalizedEmail(userForm.email),
       password: userForm.password,
       confirmPassword: userForm.confirmPassword,
       marketingOptIn: false,
     })
     $q.notify({ type: 'positive', message: 'Cuenta social creada.' })
+    refreshLocationContext()
   } catch (error) {
     notifyError(error, 'No fue posible crear la cuenta social.')
   }
 }
 
 async function submitSponsorRegister() {
+  const resolvedCityCode = text(sponsorForm.cityCode) || activeCityCode.value || null
+  if (!validateSponsorRegisterForm(resolvedCityCode)) return
+
   try {
     await registerSponsor({
-      fullName: sponsorForm.fullName,
-      email: sponsorForm.email,
-      username: sponsorForm.username,
+      fullName: text(sponsorForm.fullName),
+      email: normalizedEmail(sponsorForm.email),
+      username: text(sponsorForm.username),
       password: sponsorForm.password,
       confirmPassword: sponsorForm.confirmPassword,
-      businessName: sponsorForm.businessName,
-      bizType: sponsorForm.bizType,
-      cityCode: activeCityCode.value || null,
-      phone: sponsorForm.phone || null,
+      businessName: text(sponsorForm.businessName),
+      bizType: text(sponsorForm.bizType),
+      cityCode: resolvedCityCode,
+      phone: text(sponsorForm.phone) || null,
       marketingOptIn: false,
     })
     $q.notify({
@@ -772,30 +893,36 @@ async function submitSponsorRegister() {
       message: 'Cuenta sponsor creada. El cierre operativo seguira despues en Mi Chamba / Equipo.',
       timeout: 5000,
     })
+    refreshLocationContext()
   } catch (error) {
     notifyError(error, 'No fue posible crear la cuenta sponsor.')
   }
 }
 
 async function submitEmployeeRegister() {
+  if (!validateEmployeeRegisterForm()) return
+
   try {
     await registerEmployee({
-      fullName: employeeForm.fullName,
-      email: employeeForm.email,
+      fullName: text(employeeForm.fullName),
+      email: normalizedEmail(employeeForm.email),
       password: employeeForm.password,
       confirmPassword: employeeForm.confirmPassword,
-      inviteCode: employeeForm.inviteCode,
+      inviteCode: text(employeeForm.inviteCode).toUpperCase(),
       marketingOptIn: false,
     })
     $q.notify({ type: 'positive', message: 'Cuenta empleado creada con invitacion.' })
+    refreshLocationContext()
   } catch (error) {
     notifyError(error, 'No fue posible crear la cuenta empleado.')
   }
 }
 
 async function submitRecoveryRequest() {
+  if (!requireFields(recoveryForm, [{ key: 'email', label: 'correo de recuperacion' }]) || !requireEmail(recoveryForm.email)) return
+
   try {
-    const result = await requestPasswordRecovery({ email: recoveryForm.email })
+    const result = await requestPasswordRecovery({ email: normalizedEmail(recoveryForm.email) })
     recoveryForm.recoveryRequestId = result.recoveryRequestId
     recoveryMeta.channel = result.channel || ''
     recoveryMeta.message = result.message || ''
@@ -815,10 +942,15 @@ async function submitRecoveryRequest() {
 }
 
 async function submitRecoveryVerify() {
+  if (!requireFields(recoveryForm, [
+    { key: 'recoveryRequestId', label: 'recovery request id' },
+    { key: 'recoveryCode', label: 'codigo de recuperacion' },
+  ])) return
+
   try {
     await verifyPasswordRecovery({
-      recoveryRequestId: recoveryForm.recoveryRequestId,
-      recoveryCode: recoveryForm.recoveryCode,
+      recoveryRequestId: text(recoveryForm.recoveryRequestId),
+      recoveryCode: text(recoveryForm.recoveryCode),
     })
     $q.notify({ type: 'positive', message: 'Codigo verificado.' })
   } catch (error) {
@@ -827,10 +959,17 @@ async function submitRecoveryVerify() {
 }
 
 async function submitRecoveryReset() {
+  if (!requireFields(recoveryForm, [
+    { key: 'recoveryRequestId', label: 'recovery request id' },
+    { key: 'recoveryCode', label: 'codigo de recuperacion' },
+    { key: 'password', label: 'nueva contrasena' },
+    { key: 'confirmPassword', label: 'confirmar nueva contrasena' },
+  ]) || !requirePasswordPair(recoveryForm)) return
+
   try {
     await resetPasswordRecovery({
-      recoveryRequestId: recoveryForm.recoveryRequestId,
-      recoveryCode: recoveryForm.recoveryCode,
+      recoveryRequestId: text(recoveryForm.recoveryRequestId),
+      recoveryCode: text(recoveryForm.recoveryCode),
       password: recoveryForm.password,
       confirmPassword: recoveryForm.confirmPassword,
     })

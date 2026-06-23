@@ -48,15 +48,19 @@
 </template>
 
 <script setup>
-import { computed, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
+import { useQuasar } from 'quasar'
 import { useRoute } from 'vue-router'
+import { useGeoScopeMaster } from '@antojados/api/composables/useLocationScope'
 import { MAIN_TABS } from '@antojados/ui/dimensions/navigationDimensions.js'
 import { getActiveTheme, getAvailableThemes, setTheme } from '@antojados/ui/theme/themeManager'
 import splashBrand from '@antojados/ui/assets/brand/splash.png'
 import primaryBrand from '@antojados/ui/assets/brand/brand.png'
 import liteBrand from '@antojados/ui/assets/brand/logolite.png'
 
+const $q = useQuasar()
 const route = useRoute()
+const { requestDeviceGeo } = useGeoScopeMaster()
 const themeOptions = getAvailableThemes()
 const activeTheme = ref(getActiveTheme())
 const BRAND_PRIMARY = splashBrand
@@ -64,6 +68,7 @@ const BRAND_SECONDARY = primaryBrand
 const BRAND_FALLBACK = liteBrand
 const brandImgSrc = ref(BRAND_PRIMARY)
 const mainTabs = MAIN_TABS
+let lastGeoNoticeAt = 0
 
 const title = computed(() => {
   if (route.path.startsWith('/antojo')) return 'Antojo'
@@ -95,6 +100,45 @@ function onBrandImgError() {
     brandImgSrc.value = BRAND_FALLBACK
   }
 }
+
+function onGeoPermissionRequest(event) {
+  const now = Date.now()
+  if (now - lastGeoNoticeAt < 15000) return
+  lastGeoNoticeAt = now
+  $q.notify({
+    type: 'info',
+    message: event?.detail?.message || 'Usamos tu ubicacion para mostrar publicaciones por ciudad y zona.',
+    timeout: 3600,
+  })
+}
+
+function refreshGeoFromForeground() {
+  void requestDeviceGeo(false, true)
+}
+
+function onVisibilityChange() {
+  if (document.visibilityState === 'visible') {
+    refreshGeoFromForeground()
+  }
+}
+
+onMounted(() => {
+  if (typeof window !== 'undefined') {
+    window.addEventListener('antojados:geo-permission-request', onGeoPermissionRequest)
+  }
+  if (typeof document !== 'undefined') {
+    document.addEventListener('visibilitychange', onVisibilityChange)
+  }
+})
+
+onBeforeUnmount(() => {
+  if (typeof window !== 'undefined') {
+    window.removeEventListener('antojados:geo-permission-request', onGeoPermissionRequest)
+  }
+  if (typeof document !== 'undefined') {
+    document.removeEventListener('visibilitychange', onVisibilityChange)
+  }
+})
 </script>
 
 <style scoped>

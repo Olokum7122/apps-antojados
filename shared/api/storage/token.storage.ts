@@ -22,12 +22,21 @@ export async function getTokens(): Promise<AuthTokens> {
 }
 
 export async function setTokens(tokens: Partial<AuthTokens>): Promise<void> {
+  // Shared iOS/TestFlight parity: null explicitly clears stale tokens across native shells.
   const writes: Promise<void>[] = []
-  if (typeof tokens.accessToken === 'string') {
-    writes.push(secureStorage.set(ACCESS_TOKEN_KEY, tokens.accessToken))
+  if (tokens.accessToken !== undefined) {
+    writes.push(
+      typeof tokens.accessToken === 'string'
+        ? secureStorage.set(ACCESS_TOKEN_KEY, tokens.accessToken)
+        : secureStorage.remove(ACCESS_TOKEN_KEY),
+    )
   }
-  if (typeof tokens.refreshToken === 'string') {
-    writes.push(secureStorage.set(REFRESH_TOKEN_KEY, tokens.refreshToken))
+  if (tokens.refreshToken !== undefined) {
+    writes.push(
+      typeof tokens.refreshToken === 'string'
+        ? secureStorage.set(REFRESH_TOKEN_KEY, tokens.refreshToken)
+        : secureStorage.remove(REFRESH_TOKEN_KEY),
+    )
   }
   await Promise.all(writes)
 }
