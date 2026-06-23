@@ -1,6 +1,6 @@
 export type MediaType = 'photo' | 'video'
 export type BizPostChannel = 'vas_ir' | 'arre'
-export type SocialPostScope = 'barrio' | 'pachanga' | 'la-neta'
+export type SocialPostScope = 'barrio' | 'pachanga' | 'la-neta' | 'desma'
 
 export interface MediaUploadInput {
   base64: string

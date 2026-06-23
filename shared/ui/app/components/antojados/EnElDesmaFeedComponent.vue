@@ -191,12 +191,16 @@
         <q-card-section>
           <h2>Que hacemos con tu desma?</h2>
           <p>{{ selectedVideoName }}</p>
+          <p v-if="selectedVideoError" class="desma-feed-component__publish-error">
+            {{ selectedVideoError }}
+          </p>
         </q-card-section>
 
         <q-card-section class="desma-feed-component__publish-actions">
           <button
             type="button"
             class="desma-feed-component__publish-action"
+            :disabled="publishingVideo"
             @click="finishPublish('published')"
           >
             <q-icon name="public" color="deep-purple-3" size="28px" />
@@ -206,6 +210,7 @@
           <button
             type="button"
             class="desma-feed-component__publish-action"
+            :disabled="publishingVideo"
             @click="finishPublish('personal')"
           >
             <q-icon name="lock" color="deep-purple-3" size="28px" />
@@ -215,6 +220,7 @@
           <button
             type="button"
             class="desma-feed-component__publish-action desma-feed-component__publish-action--muted"
+            :disabled="publishingVideo"
             @click="finishPublish('discard')"
           >
             <q-icon name="delete_outline" color="grey-5" size="28px" />
@@ -250,14 +256,19 @@
 
 <script setup>
 import { nextTick, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
+import { useQuasar } from 'quasar'
 import { useRoute } from 'vue-router'
 import FeedFilterBarBase from '@antojados/ui/base/FeedFilterBarBase.vue'
 import PostActionRailBase from '@antojados/ui/base/PostActionRailBase.vue'
 import { useAntojadosFeed } from '@antojados/api/composables/useAntojadosFeed'
 import { useLocationScope } from '@antojados/api/composables/useLocationScope'
+import { readPublishMediaFile } from '@antojados/api/composables/usePublishMedia'
 import { useSocialActionSync } from '@antojados/api/composables/useSocialActionSync'
+import { mediaService, publishService } from '@antojados/api/services'
+import { getSharedSession } from '@antojados/api/storage/session.storage'
 
 const route = useRoute()
+const $q = useQuasar()
 const { posts, load } = useAntojadosFeed('desma')
 const { pushEvent } = useSocialActionSync()
 const activePostId = ref('')
@@ -268,6 +279,9 @@ const streamRef = ref(null)
 const cameraInputRef = ref(null)
 const deviceInputRef = ref(null)
 const selectedVideoName = ref('Video listo para publicar o guardar personal.')
+const selectedVideoBase64 = ref(null)
+const selectedVideoError = ref('')
+const publishingVideo = ref(false)
 const commentDrafts = reactive({})
 const postRefs = reactive({})
 const videoRefs = reactive({})
@@ -500,29 +514,115 @@ function selectPublishAction(action) {
     deviceInputRef.value?.click()
     return
   }
-  showDecisionDialog.value = true
+  deviceInputRef.value?.click()
 }
 
-function onVideoSelected(event) {
-  const file = event?.target?.files?.[0]
-  selectedVideoName.value = file?.name || 'Video listo para publicar o guardar personal.'
-  if (event?.target) event.target.value = ''
-  showDecisionDialog.value = true
+async function onVideoSelected(event) {
+  const input = event?.target
+  const file = input?.files?.[0]
+  if (input) input.value = ''
+  if (!file) return
+
+  try {
+    const selected = await readPublishMediaFile(file)
+    if (selected.mediaType !== 'video') {
+      throw new Error('Selecciona un video para publicar en Desma.')
+    }
+    selectedVideoName.value = selected.fileName
+    selectedVideoBase64.value = selected.base64
+    selectedVideoError.value = ''
+    showDecisionDialog.value = true
+  } catch (error) {
+    selectedVideoBase64.value = null
+    selectedVideoError.value = error?.message || 'No se pudo cargar el video.'
+    $q.notify({ type: 'negative', message: selectedVideoError.value })
+  }
 }
 
-function finishPublish(result) {
-  showDecisionDialog.value = false
-  if (result === 'discard') selectedVideoName.value = 'Video listo para publicar o guardar personal.'
-  if (result === 'published' || result === 'personal') {
-    void pushEvent({
+function resetSelectedVideo() {
+  selectedVideoName.value = 'Video listo para publicar o guardar personal.'
+  selectedVideoBase64.value = null
+  selectedVideoError.value = ''
+}
+
+async function uploadSelectedDesmaVideo(result) {
+  if (!selectedVideoBase64.value) {
+    throw new Error('Primero graba o selecciona un video.')
+  }
+
+  const session = await getSharedSession()
+  if (!session?.userId) {
+    throw new Error('Necesitas iniciar sesion para publicar.')
+  }
+
+  const uploaded = await mediaService.uploadMedia({
+    base64: selectedVideoBase64.value,
+    mediaType: 'video',
+    channel: result === 'personal' ? 'gallery' : 'feed_post',
+    entityId: session.userId,
+    entityContext: result === 'personal' ? 'antojados.desma.personal' : 'antojados.desma',
+  })
+  const mediaUrl = mediaService.resolveUploadedMediaUrl(uploaded)
+  if (!mediaUrl) {
+    throw new Error('El motor de media no devolvio URL para el video.')
+  }
+
+  if (result === 'published') {
+    const created = await publishService.createSocialPost({
+      user_id: session.userId,
+      feed_scope: 'desma',
+      caption: selectedVideoName.value,
+      description: selectedVideoName.value,
+      city_code: cityCode.value || session.cityCode || null,
+      scope_level: scopeLevel.value || null,
+      scope_code: scopeCode.value || null,
+      media_url: mediaUrl,
+      media_type: 'video',
+    })
+    return { session, uploaded, mediaUrl, postId: created.post_id || null }
+  }
+
+  return { session, uploaded, mediaUrl, postId: null }
+}
+
+async function finishPublish(result) {
+  if (publishingVideo.value) return
+  if (result === 'discard') {
+    showDecisionDialog.value = false
+    resetSelectedVideo()
+    return
+  }
+
+  publishingVideo.value = true
+  try {
+    const outcome = await uploadSelectedDesmaVideo(result)
+    await pushEvent({
       eventType: result === 'published' ? 'desma_publish' : 'desma_save_personal',
+      postId: outcome.postId,
       scopeLevel: scopeLevel.value,
       scopeCode: scopeCode.value,
       cityCode: cityCode.value,
       feedScope: 'desma',
       channel: 'desma',
-      payload: { video_name: selectedVideoName.value, result },
+      payload: {
+        video_name: selectedVideoName.value,
+        result,
+        media_url: outcome.mediaUrl,
+        intake_id: outcome.uploaded?.intake_id || null,
+      },
     })
+    showDecisionDialog.value = false
+    $q.notify({
+      type: 'positive',
+      message: result === 'published' ? 'Desma publicado.' : 'Desma guardado.',
+    })
+    resetSelectedVideo()
+    if (result === 'published') await loadFeed()
+  } catch (error) {
+    selectedVideoError.value = error?.message || 'No se pudo publicar el video.'
+    $q.notify({ type: 'negative', message: selectedVideoError.value })
+  } finally {
+    publishingVideo.value = false
   }
 }
 
@@ -827,6 +927,10 @@ onBeforeUnmount(() => {
   font-size: 12px;
 }
 
+.desma-feed-component__publish-error {
+  color: #fca5a5;
+}
+
 .desma-feed-component__publish-actions {
   display: grid;
   gap: 8px;
@@ -858,6 +962,10 @@ onBeforeUnmount(() => {
 
 .desma-feed-component__publish-action--muted {
   border-color: rgba(255, 255, 255, 0.14);
+}
+
+.desma-feed-component__publish-action:disabled {
+  opacity: 0.58;
 }
 
 @media (max-height: 700px) {

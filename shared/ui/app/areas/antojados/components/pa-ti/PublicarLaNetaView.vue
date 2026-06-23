@@ -47,12 +47,16 @@
             ref="fileInputRef"
             type="file"
             :accept="accept"
+            :capture="capture || undefined"
             class="publicar-la-neta-view__file"
             @change="onFileChange"
           />
           <div v-if="hasMedia" class="publicar-la-neta-view__media-ready">
             Media lista para subir
             <q-btn flat dense no-caps color="grey-5" label="Quitar" @click="clearMedia" />
+          </div>
+          <div v-if="mediaError" class="publicar-la-neta-view__media-error">
+            {{ mediaError }}
           </div>
         </section>
 
@@ -126,6 +130,8 @@ const {
   mediaBase64,
   mediaType,
   accept,
+  capture,
+  mediaError,
   hasMedia,
   triggerFilePicker,
   onFileChange,
@@ -168,6 +174,8 @@ async function submit() {
         base64: mediaBase64.value,
         mediaType: mediaType.value,
         channel: 'feed_post',
+        entityId: session.userId,
+        entityContext: 'antojados.la_neta',
       })
       mediaUrl = mediaService.resolveUploadedMediaUrl(uploaded)
     }
@@ -288,6 +296,11 @@ async function submit() {
   justify-content: space-between;
   gap: 8px;
   color: rgba(255, 255, 255, 0.72);
+  font-size: 12px;
+}
+
+.publicar-la-neta-view__media-error {
+  color: #fca5a5;
   font-size: 12px;
 }
 </style>

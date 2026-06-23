@@ -53,12 +53,16 @@
             ref="fileInputRef"
             type="file"
             :accept="accept"
+            :capture="capture || undefined"
             class="publicar-arre-view__file"
             @change="onFileChange"
           />
           <div v-if="hasMedia" class="publicar-arre-view__media-ready">
             Media lista para subir
             <q-btn flat dense no-caps color="grey-5" label="Quitar" @click="clearMedia" />
+          </div>
+          <div v-if="mediaError" class="publicar-arre-view__media-error">
+            {{ mediaError }}
           </div>
           <q-input v-model="caption" dark filled autogrow label="Descripcion del evento" />
         </section>
@@ -135,6 +139,8 @@ const {
   mediaBase64,
   mediaType,
   accept,
+  capture,
+  mediaError,
   hasMedia,
   triggerFilePicker,
   onFileChange,
@@ -179,6 +185,8 @@ async function submit() {
         base64: mediaBase64.value,
         mediaType: mediaType.value,
         channel: 'biz_post',
+        entityId: session.placeId,
+        entityContext: 'antojo.arre',
       })
       mediaUrl = mediaService.resolveUploadedMediaUrl(uploaded)
     }
@@ -307,6 +315,11 @@ async function submit() {
   justify-content: space-between;
   gap: 8px;
   color: rgba(255, 255, 255, 0.72);
+  font-size: 12px;
+}
+
+.publicar-arre-view__media-error {
+  color: #fca5a5;
   font-size: 12px;
 }
 </style>
