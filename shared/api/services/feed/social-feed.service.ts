@@ -273,7 +273,7 @@ function matchesScope(item: FeedItem, scope: AntojadosFeedScope | AntojoFeedScop
   }
 
   if (scope === 'barrio') {
-    return Boolean(item.mediaUrl || item.mediaThumbUrl)
+    return feedType === 'barrio' && Boolean(item.mediaUrl || item.mediaThumbUrl)
   }
 
   return true
@@ -293,7 +293,7 @@ export class SocialFeedService {
         user_id: params.userId,
         publisher_user_id: params.publisherUserId,
         post_id: params.postId,
-        feed_scope: params.userId ? params.scope : undefined,
+        feed_scope: params.scope || undefined,
       },
     })
 

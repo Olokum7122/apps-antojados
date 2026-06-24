@@ -44,12 +44,27 @@
             </button>
           </div>
           <input
-            ref="fileInputRef"
+            ref="photoInputRef"
             type="file"
-            :accept="accept"
-            :capture="capture || undefined"
+            accept="image/*"
+            capture="environment"
             class="publicar-pachanga-view__file"
-            @change="onFileChange"
+            @change="onFileChange($event, 'photo')"
+          />
+          <input
+            ref="videoInputRef"
+            type="file"
+            accept="video/*"
+            capture="environment"
+            class="publicar-pachanga-view__file"
+            @change="onFileChange($event, 'video')"
+          />
+          <input
+            ref="deviceInputRef"
+            type="file"
+            accept="image/*,video/*"
+            class="publicar-pachanga-view__file"
+            @change="onFileChange($event, 'device')"
           />
           <div v-if="hasMedia" class="publicar-pachanga-view__media-ready">
             Media lista para subir
@@ -126,12 +141,13 @@ const venueName = ref('Demo Venue Pachanga')
 const caption = ref('Pachanga en vivo con la banda.')
 const publishing = ref(false)
 const {
-  fileInputRef,
+  photoInputRef,
+  videoInputRef,
+  deviceInputRef,
   mediaBase64,
   mediaType,
-  accept,
-  capture,
   mediaError,
+  selectedSource,
   hasMedia,
   triggerFilePicker,
   onFileChange,
@@ -167,18 +183,16 @@ async function submit() {
   try {
     const session = await getSharedSession()
     if (!session?.userId) throw new Error('Necesitas iniciar sesion para publicar.')
+    if (!mediaBase64.value) throw new Error('Selecciona una foto o video para publicar en Pachanga.')
 
-    let mediaUrl = null
-    if (mediaBase64.value) {
-      const uploaded = await mediaService.uploadMedia({
-        base64: mediaBase64.value,
-        mediaType: mediaType.value,
-        channel: 'feed_post',
-        entityId: session.userId,
-        entityContext: 'antojados.pachanga',
-      })
-      mediaUrl = mediaService.resolveUploadedMediaUrl(uploaded)
-    }
+    const uploaded = await mediaService.uploadMedia({
+      base64: mediaBase64.value,
+      mediaType: mediaType.value,
+      channel: 'feed_post',
+      entityId: session.userId,
+      entityContext: `antojados.pachanga.${selectedSource.value}`,
+    })
+    const mediaUrl = mediaService.requireUploadedMediaUrl(uploaded, 'pachanga')
 
     const result = await publishService.createSocialPost({
       user_id: session.userId,
@@ -190,7 +204,7 @@ async function submit() {
       scope_level: scopeLevel.value || null,
       scope_code: scopeCode.value || null,
       media_url: mediaUrl,
-      media_type: mediaUrl ? mediaType.value : null,
+      media_type: mediaType.value,
     })
 
     $q.notify({ type: 'positive', message: 'Pachanga publicada.' })

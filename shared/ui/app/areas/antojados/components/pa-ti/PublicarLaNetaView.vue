@@ -4,7 +4,7 @@
       <q-btn flat round icon="arrow_back" color="white" @click="goBack" />
       <div>
         <h1>Publicar en La Neta</h1>
-        <p>Comparte una resena corta con foto, video o archivo del dispositivo.</p>
+        <p>Comparte una resena corta con foto desde camara o galeria.</p>
       </div>
     </header>
 
@@ -44,12 +44,19 @@
             </button>
           </div>
           <input
-            ref="fileInputRef"
+            ref="photoInputRef"
             type="file"
-            :accept="accept"
-            :capture="capture || undefined"
+            accept="image/*"
+            capture="environment"
             class="publicar-la-neta-view__file"
-            @change="onFileChange"
+            @change="onFileChange($event, 'photo')"
+          />
+          <input
+            ref="deviceInputRef"
+            type="file"
+            accept="image/*"
+            class="publicar-la-neta-view__file"
+            @change="onFileChange($event, 'device')"
           />
           <div v-if="hasMedia" class="publicar-la-neta-view__media-ready">
             Media lista para subir
@@ -126,21 +133,20 @@ const venueName = ref('La Campeona')
 const caption = ref('La neta, buen lugar para caer con compas.')
 const publishing = ref(false)
 const {
-  fileInputRef,
+  photoInputRef,
+  deviceInputRef,
   mediaBase64,
   mediaType,
-  accept,
-  capture,
   mediaError,
+  selectedSource,
   hasMedia,
   triggerFilePicker,
   onFileChange,
   clearMedia,
-} = usePublishMedia()
+} = usePublishMedia({ allowedMediaTypes: ['photo'] })
 const mediaSources = [
   { key: 'photo', label: 'Foto', icon: 'photo_camera', help: 'Tomar foto ahora.' },
-  { key: 'video', label: 'Video', icon: 'videocam', help: 'Grabar video corto.' },
-  { key: 'device', label: 'Dispositivo', icon: 'perm_media', help: 'Agregar desde galeria.' },
+  { key: 'device', label: 'Dispositivo', icon: 'perm_media', help: 'Agregar foto desde galeria.' },
 ]
 const activeIndex = computed(() => steps.findIndex((step) => step.key === activeStep.value))
 
@@ -167,18 +173,16 @@ async function submit() {
   try {
     const session = await getSharedSession()
     if (!session?.userId) throw new Error('Necesitas iniciar sesion para publicar.')
+    if (!mediaBase64.value) throw new Error('Selecciona una foto para publicar en La Neta.')
 
-    let mediaUrl = null
-    if (mediaBase64.value) {
-      const uploaded = await mediaService.uploadMedia({
-        base64: mediaBase64.value,
-        mediaType: mediaType.value,
-        channel: 'feed_post',
-        entityId: session.userId,
-        entityContext: 'antojados.la_neta',
-      })
-      mediaUrl = mediaService.resolveUploadedMediaUrl(uploaded)
-    }
+    const uploaded = await mediaService.uploadMedia({
+      base64: mediaBase64.value,
+      mediaType: mediaType.value,
+      channel: 'feed_post',
+      entityId: session.userId,
+      entityContext: `antojados.la_neta.${selectedSource.value}`,
+    })
+    const mediaUrl = mediaService.requireUploadedMediaUrl(uploaded, 'la_neta')
 
     const result = await publishService.createSocialPost({
       user_id: session.userId,
@@ -190,7 +194,7 @@ async function submit() {
       scope_level: scopeLevel.value || null,
       scope_code: scopeCode.value || null,
       media_url: mediaUrl,
-      media_type: mediaUrl ? mediaType.value : null,
+      media_type: mediaType.value,
     })
 
     $q.notify({ type: 'positive', message: 'Resena publicada.' })

@@ -59,12 +59,27 @@
             </button>
           </div>
           <input
-            ref="fileInputRef"
+            ref="photoInputRef"
             type="file"
-            :accept="accept"
-            :capture="capture || undefined"
+            accept="image/*"
+            capture="environment"
             class="publicar-vasir-view__file"
-            @change="onFileChange"
+            @change="onFileChange($event, 'photo')"
+          />
+          <input
+            ref="videoInputRef"
+            type="file"
+            accept="video/*"
+            capture="environment"
+            class="publicar-vasir-view__file"
+            @change="onFileChange($event, 'video')"
+          />
+          <input
+            ref="deviceInputRef"
+            type="file"
+            accept="image/*,video/*"
+            class="publicar-vasir-view__file"
+            @change="onFileChange($event, 'device')"
           />
           <div v-if="hasMedia" class="publicar-vasir-view__media-ready">
             Media lista para subir
@@ -138,12 +153,13 @@ const selectedMediaSource = ref('photo')
 const caption = ref('Promo nueva para que la banda se anime a venir.')
 const publishing = ref(false)
 const {
-  fileInputRef,
+  photoInputRef,
+  videoInputRef,
+  deviceInputRef,
   mediaBase64,
   mediaType,
-  accept,
-  capture,
   mediaError,
+  selectedSource,
   hasMedia,
   triggerFilePicker,
   onFileChange,
@@ -189,18 +205,16 @@ async function submit() {
     if (!session?.userId || !session?.placeId) {
       throw new Error('Necesitas una sesion sponsor con negocio asignado para publicar.')
     }
+    if (!mediaBase64.value) throw new Error('Selecciona una foto o video para publicar en Vas Ir.')
 
-    let mediaUrl = null
-    if (mediaBase64.value) {
-      const uploaded = await mediaService.uploadMedia({
-        base64: mediaBase64.value,
-        mediaType: mediaType.value,
-        channel: 'biz_post',
-        entityId: session.placeId,
-        entityContext: 'antojo.vas_ir',
-      })
-      mediaUrl = mediaService.resolveUploadedMediaUrl(uploaded)
-    }
+    const uploaded = await mediaService.uploadMedia({
+      base64: mediaBase64.value,
+      mediaType: mediaType.value,
+      channel: 'biz_post',
+      entityId: session.placeId,
+      entityContext: `antojo.vas_ir.${selectedSource.value}`,
+    })
+    const mediaUrl = mediaService.requireUploadedMediaUrl(uploaded, 'vas_ir')
 
     const result = await publishService.createBizPost({
       place_id: session.placeId,
@@ -211,7 +225,7 @@ async function submit() {
       title: selectedTypeMeta.value.label,
       body: caption.value.trim() || null,
       media_url: mediaUrl,
-      media_type: mediaUrl ? mediaType.value : null,
+      media_type: mediaType.value,
     })
 
     $q.notify({ type: 'positive', message: 'Publicacion creada.' })

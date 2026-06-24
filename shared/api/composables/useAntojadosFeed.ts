@@ -42,7 +42,9 @@ function filterScopePosts(posts: FeedItem[], scope: AntojadosFeedScope): FeedIte
     )
   }
 
-  return posts.filter((post) => Boolean(post.mediaUrl || post.mediaThumbUrl))
+  return posts.filter(
+    (post) => normalizeFeedType(post.feedType) === 'barrio' && Boolean(post.mediaUrl || post.mediaThumbUrl),
+  )
 }
 
 export function useAntojadosFeed(scope: AntojadosFeedScope) {
@@ -56,6 +58,7 @@ export function useAntojadosFeed(scope: AntojadosFeedScope) {
 
     try {
       const allPosts = await socialFeedService.list({
+        scope,
         limit: 40,
         cityCode: options.cityCode,
         scopeLevel: options.scopeLevel,

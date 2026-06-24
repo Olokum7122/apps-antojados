@@ -18,12 +18,39 @@ interface PickerSettings {
   mediaType: MediaType
 }
 
+interface PublishMediaOptions {
+  allowedMediaTypes?: MediaType[]
+}
+
 function normalizeSource(source: string): PublishMediaSource {
   if (source === 'video' || source === 'device') return source
   return 'photo'
 }
 
-function resolvePickerSettings(source: PublishMediaSource): PickerSettings {
+function normalizeAllowedMediaTypes(value: MediaType[] | undefined): MediaType[] {
+  const allowed = Array.isArray(value)
+    ? value.filter((item): item is MediaType => item === 'photo' || item === 'video')
+    : []
+  return allowed.length ? [...new Set(allowed)] : ['photo', 'video']
+}
+
+function resolveDeviceAccept(allowedMediaTypes: MediaType[]): string {
+  if (allowedMediaTypes.length === 1 && allowedMediaTypes[0] === 'photo') return 'image/*'
+  if (allowedMediaTypes.length === 1 && allowedMediaTypes[0] === 'video') return 'video/*'
+  return 'image/*,video/*'
+}
+
+function isSourceAllowed(source: PublishMediaSource, allowedMediaTypes: MediaType[]): boolean {
+  if (source === 'photo') return allowedMediaTypes.includes('photo')
+  if (source === 'video') return allowedMediaTypes.includes('video')
+  return allowedMediaTypes.length > 0
+}
+
+function mediaTypeNotAllowedMessage(mediaType: MediaType): string {
+  return mediaType === 'video' ? 'Este canal no acepta videos.' : 'Este canal no acepta fotos.'
+}
+
+function resolvePickerSettings(source: PublishMediaSource, allowedMediaTypes: MediaType[]): PickerSettings {
   if (source === 'video') {
     return {
       accept: 'video/*',
@@ -34,9 +61,9 @@ function resolvePickerSettings(source: PublishMediaSource): PickerSettings {
 
   if (source === 'device') {
     return {
-      accept: 'image/*,video/*',
+      accept: resolveDeviceAccept(allowedMediaTypes),
       capture: null,
-      mediaType: 'photo',
+      mediaType: allowedMediaTypes.includes('photo') ? 'photo' : 'video',
     }
   }
 
@@ -73,8 +100,11 @@ export function readPublishMediaFile(file: File): Promise<PublishMediaSelection>
   })
 }
 
-export function usePublishMedia() {
-  const fileInputRef = ref<HTMLInputElement | null>(null)
+export function usePublishMedia(options: PublishMediaOptions = {}) {
+  const allowedMediaTypes = normalizeAllowedMediaTypes(options.allowedMediaTypes)
+  const photoInputRef = ref<HTMLInputElement | null>(null)
+  const videoInputRef = ref<HTMLInputElement | null>(null)
+  const deviceInputRef = ref<HTMLInputElement | null>(null)
   const mediaPreview = ref<string | null>(null)
   const mediaBase64 = ref<string | null>(null)
   const mediaType = ref<MediaType>('photo')
@@ -88,24 +118,55 @@ export function usePublishMedia() {
 
   const hasMedia = computed(() => Boolean(mediaBase64.value))
 
+  function resolveInputRef(source: PublishMediaSource) {
+    if (source === 'video') return videoInputRef
+    if (source === 'device') return deviceInputRef
+    return photoInputRef
+  }
+
   function triggerFilePicker(source: string): void {
     selectedSource.value = normalizeSource(source)
-    const settings = resolvePickerSettings(selectedSource.value)
+    if (!isSourceAllowed(selectedSource.value, allowedMediaTypes)) {
+      mediaError.value = selectedSource.value === 'video'
+        ? mediaTypeNotAllowedMessage('video')
+        : mediaTypeNotAllowedMessage('photo')
+      return
+    }
+    const settings = resolvePickerSettings(selectedSource.value, allowedMediaTypes)
     mediaType.value = settings.mediaType
     accept.value = settings.accept
     capture.value = settings.capture
     mediaError.value = null
-    if (fileInputRef.value) fileInputRef.value.value = ''
-    fileInputRef.value?.click()
+    const inputRef = resolveInputRef(selectedSource.value)
+    if (inputRef.value) inputRef.value.value = ''
+    inputRef.value?.click()
   }
 
-  async function onFileChange(event: Event): Promise<void> {
+  async function onFileChange(event: Event, source?: string): Promise<void> {
+    if (source) {
+      selectedSource.value = normalizeSource(source)
+      const settings = resolvePickerSettings(selectedSource.value, allowedMediaTypes)
+      mediaType.value = settings.mediaType
+      accept.value = settings.accept
+      capture.value = settings.capture
+    }
+
     const input = event.target as HTMLInputElement | null
     const file = input?.files?.[0]
     if (!file) return
 
     try {
       const selected = await readPublishMediaFile(file)
+      if (!allowedMediaTypes.includes(selected.mediaType)) {
+        throw new Error(mediaTypeNotAllowedMessage(selected.mediaType))
+      }
+      if (selectedSource.value === 'photo' && selected.mediaType !== 'photo') {
+        throw new Error('La opcion Foto solo acepta imagenes.')
+      }
+      if (selectedSource.value === 'video' && selected.mediaType !== 'video') {
+        throw new Error('La opcion Video solo acepta videos.')
+      }
+
       mediaPreview.value = selected.preview
       mediaBase64.value = selected.base64
       mediaType.value = selected.mediaType
@@ -126,11 +187,15 @@ export function usePublishMedia() {
     mediaMimeType.value = null
     mediaSizeBytes.value = null
     mediaError.value = null
-    if (fileInputRef.value) fileInputRef.value.value = ''
+    if (photoInputRef.value) photoInputRef.value.value = ''
+    if (videoInputRef.value) videoInputRef.value.value = ''
+    if (deviceInputRef.value) deviceInputRef.value.value = ''
   }
 
   return {
-    fileInputRef,
+    photoInputRef,
+    videoInputRef,
+    deviceInputRef,
     mediaPreview,
     mediaBase64,
     mediaType,

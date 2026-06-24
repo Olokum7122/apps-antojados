@@ -281,6 +281,7 @@ const deviceInputRef = ref(null)
 const selectedVideoName = ref('Video listo para publicar o guardar personal.')
 const selectedVideoBase64 = ref(null)
 const selectedVideoError = ref('')
+const selectedVideoSource = ref('record')
 const publishingVideo = ref(false)
 const commentDrafts = reactive({})
 const postRefs = reactive({})
@@ -507,13 +508,16 @@ function openPublish() {
 function selectPublishAction(action) {
   showPublishDialog.value = false
   if (action === 'record') {
+    selectedVideoSource.value = 'record'
     cameraInputRef.value?.click()
     return
   }
   if (action === 'device') {
+    selectedVideoSource.value = 'device'
     deviceInputRef.value?.click()
     return
   }
+  selectedVideoSource.value = 'device'
   deviceInputRef.value?.click()
 }
 
@@ -560,12 +564,12 @@ async function uploadSelectedDesmaVideo(result) {
     mediaType: 'video',
     channel: result === 'personal' ? 'gallery' : 'feed_post',
     entityId: session.userId,
-    entityContext: result === 'personal' ? 'antojados.desma.personal' : 'antojados.desma',
+    entityContext:
+      result === 'personal'
+        ? `antojados.desma.personal.${selectedVideoSource.value}`
+        : `antojados.desma.${selectedVideoSource.value}`,
   })
-  const mediaUrl = mediaService.resolveUploadedMediaUrl(uploaded)
-  if (!mediaUrl) {
-    throw new Error('El motor de media no devolvio URL para el video.')
-  }
+  const mediaUrl = mediaService.requireUploadedMediaUrl(uploaded, 'desma')
 
   if (result === 'published') {
     const created = await publishService.createSocialPost({
@@ -607,6 +611,7 @@ async function finishPublish(result) {
       payload: {
         video_name: selectedVideoName.value,
         result,
+        source: selectedVideoSource.value,
         media_url: outcome.mediaUrl,
         intake_id: outcome.uploaded?.intake_id || null,
       },

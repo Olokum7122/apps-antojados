@@ -100,6 +100,15 @@
                 @action="onLoginAction"
               />
             </div>
+            <q-btn
+              no-caps
+              outline
+              color="primary"
+              icon="policy"
+              label="Centro legal y soporte"
+              class="tragon-component__secondary-action"
+              @click="openLegalCenter"
+            />
           </template>
         </field-editor-base>
       </app-panel>
@@ -287,6 +296,15 @@
             <div class="account-value">{{ value }}</div>
           </template>
         </entity-grid-base>
+        <q-btn
+          no-caps
+          outline
+          color="negative"
+          icon="delete_outline"
+          label="Eliminar cuenta"
+          class="tragon-component__secondary-action"
+          @click="openDeleteAccount"
+        />
       </app-panel>
 
       <app-panel
@@ -327,6 +345,62 @@
         </template>
       </app-panel>
     </template>
+
+    <q-dialog v-model="isLegalDialogOpen" position="bottom">
+      <q-card class="tragon-dialog">
+        <q-card-section>
+          <div class="tragon-dialog__title">Centro legal y soporte</div>
+          <div class="tragon-dialog__subtitle">Links publicos requeridos para privacidad, soporte y seguridad.</div>
+        </q-card-section>
+
+        <q-list separator class="tragon-dialog__list">
+          <q-item
+            v-for="item in legalCenterLinks"
+            :key="item.key"
+            clickable
+            @click="openExternalLink(item.href)"
+          >
+            <q-item-section avatar>
+              <q-icon :name="item.icon" color="primary" />
+            </q-item-section>
+            <q-item-section>
+              <q-item-label>{{ item.label }}</q-item-label>
+              <q-item-label caption>{{ item.caption }}</q-item-label>
+            </q-item-section>
+            <q-item-section side>
+              <q-icon name="open_in_new" color="grey-5" />
+            </q-item-section>
+          </q-item>
+        </q-list>
+
+        <q-card-actions align="right">
+          <q-btn flat no-caps color="primary" label="Cerrar" v-close-popup />
+        </q-card-actions>
+      </q-card>
+    </q-dialog>
+
+    <q-dialog v-model="isDeleteAccountDialogOpen" position="bottom">
+      <q-card class="tragon-dialog">
+        <q-card-section>
+          <div class="tragon-dialog__title">Eliminar cuenta</div>
+          <div class="tragon-dialog__subtitle">
+            Abre el canal HTTPS para iniciar el proceso de eliminacion de cuenta y datos asociados.
+          </div>
+        </q-card-section>
+
+        <q-card-actions align="between">
+          <q-btn flat no-caps color="grey-5" label="Cerrar" v-close-popup />
+          <q-btn
+            unelevated
+            no-caps
+            color="negative"
+            icon="open_in_new"
+            label="Abrir proceso HTTPS"
+            @click="openExternalLink(deleteAccountUrl)"
+          />
+        </q-card-actions>
+      </q-card>
+    </q-dialog>
   </section>
 </template>
 
@@ -374,6 +448,43 @@ const authScreenKey = ref('login')
 const authMode = ref('signup-user')
 const showPassword = ref(false)
 const tragonAreaKey = ref('perfil')
+const isLegalDialogOpen = ref(false)
+const isDeleteAccountDialogOpen = ref(false)
+const privacyPolicyUrl = 'https://antojadosmx.mx/aviso-privacidad.html'
+const deleteAccountUrl = 'https://antojadosmx.mx/eliminar-cuenta.html'
+const childSafetyUrl = 'https://antojadosmx.mx/estandares-seguridad-infantil.html'
+const supportMailUrl = 'mailto:antojadosmx2026@antojadosmx.mx'
+
+const legalCenterLinks = [
+  {
+    key: 'privacy',
+    label: 'Aviso de privacidad',
+    caption: privacyPolicyUrl,
+    href: privacyPolicyUrl,
+    icon: 'privacy_tip',
+  },
+  {
+    key: 'support',
+    label: 'Soporte',
+    caption: 'antojadosmx2026@antojadosmx.mx',
+    href: supportMailUrl,
+    icon: 'support_agent',
+  },
+  {
+    key: 'delete-account',
+    label: 'Eliminar cuenta',
+    caption: deleteAccountUrl,
+    href: deleteAccountUrl,
+    icon: 'delete_outline',
+  },
+  {
+    key: 'child-safety',
+    label: 'Estandares de seguridad infantil',
+    caption: childSafetyUrl,
+    href: childSafetyUrl,
+    icon: 'verified_user',
+  },
+]
 
 const loginForm = reactive({
   email: '',
@@ -725,6 +836,28 @@ function notifyError(error, fallback) {
 
 function notifyWarning(message) {
   $q.notify({ type: 'warning', message })
+}
+
+function openLegalCenter() {
+  isLegalDialogOpen.value = true
+}
+
+function openDeleteAccount() {
+  isDeleteAccountDialogOpen.value = true
+}
+
+function openExternalLink(href) {
+  if (typeof window === 'undefined' || !href) return
+
+  if (href.startsWith('mailto:')) {
+    window.location.href = href
+    return
+  }
+
+  const opened = window.open(href, '_blank', 'noopener,noreferrer')
+  if (!opened) {
+    window.location.href = href
+  }
 }
 
 function text(value) {
@@ -1206,6 +1339,11 @@ onMounted(async () => {
   min-width: 0;
 }
 
+.tragon-component__secondary-action {
+  width: 100%;
+  margin-top: 10px;
+}
+
 .tragon-banner {
   font-size: 12px;
   line-height: 1.45;
@@ -1220,6 +1358,31 @@ onMounted(async () => {
 
 .account-value {
   font-weight: 700;
+  overflow-wrap: anywhere;
+}
+
+.tragon-dialog {
+  width: min(420px, calc(100vw - 24px));
+  background: rgba(11, 18, 26, 0.98);
+  color: rgba(255, 255, 255, 0.9);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.tragon-dialog__title {
+  font-size: 18px;
+  font-weight: 800;
+}
+
+.tragon-dialog__subtitle {
+  margin-top: 6px;
+  color: rgba(255, 255, 255, 0.64);
+  font-size: 12px;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+
+.tragon-dialog__list :deep(.q-item__label--caption) {
+  color: rgba(255, 255, 255, 0.56);
   overflow-wrap: anywhere;
 }
 

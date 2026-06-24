@@ -21,5 +21,13 @@ export async function uploadMedia(input: MediaUploadInput): Promise<MediaUploadR
 }
 
 export function resolveUploadedMediaUrl(result: MediaUploadResult): string | null {
-  return result.media_url || result.feed_url || result.full_url || result.thumb_url || null
+  return result.feed_url || result.full_url || result.media_url || result.thumb_url || null
+}
+
+export function requireUploadedMediaUrl(result: MediaUploadResult, context = 'media'): string {
+  const mediaUrl = resolveUploadedMediaUrl(result)
+  if (!mediaUrl) {
+    throw new Error(`El intake de ${context} no devolvio URL normalizada.`)
+  }
+  return mediaUrl
 }

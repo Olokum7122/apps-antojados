@@ -16,7 +16,15 @@
     :data-code-component="codeComponent"
   >
     <template v-if="hasMedia">
-      <img :src="mediaSource" class="base-media-grid-cell__media" loading="lazy" />
+      <video
+        v-if="isVideo"
+        :src="mediaSource"
+        class="base-media-grid-cell__media"
+        muted
+        playsinline
+        preload="metadata"
+      />
+      <img v-else :src="mediaSource" class="base-media-grid-cell__media" loading="lazy" />
       <div v-if="isVideo" class="base-media-grid-cell__play">▶</div>
     </template>
 

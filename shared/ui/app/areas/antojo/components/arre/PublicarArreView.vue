@@ -50,12 +50,27 @@
             </button>
           </div>
           <input
-            ref="fileInputRef"
+            ref="photoInputRef"
             type="file"
-            :accept="accept"
-            :capture="capture || undefined"
+            accept="image/*"
+            capture="environment"
             class="publicar-arre-view__file"
-            @change="onFileChange"
+            @change="onFileChange($event, 'photo')"
+          />
+          <input
+            ref="videoInputRef"
+            type="file"
+            accept="video/*"
+            capture="environment"
+            class="publicar-arre-view__file"
+            @change="onFileChange($event, 'video')"
+          />
+          <input
+            ref="deviceInputRef"
+            type="file"
+            accept="image/*,video/*"
+            class="publicar-arre-view__file"
+            @change="onFileChange($event, 'device')"
           />
           <div v-if="hasMedia" class="publicar-arre-view__media-ready">
             Media lista para subir
@@ -135,12 +150,13 @@ const ticketLabel = ref('Reservar boletos')
 const eventAccess = ref('Acceso antes de las 10 PM')
 const publishing = ref(false)
 const {
-  fileInputRef,
+  photoInputRef,
+  videoInputRef,
+  deviceInputRef,
   mediaBase64,
   mediaType,
-  accept,
-  capture,
   mediaError,
+  selectedSource,
   hasMedia,
   triggerFilePicker,
   onFileChange,
@@ -178,18 +194,16 @@ async function submit() {
     if (!session?.userId || !session?.placeId) {
       throw new Error('Necesitas una sesion sponsor con negocio asignado para publicar.')
     }
+    if (!mediaBase64.value) throw new Error('Selecciona una foto o video para publicar en Arre.')
 
-    let mediaUrl = null
-    if (mediaBase64.value) {
-      const uploaded = await mediaService.uploadMedia({
-        base64: mediaBase64.value,
-        mediaType: mediaType.value,
-        channel: 'biz_post',
-        entityId: session.placeId,
-        entityContext: 'antojo.arre',
-      })
-      mediaUrl = mediaService.resolveUploadedMediaUrl(uploaded)
-    }
+    const uploaded = await mediaService.uploadMedia({
+      base64: mediaBase64.value,
+      mediaType: mediaType.value,
+      channel: 'biz_post',
+      entityId: session.placeId,
+      entityContext: `antojo.arre.${selectedSource.value}`,
+    })
+    const mediaUrl = mediaService.requireUploadedMediaUrl(uploaded, 'arre')
 
     const result = await publishService.createBizPost({
       place_id: session.placeId,
@@ -203,7 +217,7 @@ async function submit() {
         .join('\n'),
       cta_label: ticketLabel.value.trim() || null,
       media_url: mediaUrl,
-      media_type: mediaUrl ? mediaType.value : null,
+      media_type: mediaType.value,
     })
 
     $q.notify({ type: 'positive', message: 'Evento publicado.' })

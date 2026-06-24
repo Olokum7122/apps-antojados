@@ -27,7 +27,7 @@
       text-color="dark"
       tooltip="Publicar en La Neta"
       title="Di La Neta"
-      body="Sube una resena con foto o video y cuenta como estuvo el lugar."
+      body="Sube una resena con foto y cuenta como estuvo el lugar."
       confirm-label="Publicar ->"
       guide-icon="rate_review"
       image-src="/media/shared/publicar.png"
