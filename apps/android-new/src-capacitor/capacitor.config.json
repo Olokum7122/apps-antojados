@@ -1,5 +1,8 @@
 {
-  "appId": "mx.antojados.android.v2",
-  "appName": "AntojadosMX Android V2",
-  "webDir": "www"
+  "appId": "com.atlx.antojadosmx",
+  "appName": "AntojadosMx Social",
+  "webDir": "../dist/spa",
+  "server": {
+    "androidScheme": "http"
+  }
 }

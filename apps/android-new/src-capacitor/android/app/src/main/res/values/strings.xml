@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">AntojadosMx Social</string>
+    <string name="title_activity_main">AntojadosMx Social</string>
+    <string name="package_name">com.atlx.antojadosmx</string>
+    <string name="custom_url_scheme">com.atlx.antojadosmx</string>
+</resources>
