@@ -1,3 +1,5 @@
+import { readStoredGtAccessSnapshot, resolveGtMetadataAccessSync } from '@antojados/api/services/gt/gt-access.service'
+
 function normalizeText(value) {
   return String(value || '').trim()
 }
@@ -84,13 +86,20 @@ function resolveBarItem(level, item, { parentContext = null, defaultKind = null 
     .filter(Boolean)
     .join('::')
   const parent = resolveParentContext(resolvedLevel, item, parentContext)
-  const dimensionMeta = {
-    level: resolvedLevel,
-    code: ik || key || null,
+  const subdimType = normalizeCode(item?.subdimType || item?.metadata?.subdimType || resolvedLevel)
+  const metadata = {
+    ...(item?.metadata || {}),
+    ik,
+    pc,
     dim_code,
-    label,
-    parentCode: parent.code || pc || null,
+    appliesTo,
+    kind,
+    barBase,
+    level: resolvedLevel,
+    codeComponent,
+    subdimType,
   }
+  const access = resolveGtMetadataAccessSync(metadata)
 
   return {
     ...item,
@@ -108,22 +117,19 @@ function resolveBarItem(level, item, { parentContext = null, defaultKind = null 
     codeComponent,
     identityKey,
     parentContext: parent,
-    dimensionMeta,
-    subdimType: normalizeCode(item?.subdimType || item?.metadata?.subdimType || resolvedLevel),
-    subdimAppliesTo: appliesTo,
-    metadata: {
-      ...(item?.metadata || {}),
-      ik,
-      pc,
-      dim_code,
-      appliesTo,
-      kind,
-      barBase,
+    dimensionMeta: {
       level: resolvedLevel,
-      codeComponent,
+      code: ik || key || null,
+      dim_code,
+      label,
+      parentCode: parent.code || pc || null,
     },
-    visible: item?.visible !== false,
-    enabled: item?.enabled !== false,
+    subdimType,
+    subdimAppliesTo: appliesTo,
+    metadata,
+    visible: item?.visible !== false && access.visible !== false,
+    enabled: item?.enabled !== false && access.enabled !== false,
+    disabled: item?.disabled === true || access.enabled === false,
     domAttrs: {
       'data-key': key || '',
       'data-label': label || '',
@@ -145,17 +151,38 @@ function resolveBarItem(level, item, { parentContext = null, defaultKind = null 
       'subdim-ik': ik || '',
       'subdim-pc': pc || '',
       'subdim-dim-code': dim_code || '',
-      'subdim-type': normalizeCode(item?.subdimType || item?.metadata?.subdimType || resolvedLevel),
+      'subdim-type': subdimType,
       'subdim-applies-to': appliesTo,
     },
   }
 }
 
 function resolveBarItems(level, items, options = {}) {
-  return (Array.isArray(items) ? items : [])
-    .filter(Boolean)
+  const sourceItems = (Array.isArray(items) ? items : []).filter(Boolean)
+  const resolvedItems = sourceItems
     .map((item) => resolveBarItem(level, item, options))
     .filter((item) => item.visible !== false)
+
+  if (resolvedItems.length > 0) return resolvedItems
+
+  const snapshot = readStoredGtAccessSnapshot()
+  const instanceType = String(snapshot?.session?.instanceType || 'user').toLowerCase()
+  const isSponsor = instanceType === 'sponsor'
+
+  return sourceItems
+    .filter((item) => {
+      const appliesTo = normalizeAppliesTo(
+        item?.appliesTo || item?.subdimAppliesTo || item?.metadata?.appliesTo || item?.metadata?.subdimAppliesTo,
+      )
+      return appliesTo !== 'sponsor' || isSponsor
+    })
+    .map((item) => ({
+      ...resolveBarItem(level, item, options),
+      visible: true,
+      enabled: true,
+      disabled: item?.disabled === true,
+      fallbackReason: 'fallback_shell_tabs',
+    }))
 }
 
 export { resolveBarItem, resolveBarItems }

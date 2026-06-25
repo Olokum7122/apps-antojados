@@ -18,7 +18,8 @@
     <template v-if="hasMedia">
       <video
         v-if="isVideo"
-        :src="mediaSource"
+        :src="videoSource"
+        :poster="videoPoster"
         class="base-media-grid-cell__media"
         muted
         playsinline
@@ -94,6 +95,8 @@ const isVideo = computed(() => String(props.post?.mediaType || '').toLowerCase()
 const mediaSource = computed(
   () => props.post?.mediaThumbUrl || props.post?.thumbnailUrl || props.post?.mediaUrl || '',
 )
+const videoSource = computed(() => props.post?.mediaUrl || '')
+const videoPoster = computed(() => props.post?.mediaThumbUrl || props.post?.thumbnailUrl || '')
 const hasMedia = computed(() => !!mediaSource.value)
 const normalizedActions = computed(() =>
   props.actions

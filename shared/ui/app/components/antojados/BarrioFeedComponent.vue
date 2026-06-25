@@ -122,14 +122,22 @@ function loadFeed() {
 
 function onSelectPost(post) {
   if (post?._sponsor) return
-  if (String(post?.feedType || '').trim().toLowerCase() === 'desma') {
+  const feedType = String(post?.feedType || '').trim().toLowerCase()
+  if (feedType === 'desma') {
     router.push({
       path: '/red/en-el-desma',
       query: { post_id: post.id },
     })
     return
   }
-  router.push(`/red/barrio/fullscreen/${post.id}?user_id=${post.userId || ''}`)
+  router.push({
+    path: `/red/barrio/fullscreen/${post.id}`,
+    query: {
+      user_id: post.userId || '',
+      feed_type: feedType,
+      return_to: '/red/barrio',
+    },
+  })
 }
 
 function onSelectScope(level) {

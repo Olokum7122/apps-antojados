@@ -17,6 +17,10 @@ export interface MediaUploadResult {
   feed_url?: string | null
   full_url?: string | null
   media_url?: string | null
+  media_thumbnail_url?: string | null
+  video_720_url?: string | null
+  video_1080_url?: string | null
+  error_msg?: string | null
 }
 
 export interface BizPostCreateInput {
@@ -40,13 +44,16 @@ export interface BizPostCreateResult {
 }
 
 export interface SocialPostCreateInput {
+  post_id?: string | null
   user_id: string
   feed_scope: SocialPostScope
   caption?: string | null
   description?: string | null
   venue_name?: string | null
   media_url?: string | null
+  media_thumbnail_url?: string | null
   media_type?: MediaType | null
+  media_intake_id?: string | null
   city_code?: string | null
   scope_level?: string | null
   scope_code?: string | null

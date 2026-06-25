@@ -1,4 +1,4 @@
-<template>
+﻿<template>
   <section class="desma-feed-component">
     <feed-filter-bar-base
       :city-label="scopeLabel"
@@ -231,6 +231,21 @@
       </q-card>
     </q-dialog>
 
+    <q-dialog v-model="publishingVideo" persistent>
+      <q-card class="desma-feed-component__publish-card desma-feed-component__processing-card">
+        <q-card-section class="row items-center q-gutter-sm">
+          <q-spinner-dots color="deep-purple-3" size="34px" />
+          <div>
+            <h2>{{ publishingStageLabel }}</h2>
+            <p>{{ publishingStageDetail || 'No cierres esta pantalla mientras termina el intake.' }}</p>
+          </div>
+        </q-card-section>
+        <q-card-section>
+          <q-linear-progress indeterminate color="deep-purple-3" track-color="grey-8" rounded />
+        </q-card-section>
+      </q-card>
+    </q-dialog>
+
     <q-dialog v-model="isCityPickerOpen" position="bottom">
       <q-card class="desma-feed-component__publish-card">
         <q-card-section>
@@ -283,6 +298,9 @@ const selectedVideoBase64 = ref(null)
 const selectedVideoError = ref('')
 const selectedVideoSource = ref('record')
 const publishingVideo = ref(false)
+const publishingStage = ref('idle')
+const publishingStageLabel = ref('Preparando video...')
+const publishingStageDetail = ref('')
 const commentDrafts = reactive({})
 const postRefs = reactive({})
 const videoRefs = reactive({})
@@ -543,10 +561,24 @@ async function onVideoSelected(event) {
   }
 }
 
+function updatePublishingStage(stage, detail = '') {
+  publishingStage.value = stage
+  publishingStageDetail.value = detail
+  if (stage === 'preparing_media') publishingStageLabel.value = 'Preparando video...'
+  else if (stage === 'uploading_media') publishingStageLabel.value = 'Subiendo video...'
+  else if (stage === 'processing_video') publishingStageLabel.value = 'Procesando video...'
+  else if (stage === 'creating_post') publishingStageLabel.value = 'Creando publicacion...'
+  else if (stage === 'done') publishingStageLabel.value = 'Finalizando...'
+  else publishingStageLabel.value = 'Preparando video...'
+}
+
 function resetSelectedVideo() {
   selectedVideoName.value = 'Video listo para publicar o guardar personal.'
   selectedVideoBase64.value = null
   selectedVideoError.value = ''
+  publishingStage.value = 'idle'
+  publishingStageLabel.value = 'Preparando video...'
+  publishingStageDetail.value = ''
 }
 
 async function uploadSelectedDesmaVideo(result) {
@@ -559,22 +591,25 @@ async function uploadSelectedDesmaVideo(result) {
     throw new Error('Necesitas iniciar sesion para publicar.')
   }
 
+  const postId = `desma-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`
   const uploaded = await mediaService.uploadMedia({
     base64: selectedVideoBase64.value,
     mediaType: 'video',
     channel: result === 'personal' ? 'gallery' : 'feed_post',
-    entityId: session.userId,
+    entityId: result === 'personal' ? session.userId : postId,
     entityContext:
       result === 'personal'
         ? `antojados.desma.personal.${selectedVideoSource.value}`
         : `antojados.desma.${selectedVideoSource.value}`,
   })
-  const mediaUrl = mediaService.requireUploadedMediaUrl(uploaded, 'desma')
+  const mediaUrl = await mediaService.waitForUploadedMediaUrl(uploaded, 'desma')
 
   if (result === 'published') {
     const created = await publishService.createSocialPost({
+      post_id: postId,
       user_id: session.userId,
       feed_scope: 'desma',
+      venue_name: 'En el Desma',
       caption: selectedVideoName.value,
       description: selectedVideoName.value,
       city_code: cityCode.value || session.cityCode || null,
@@ -582,6 +617,7 @@ async function uploadSelectedDesmaVideo(result) {
       scope_code: scopeCode.value || null,
       media_url: mediaUrl,
       media_type: 'video',
+      media_intake_id: uploaded.intake_id || null,
     })
     return { session, uploaded, mediaUrl, postId: created.post_id || null }
   }
@@ -598,6 +634,7 @@ async function finishPublish(result) {
   }
 
   publishingVideo.value = true
+  updatePublishingStage('preparing_media')
   try {
     const outcome = await uploadSelectedDesmaVideo(result)
     await pushEvent({
@@ -628,6 +665,8 @@ async function finishPublish(result) {
     $q.notify({ type: 'negative', message: selectedVideoError.value })
   } finally {
     publishingVideo.value = false
+    publishingStage.value = 'idle'
+    publishingStageDetail.value = ''
   }
 }
 
@@ -832,7 +871,7 @@ onBeforeUnmount(() => {
 .desma-feed-component__rail {
   right: 8px;
   top: auto;
-  bottom: 132px;
+  bottom: 154px;
   transform: none;
   z-index: 8;
 }
@@ -973,6 +1012,11 @@ onBeforeUnmount(() => {
   opacity: 0.58;
 }
 
+.desma-feed-component__processing-card {
+  min-width: min(92vw, 360px);
+  border-radius: 16px;
+}
+
 @media (max-height: 700px) {
   .desma-feed-component {
     height: calc(100dvh - 184px);
@@ -988,7 +1032,7 @@ onBeforeUnmount(() => {
   }
 
   .desma-feed-component__rail {
-    bottom: 118px;
+    bottom: 142px;
   }
 }
 
@@ -1003,3 +1047,4 @@ onBeforeUnmount(() => {
   transform: translateX(10px);
 }
 </style>
+

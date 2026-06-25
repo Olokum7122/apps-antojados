@@ -1,5 +1,5 @@
 <template>
-  <div class="publish-fab-base">
+  <div v-if="access.visible" class="publish-fab-base">
     <q-btn
       fab
       :icon="imageSrc ? undefined : 'add'"
@@ -14,7 +14,8 @@
       :subdim-applies-to="subdimAppliesTo"
       :data-dim-code="dimCode"
       :data-code-component="codeComponent"
-      @click="isGuideOpen = true"
+      :disable="!access.enabled"
+      @click="openGuide"
     >
       <img v-if="imageSrc" :src="imageSrc" alt="" class="publish-fab-base__image" />
       <q-tooltip>{{ tooltip }}</q-tooltip>
@@ -56,9 +57,10 @@
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { computed, ref } from 'vue'
+import { gtAccessRevision, resolveGtMetadataAccessSync } from '@antojados/api/services/gt/gt-access.service'
 
-defineProps({
+const props = defineProps({
   color: { type: String, default: 'primary' },
   textColor: { type: String, default: 'dark' },
   tooltip: { type: String, required: true },
@@ -78,7 +80,29 @@ defineProps({
 const emit = defineEmits(['confirm'])
 const isGuideOpen = ref(false)
 
+const access = computed(() => {
+  gtAccessRevision.value
+  return resolveGtMetadataAccessSync({
+    ik: props.subdimIk,
+    pc: props.subdimPc,
+    dim_code: props.dimCode,
+    appliesTo: props.subdimAppliesTo,
+    level: props.subdimType,
+    subdimType: props.subdimType,
+    codeComponent: props.codeComponent,
+  })
+})
+
+function openGuide() {
+  if (!access.value.visible || !access.value.enabled) return
+  isGuideOpen.value = true
+}
+
 function confirm() {
+  if (!access.value.visible || !access.value.enabled) {
+    isGuideOpen.value = false
+    return
+  }
   isGuideOpen.value = false
   emit('confirm')
 }

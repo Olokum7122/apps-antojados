@@ -29,6 +29,7 @@ import type {
   SponsorRegisterInput,
   TragonSession,
 } from '@antojados/api/types/auth'
+import { clearGtAccessCache, primeGtAccessForSession } from '@antojados/api/services/gt/gt-access.service'
 
 const ACTIVE_SESSION_KEY = 'antojados.session'
 
@@ -326,6 +327,7 @@ export class AuthService {
 
   async setSession(session: TragonSession): Promise<void> {
     await secureStorage.set(ACTIVE_SESSION_KEY, JSON.stringify(session))
+    await primeGtAccessForSession(session)
   }
 
   async clearSession(): Promise<void> {
@@ -333,6 +335,7 @@ export class AuthService {
       secureStorage.remove(ACTIVE_SESSION_KEY),
       clearTokens(),
     ])
+    clearGtAccessCache()
   }
 
   async getSession(): Promise<TragonSession | null> {
@@ -340,7 +343,9 @@ export class AuthService {
     if (!value) return null
 
     try {
-      return JSON.parse(value) as TragonSession
+      const session = JSON.parse(value) as TragonSession
+      await primeGtAccessForSession(session)
+      return session
     } catch {
       return null
     }
@@ -514,7 +519,7 @@ export class AuthService {
       tenantUserId = null
     }
 
-    if (sponsorWorkspaceInstanceId) {
+    if (preferredType === 'sponsor' && sponsorWorkspaceInstanceId) {
       return {
         domainContext: 'sponsor',
         instanceType: 'sponsor',
@@ -532,12 +537,30 @@ export class AuthService {
       }
     }
 
+    if (preferredType === 'user' && userInstanceId) {
+      return {
+        domainContext: 'user',
+        instanceType: 'user',
+        instanceId: userInstanceId,
+        tenantUserId: null,
+      }
+    }
+
     if (userInstanceId) {
       return {
         domainContext: 'user',
         instanceType: 'user',
         instanceId: userInstanceId,
         tenantUserId: null,
+      }
+    }
+
+    if (sponsorWorkspaceInstanceId) {
+      return {
+        domainContext: 'sponsor',
+        instanceType: 'sponsor',
+        instanceId: sponsorWorkspaceInstanceId,
+        tenantUserId,
       }
     }
 

@@ -175,19 +175,21 @@ async function submit() {
     if (!session?.userId) throw new Error('Necesitas iniciar sesion para publicar.')
     if (!mediaBase64.value) throw new Error('Selecciona una foto para publicar en La Neta.')
 
+    const postId = `neta-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`
     const uploaded = await mediaService.uploadMedia({
       base64: mediaBase64.value,
       mediaType: mediaType.value,
       channel: 'feed_post',
-      entityId: session.userId,
+      entityId: postId,
       entityContext: `antojados.la_neta.${selectedSource.value}`,
     })
-    const mediaUrl = mediaService.requireUploadedMediaUrl(uploaded, 'la_neta')
+    const mediaUrl = await mediaService.waitForUploadedMediaUrl(uploaded, 'la_neta')
 
     const result = await publishService.createSocialPost({
+      post_id: postId,
       user_id: session.userId,
       feed_scope: 'la-neta',
-      venue_name: venueName.value.trim() || null,
+      venue_name: venueName.value.trim() || 'Sin ubicacion',
       caption: caption.value.trim() || null,
       description: caption.value.trim() || null,
       city_code: cityCode.value || session.cityCode || null,
@@ -195,6 +197,7 @@ async function submit() {
       scope_code: scopeCode.value || null,
       media_url: mediaUrl,
       media_type: mediaType.value,
+      media_intake_id: uploaded.intake_id || null,
     })
 
     $q.notify({ type: 'positive', message: 'Resena publicada.' })

@@ -1,5 +1,5 @@
 <template>
-  <section>
+  <section v-if="access.visible">
     <tab-bar-component-base
       :model-value="activeTab"
       :tabs="tabs"
@@ -13,15 +13,29 @@
 </template>
 
 <script setup>
-import { computed } from 'vue'
+import { computed, watchEffect } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import TabBarComponentBase from '@antojados/ui/base/TabBarComponentBase.vue'
 import { DIMENSION_CONTEXTS, MI_CHAMBA_TABS } from '@antojados/ui/dimensions/navigationDimensions.js'
+import { gtAccessRevision, resolveGtMetadataAccessSync } from '@antojados/api/services/gt/gt-access.service'
 
 const route = useRoute()
 const router = useRouter()
 
 const tabs = MI_CHAMBA_TABS
+
+const access = computed(() => {
+  gtAccessRevision.value
+  return resolveGtMetadataAccessSync({
+    ik: 'MI_CHAMBA',
+    pc: 'ANTOJO',
+    dim_code: 'ANTOJO.MI_CHAMBA',
+    appliesTo: 'sponsor',
+    level: 'COMPONENT',
+    subdimType: 'COMPONENT',
+    codeComponent: 'ANTOJO.MI_CHAMBA.TAB',
+  })
+})
 
 const activeTab = computed(() => {
   if (route.path.includes('/e-firma')) return 'e-firma'
@@ -41,4 +55,10 @@ function onTabChange(next) {
     router.push(selected.route)
   }
 }
+
+watchEffect(() => {
+  if (!access.value.visible && route.path.startsWith('/antojo/mi-chamba')) {
+    router.replace('/antojo/vas-ir/gallery')
+  }
+})
 </script>

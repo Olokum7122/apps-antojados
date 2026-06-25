@@ -23,17 +23,20 @@
       <div :class="classes.media" @click="toggleRail">
         <slot name="media" :post="safePost">
           <video
-            v-if="isVideo"
-            :src="safePost.mediaUrl"
+            v-if="hasPlayableVideo"
+            ref="videoRef"
+            :src="videoSource"
+            :poster="videoPoster"
             class="base-feed-fullscreen__asset"
             autoplay
-            muted
+            :muted="isMuted"
             loop
             playsinline
+            @click.stop="toggleVideoPause"
           />
           <img
-            v-else-if="safePost.mediaUrl"
-            :src="safePost.mediaUrl"
+            v-else-if="fullscreenMediaUrl"
+            :src="fullscreenMediaUrl"
             class="base-feed-fullscreen__asset"
             :class="mediaFit === 'contain' ? 'base-feed-fullscreen__asset--contain' : ''"
           />
@@ -41,6 +44,15 @@
         </slot>
 
         <div v-if="showScrim" class="base-feed-fullscreen__scrim" />
+
+        <fullscreen-video-controls-base
+          :muted="isMuted"
+          :paused="isPaused"
+          :show-media-controls="hasPlayableVideo"
+          @back="closeDialog"
+          @toggle-mute="toggleVideoMute"
+          @toggle-pause="toggleVideoPause"
+        />
 
         <post-action-rail-base
           v-if="showActionRail && effectiveRailVisible"
@@ -67,16 +79,6 @@
           </slot>
         </div>
 
-        <q-btn
-          flat
-          round
-          icon="arrow_back"
-          color="white"
-          size="md"
-          aria-label="Regresar"
-          :class="classes.close"
-          @click.stop="closeDialog"
-        />
       </div>
 
       <div
@@ -154,10 +156,11 @@
 </template>
 
 <script setup>
-import { computed, ref } from 'vue'
+import { computed, nextTick, ref, watch } from 'vue'
 import { resolveBaseComponentClasses } from '@antojados/ui/services/base/baseComponentsResolver'
 import CommentsInputBase from '@antojados/ui/base/CommentsInputBase.vue'
 import FeedGalleryBase from '@antojados/ui/base/FeedGalleryBase.vue'
+import FullscreenVideoControlsBase from '@antojados/ui/base/FullscreenVideoControlsBase.vue'
 import PostActionRailBase from '@antojados/ui/base/PostActionRailBase.vue'
 
 const props = defineProps({
@@ -268,7 +271,10 @@ const emit = defineEmits([
   'select-associated',
   'send-comment',
 ])
-const internalRailVisible = ref(false)
+const internalRailVisible = ref(true)
+const videoRef = ref(null)
+const isMuted = ref(true)
+const isPaused = ref(false)
 
 const classes = resolveBaseComponentClasses('feedFullscreen', {
   variant: props.variant,
@@ -277,6 +283,12 @@ const classes = resolveBaseComponentClasses('feedFullscreen', {
 })
 const safePost = computed(() => props.post || {})
 const isVideo = computed(() => String(safePost.value?.mediaType || '').toLowerCase() === 'video')
+const fullscreenMediaUrl = computed(
+  () => safePost.value?.mediaUrl || safePost.value?.mediaThumbUrl || safePost.value?.thumbnailUrl || '',
+)
+const videoSource = computed(() => safePost.value?.mediaUrl || '')
+const videoPoster = computed(() => safePost.value?.mediaThumbUrl || safePost.value?.thumbnailUrl || '')
+const hasPlayableVideo = computed(() => isVideo.value && Boolean(videoSource.value))
 const titleLabel = computed(() => safePost.value?.title || safePost.value?.venue || safePost.value?.venueName || '')
 const subtitleLabel = computed(() => safePost.value?.subtitle || safePost.value?.author || safePost.value?.authorHandle || '')
 const captionLabel = computed(() => safePost.value?.caption || '')
@@ -286,6 +298,25 @@ const effectiveRailVisible = computed(() =>
 const hasFixedComments = computed(() => props.showComments || props.comments.length > 0 || Boolean(slots.comments))
 
 const slots = defineSlots()
+
+function syncVideoState() {
+  if (!videoRef.value) return
+  videoRef.value.muted = isMuted.value
+  if (isPaused.value) {
+    videoRef.value.pause()
+    return
+  }
+  void videoRef.value.play().catch(() => undefined)
+}
+
+watch(
+  () => safePost.value?.id || fullscreenMediaUrl.value,
+  () => {
+    isMuted.value = true
+    isPaused.value = false
+    void nextTick(syncVideoState)
+  },
+)
 
 function toggleRail() {
   if (props.railVisible === null) {
@@ -297,6 +328,16 @@ function toggleRail() {
 function closeDialog() {
   emit('update:modelValue', false)
   emit('close')
+}
+
+function toggleVideoMute() {
+  isMuted.value = !isMuted.value
+  syncVideoState()
+}
+
+function toggleVideoPause() {
+  isPaused.value = !isPaused.value
+  syncVideoState()
 }
 
 function onActionRail(actionKey) {

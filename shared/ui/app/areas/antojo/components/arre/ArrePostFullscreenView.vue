@@ -42,48 +42,6 @@
       @select-associated="selectAssociated"
       @send-comment="addComment"
     >
-      <template #media="{ post: item }">
-        <div class="arre-post-fullscreen-view__media-shell">
-          <video
-            v-if="isVideoPost(item)"
-            ref="videoRef"
-            :src="item.mediaUrl"
-            class="arre-post-fullscreen-view__media"
-            :muted="isMuted"
-            playsinline
-            loop
-            autoplay
-          />
-          <img
-            v-else-if="item.mediaUrl"
-            :src="item.mediaUrl"
-            class="arre-post-fullscreen-view__media"
-          />
-          <div v-else class="arre-post-fullscreen-view__media arre-post-fullscreen-view__media--empty" />
-
-          <div v-if="isVideoPost(item)" class="arre-post-fullscreen-view__video-controls">
-            <q-btn
-              flat
-              round
-              color="white"
-              size="md"
-              :icon="isMuted ? 'volume_off' : 'volume_up'"
-              class="arre-post-fullscreen-view__control-btn"
-              @click.stop="toggleMuted"
-            />
-            <q-btn
-              flat
-              round
-              color="white"
-              size="md"
-              :icon="isPaused ? 'play_arrow' : 'pause'"
-              class="arre-post-fullscreen-view__control-btn"
-              @click.stop="togglePaused"
-            />
-          </div>
-        </div>
-      </template>
-
       <template #overlay="{ post: item }">
         <div class="arre-post-fullscreen-view__copy">
           <q-badge color="deep-purple-6" text-color="white">{{ item.postTypeLabel }}</q-badge>
@@ -106,7 +64,7 @@
 </template>
 
 <script setup>
-import { computed, nextTick, ref, watch } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import FeedFullscreenBase from '@antojados/ui/base/FeedFullscreenBase.vue'
 import { bizFeedService } from '@antojados/api/services'
@@ -117,9 +75,6 @@ const publisherId = computed(() => String(route.params.publisher_id || ''))
 const post = ref(null)
 const associatedMediaItems = ref([])
 const localComments = ref([])
-const videoRef = ref(null)
-const isMuted = ref(false)
-const isPaused = ref(false)
 const heroPost = computed(() => post.value || {})
 const comments = computed(() => [...(post.value?.comments || []), ...localComments.value])
 const postActions = computed(() => [
@@ -149,42 +104,9 @@ watch(
       resolvedPublisherId && post.value
         ? publisherPosts.filter((item) => item.id !== post.value?.id)
         : []
-    isMuted.value = false
-    isPaused.value = false
-    await nextTick()
-    syncVideo()
   },
   { immediate: true },
 )
-
-watch([isMuted, isPaused, post], async () => {
-  await nextTick()
-  syncVideo()
-})
-
-function isVideoPost(item) {
-  return String(item?.mediaType || '')
-    .trim()
-    .toLowerCase() === 'video'
-}
-
-function syncVideo() {
-  if (!videoRef.value) return
-  videoRef.value.muted = isMuted.value
-  if (isPaused.value) {
-    videoRef.value.pause()
-    return
-  }
-  void videoRef.value.play().catch(() => undefined)
-}
-
-function toggleMuted() {
-  isMuted.value = !isMuted.value
-}
-
-function togglePaused() {
-  isPaused.value = !isPaused.value
-}
 
 function selectAssociated(item) {
   if (!item?.id) return
@@ -214,47 +136,6 @@ function addComment(text) {
 .arre-post-fullscreen-view {
   min-height: 100%;
   background: #000;
-}
-
-.arre-post-fullscreen-view__media-shell {
-  position: relative;
-  width: 100%;
-  height: 100%;
-}
-
-.arre-post-fullscreen-view__media,
-.arre-post-fullscreen-view__media--empty {
-  width: 100%;
-  height: 100%;
-  display: block;
-  object-fit: cover;
-}
-
-.arre-post-fullscreen-view__media--empty {
-  background: linear-gradient(135deg, #141824, #06080d);
-}
-
-.arre-post-fullscreen-view__video-controls {
-  position: absolute;
-  top: max(10px, env(safe-area-inset-top));
-  left: 72px;
-  z-index: 8;
-  display: flex;
-  gap: 8px;
-}
-
-.arre-post-fullscreen-view__control-btn {
-  width: 52px;
-  height: 52px;
-  min-width: 52px;
-  min-height: 52px;
-  background: rgba(0, 0, 0, 0.42);
-  backdrop-filter: blur(8px);
-  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.34);
-}
-
-.arre-post-fullscreen-view__control-btn :deep(.q-icon) {
-  font-size: 28px;
 }
 
 .arre-post-fullscreen-view__copy {

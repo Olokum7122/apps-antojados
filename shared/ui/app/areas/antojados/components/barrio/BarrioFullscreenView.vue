@@ -74,10 +74,11 @@ const actions = computed(() => [
 ])
 
 watch(
-  () => [route.params.post_id, route.query.user_id],
-  async ([postId, userId]) => {
+  () => [route.params.post_id, route.query.user_id, route.query.feed_type],
+  async ([postId, userId, feedType]) => {
     const resolvedPostId = String(postId || '')
     const resolvedUserId = String(userId || '')
+    const resolvedScope = resolveFullscreenScope(feedType)
 
     if (!resolvedPostId) {
       post.value = null
@@ -85,10 +86,10 @@ watch(
       return
     }
 
-    const userPosts = resolvedUserId ? await socialFeedService.listByUser(resolvedUserId, 'barrio') : []
+    const userPosts = resolvedUserId ? await socialFeedService.listByUser(resolvedUserId, resolvedScope) : []
     post.value =
       userPosts.find((item) => item.id === resolvedPostId) ||
-      (await socialFeedService.getById(resolvedPostId, 'barrio'))
+      (await socialFeedService.getById(resolvedPostId, resolvedScope))
 
     associatedPosts.value = userPosts.filter((item) => item.id !== resolvedPostId)
   },
@@ -96,12 +97,26 @@ watch(
 )
 
 function goBack() {
-  router.push('/red/barrio')
+  const returnTo = typeof route.query.return_to === 'string' ? route.query.return_to : '/red/barrio'
+  router.replace(returnTo.startsWith('/red/barrio') ? returnTo : '/red/barrio')
 }
 
 function openAssociatedPost(item) {
   if (!item?.id) return
-  router.push(`/red/barrio/fullscreen/${item.id}?user_id=${item.userId || route.query.user_id || ''}`)
+  router.push({
+    path: `/red/barrio/fullscreen/${item.id}`,
+    query: {
+      user_id: item.userId || route.query.user_id || '',
+      feed_type: String(item.feedType || route.query.feed_type || '').trim().toLowerCase(),
+      return_to: route.query.return_to || '/red/barrio',
+    },
+  })
+}
+
+function resolveFullscreenScope(feedType) {
+  const normalized = String(feedType || '').trim().toLowerCase()
+  if (normalized === 'pachanga' || normalized === 'momentos') return 'pachanga'
+  return 'barrio'
 }
 
 function syncAction(eventType, payload) {

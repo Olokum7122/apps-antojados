@@ -114,6 +114,21 @@
         />
       </template>
     </feed-flow-orchestrator-base>
+    <q-dialog v-model="publishing" persistent>
+      <q-card class="publish-processing-card bg-grey-10 text-white">
+        <q-card-section class="row items-center q-gutter-sm">
+          <q-spinner-dots color="primary" size="34px" />
+          <div>
+            <div class="text-subtitle2">{{ publishingStageLabel }}</div>
+            <div class="text-caption text-grey-5">{{ publishingStageDetail || 'No cierres esta pantalla mientras termina el intake.' }}</div>
+          </div>
+        </q-card-section>
+        <q-card-section>
+          <q-linear-progress indeterminate color="primary" track-color="grey-8" rounded />
+        </q-card-section>
+      </q-card>
+    </q-dialog>
+
   </section>
 </template>
 
@@ -123,7 +138,8 @@ import { useQuasar } from 'quasar'
 import { useRouter } from 'vue-router'
 import FeedFlowOrchestratorBase from '@antojados/ui/base/FeedFlowOrchestratorBase.vue'
 import { useLocationScope } from '@antojados/api/composables/useLocationScope'
-import { mediaService, publishService } from '@antojados/api/services'
+import { publishService } from '@antojados/api/services'
+import { resolveMediaUploadStageLabel, uploadPublishMediaFlow } from '@antojados/api/services/media/media-publish-flow.service'
 import { usePublishMedia } from '@antojados/api/composables/usePublishMedia'
 import { getSharedSession } from '@antojados/api/storage/session.storage'
 
@@ -140,6 +156,8 @@ const selectedMediaSource = ref('photo')
 const venueName = ref('Demo Venue Pachanga')
 const caption = ref('Pachanga en vivo con la banda.')
 const publishing = ref(false)
+const publishingStageLabel = ref('Preparando video...')
+const publishingStageDetail = ref('')
 const {
   photoInputRef,
   videoInputRef,
@@ -180,24 +198,32 @@ function selectMediaSource(sourceKey) {
 async function submit() {
   if (publishing.value) return
   publishing.value = true
+  publishingStageLabel.value = resolveMediaUploadStageLabel('preparing_media')
+  publishingStageDetail.value = ''
   try {
     const session = await getSharedSession()
     if (!session?.userId) throw new Error('Necesitas iniciar sesion para publicar.')
     if (!mediaBase64.value) throw new Error('Selecciona una foto o video para publicar en Pachanga.')
 
-    const uploaded = await mediaService.uploadMedia({
+    const postId = `pachanga-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`
+    const { uploaded, mediaUrl } = await uploadPublishMediaFlow({
       base64: mediaBase64.value,
       mediaType: mediaType.value,
       channel: 'feed_post',
-      entityId: session.userId,
+      entityId: postId,
       entityContext: `antojados.pachanga.${selectedSource.value}`,
+      context: 'pachanga',
+      onStage: (stage, detail = '') => {
+        publishingStageLabel.value = resolveMediaUploadStageLabel(stage)
+        publishingStageDetail.value = detail
+      },
     })
-    const mediaUrl = mediaService.requireUploadedMediaUrl(uploaded, 'pachanga')
 
     const result = await publishService.createSocialPost({
+      post_id: postId,
       user_id: session.userId,
       feed_scope: 'pachanga',
-      venue_name: venueName.value.trim() || null,
+      venue_name: venueName.value.trim() || 'Sin ubicacion',
       caption: caption.value.trim() || null,
       description: caption.value.trim() || null,
       city_code: cityCode.value || session.cityCode || null,
@@ -205,6 +231,7 @@ async function submit() {
       scope_code: scopeCode.value || null,
       media_url: mediaUrl,
       media_type: mediaType.value,
+      media_intake_id: uploaded.intake_id || null,
     })
 
     $q.notify({ type: 'positive', message: 'Pachanga publicada.' })
@@ -213,6 +240,8 @@ async function submit() {
     $q.notify({ type: 'negative', message: error?.message || 'No se pudo publicar.' })
   } finally {
     publishing.value = false
+    publishingStageLabel.value = resolveMediaUploadStageLabel('preparing_media')
+    publishingStageDetail.value = ''
   }
 }
 </script>
@@ -316,5 +345,10 @@ async function submit() {
 .publicar-pachanga-view__media-error {
   color: #fca5a5;
   font-size: 12px;
+}
+
+.publish-processing-card {
+  min-width: min(92vw, 360px);
+  border-radius: 16px;
 }
 </style>

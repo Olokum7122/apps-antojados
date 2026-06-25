@@ -72,6 +72,7 @@ export const API_ENDPOINTS = {
   },
   media: {
     upload: '/api/v1/antojados/media/upload',
+    intake: (intakeId: string) => `/api/v1/antojados/media/intake/${encodeURIComponent(intakeId)}`,
   },
   efirma: {
     create: '/api/v1/antojados/gt/efirma/create',
@@ -84,6 +85,14 @@ export const API_ENDPOINTS = {
     catalog: (instanceId: string) => `/api/v1/antojados/gt/instances/${encodeURIComponent(instanceId)}/modules/catalog`,
     operations: (instanceId: string) => `/api/v1/antojados/gt/instances/${encodeURIComponent(instanceId)}/modules/operations`,
     audit: (instanceId: string) => `/api/v1/antojados/gt/instances/${encodeURIComponent(instanceId)}/modules/audit`,
+  },
+  gt: {
+    dimensions: '/api/v1/antojados/gt/dimensions',
+    subDimensions: '/api/v1/antojados/gt/sub-dimensions',
+    template: (code: string) => `/api/v1/antojados/gt/templates/${encodeURIComponent(code)}`,
+    checkedDimensions: (instanceId: string) => `/api/v1/antojados/gt/instances/${encodeURIComponent(instanceId)}/checked/dimensions`,
+    checkedSubDimensions: (instanceId: string) => `/api/v1/antojados/gt/instances/${encodeURIComponent(instanceId)}/checked/sub-dimensions`,
+    checkedEvents: (instanceId: string) => `/api/v1/antojados/gt/instances/${encodeURIComponent(instanceId)}/checked/events`,
   },
   bizPosts: {
     feed: '/api/v1/antojados/biz/feed',

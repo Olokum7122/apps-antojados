@@ -127,6 +127,21 @@
         />
       </template>
     </feed-flow-orchestrator-base>
+    <q-dialog v-model="publishing" persistent>
+      <q-card class="publish-processing-card bg-grey-10 text-white">
+        <q-card-section class="row items-center q-gutter-sm">
+          <q-spinner-dots color="primary" size="34px" />
+          <div>
+            <div class="text-subtitle2">{{ publishingStageLabel }}</div>
+            <div class="text-caption text-grey-5">{{ publishingStageDetail || 'No cierres esta pantalla mientras termina el intake.' }}</div>
+          </div>
+        </q-card-section>
+        <q-card-section>
+          <q-linear-progress indeterminate color="primary" track-color="grey-8" rounded />
+        </q-card-section>
+      </q-card>
+    </q-dialog>
+
   </section>
 </template>
 
@@ -136,7 +151,8 @@ import { useQuasar } from 'quasar'
 import { useRouter } from 'vue-router'
 import FeedFlowOrchestratorBase from '@antojados/ui/base/FeedFlowOrchestratorBase.vue'
 import { VAS_IR_POST_TYPES } from '@antojados/ui/mocks/uiFeeds'
-import { mediaService, publishService } from '@antojados/api/services'
+import { publishService } from '@antojados/api/services'
+import { resolveMediaUploadStageLabel, uploadPublishMediaFlow } from '@antojados/api/services/media/media-publish-flow.service'
 import { usePublishMedia } from '@antojados/api/composables/usePublishMedia'
 import { getSharedSession } from '@antojados/api/storage/session.storage'
 
@@ -152,6 +168,8 @@ const selectedType = ref('promo')
 const selectedMediaSource = ref('photo')
 const caption = ref('Promo nueva para que la banda se anime a venir.')
 const publishing = ref(false)
+const publishingStageLabel = ref('Preparando video...')
+const publishingStageDetail = ref('')
 const {
   photoInputRef,
   videoInputRef,
@@ -200,6 +218,8 @@ function selectMediaSource(sourceKey) {
 async function submit() {
   if (publishing.value) return
   publishing.value = true
+  publishingStageLabel.value = resolveMediaUploadStageLabel('preparing_media')
+  publishingStageDetail.value = ''
   try {
     const session = await getSharedSession()
     if (!session?.userId || !session?.placeId) {
@@ -207,14 +227,18 @@ async function submit() {
     }
     if (!mediaBase64.value) throw new Error('Selecciona una foto o video para publicar en Vas Ir.')
 
-    const uploaded = await mediaService.uploadMedia({
+    const { mediaUrl } = await uploadPublishMediaFlow({
       base64: mediaBase64.value,
       mediaType: mediaType.value,
       channel: 'biz_post',
       entityId: session.placeId,
       entityContext: `antojo.vas_ir.${selectedSource.value}`,
+      context: 'vas_ir',
+      onStage: (stage, detail = '') => {
+        publishingStageLabel.value = resolveMediaUploadStageLabel(stage)
+        publishingStageDetail.value = detail
+      },
     })
-    const mediaUrl = mediaService.requireUploadedMediaUrl(uploaded, 'vas_ir')
 
     const result = await publishService.createBizPost({
       place_id: session.placeId,
@@ -234,6 +258,8 @@ async function submit() {
     $q.notify({ type: 'negative', message: error?.message || 'No se pudo publicar.' })
   } finally {
     publishing.value = false
+    publishingStageLabel.value = resolveMediaUploadStageLabel('preparing_media')
+    publishingStageDetail.value = ''
   }
 }
 </script>
@@ -361,5 +387,10 @@ async function submit() {
 .publicar-vasir-view__media-error {
   color: #fca5a5;
   font-size: 12px;
+}
+
+.publish-processing-card {
+  min-width: min(92vw, 360px);
+  border-radius: 16px;
 }
 </style>

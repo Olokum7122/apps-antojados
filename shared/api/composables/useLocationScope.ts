@@ -22,7 +22,7 @@ export const DEFAULT_ALLOWED_SCOPES: Record<LocationFeedKey, ScopeLevel[]> = {
   vas_ir: ['mexico', 'zona', 'ciudad'],
   arre: ['mexico', 'zona', 'ciudad'],
   los_chidos: ['mexico', 'zona', 'ciudad'],
-  barrio: ['global', 'mexico', 'zona', 'ciudad'],
+  barrio: ['global', 'mexico'],
   pachanga: ['mexico', 'zona', 'ciudad'],
   la_neta: ['mexico', 'zona', 'ciudad'],
   desma: ['mexico', 'zona', 'ciudad'],

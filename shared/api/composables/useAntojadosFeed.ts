@@ -25,6 +25,21 @@ function isLaNetaType(feedType: string | null | undefined): boolean {
 }
 
 function filterScopePosts(posts: FeedItem[], scope: AntojadosFeedScope): FeedItem[] {
+  if (scope === 'barrio') {
+    return posts.filter((post) => {
+      const feedType = normalizeFeedType(post.feedType)
+      const mediaType = normalizeMediaType(post.mediaType)
+      const hasMedia = Boolean(post.mediaUrl || post.mediaThumbUrl)
+
+      return (
+        hasMedia &&
+        (feedType === 'barrio' ||
+          isPachangaType(feedType) ||
+          (feedType === 'desma' && mediaType === 'video'))
+      )
+    })
+  }
+
   if (scope === 'pachanga') {
     return posts.filter((post) => isPachangaType(post.feedType))
   }
@@ -42,9 +57,7 @@ function filterScopePosts(posts: FeedItem[], scope: AntojadosFeedScope): FeedIte
     )
   }
 
-  return posts.filter(
-    (post) => normalizeFeedType(post.feedType) === 'barrio' && Boolean(post.mediaUrl || post.mediaThumbUrl),
-  )
+  return posts.filter((post) => Boolean(post.mediaUrl || post.mediaThumbUrl))
 }
 
 export function useAntojadosFeed(scope: AntojadosFeedScope) {
@@ -58,7 +71,7 @@ export function useAntojadosFeed(scope: AntojadosFeedScope) {
 
     try {
       const allPosts = await socialFeedService.list({
-        scope,
+        scope: scope === 'barrio' ? undefined : scope,
         limit: 40,
         cityCode: options.cityCode,
         scopeLevel: options.scopeLevel,

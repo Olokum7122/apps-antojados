@@ -1,4 +1,4 @@
-import { httpClient } from '@antojados/http/client'
+﻿import { httpClient } from '@antojados/http/client'
 import { API_ENDPOINTS } from '@antojados/http/endpoints'
 import type { MediaUploadInput, MediaUploadResult } from '@antojados/api/types/publish'
 
@@ -20,8 +20,21 @@ export async function uploadMedia(input: MediaUploadInput): Promise<MediaUploadR
   return data
 }
 
+export async function getIntakeStatus(intakeId: string): Promise<MediaUploadResult | null> {
+  if (!intakeId) return null
+  const { data } = await httpClient.get<MediaUploadResult>(API_ENDPOINTS.media.intake(intakeId))
+  return data
+}
+
 export function resolveUploadedMediaUrl(result: MediaUploadResult): string | null {
-  return result.feed_url || result.full_url || result.media_url || result.thumb_url || null
+  return result.video_720_url ||
+    result.video_1080_url ||
+    result.feed_url ||
+    result.full_url ||
+    result.media_url ||
+    result.thumb_url ||
+    result.media_thumbnail_url ||
+    null
 }
 
 export function requireUploadedMediaUrl(result: MediaUploadResult, context = 'media'): string {
@@ -31,3 +44,46 @@ export function requireUploadedMediaUrl(result: MediaUploadResult, context = 'me
   }
   return mediaUrl
 }
+
+function delay(ms: number): Promise<void> {
+  return new Promise((resolve) => {
+    globalThis.setTimeout(resolve, ms)
+  })
+}
+
+export async function waitForUploadedMediaUrl(
+  result: MediaUploadResult,
+  context = 'media',
+  options: {
+    attempts?: number
+    intervalMs?: number
+    onStatus?: (status: MediaUploadResult | null, meta: { attempt: number; attempts: number }) => void
+  } = {},
+): Promise<string> {
+  const immediateUrl = resolveUploadedMediaUrl(result)
+  if (immediateUrl) return immediateUrl
+
+  const intakeId = result.intake_id
+  if (!intakeId) {
+    throw new Error(`El intake de ${context} no devolvio URL normalizada.`)
+  }
+
+  const attempts = options.attempts ?? 80
+  const intervalMs = options.intervalMs ?? 3000
+
+  for (let index = 0; index < attempts; index += 1) {
+    if (index > 0) await delay(intervalMs)
+    const status = await getIntakeStatus(intakeId)
+    options.onStatus?.(status, { attempt: index + 1, attempts })
+    if (!status) continue
+    if (status.status === 'error') {
+      throw new Error(status.error_msg || `El intake de ${context} fallo al procesar el video.`)
+    }
+    const url = resolveUploadedMediaUrl(status)
+    if (url) return url
+  }
+
+  throw new Error(`El intake de ${context} sigue procesando el video. Intenta de nuevo en unos minutos.`)
+}
+
+

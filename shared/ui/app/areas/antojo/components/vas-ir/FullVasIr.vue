@@ -1,10 +1,18 @@
 <template>
   <section class="vasir-full-view">
     <feed-fullscreen-base
-      v-model="open"
+      :model-value="true"
+      stage="S3"
+      presentation="inline"
       :post="currentPost"
       :show-action-rail="true"
       :action-rail-actions="vasIrActions"
+      action-rail-density="compact"
+      media-fit="cover"
+      :associated-items="associatedPosts"
+      associated-variant="businessMasonry"
+      associated-model="androidMosaic"
+      associated-tile-variant="business"
       action-rail-subdim-ik="VASIR_ACTION_RAIL"
       action-rail-subdim-pc="ANTOJO.VAS_IR"
       action-rail-subdim-type="SUB_COMPONENT"
@@ -15,32 +23,13 @@
       subdim-type="FULLSCREEN"
       subdim-applies-to="all"
       code-component="VAS_IR.FULLSCREEN"
+      @close="goBack"
       @rail-action="onRailAction"
+      @select-associated="openAssociatedPost"
     >
-      <template #media="{ post }">
-        <div class="vasir-full-hero">
-          <q-img
-            v-if="post.mediaUrl"
-            :src="post.mediaUrl"
-            class="vasir-full-hero__img"
-            fit="cover"
-          />
-          <div v-else class="vasir-full-hero__fallback" />
-          <div class="vasir-full-hero__gallery">
-            <q-chip
-              v-for="thumb in heroThumbs"
-              :key="thumb.id"
-              clickable
-              @click="currentPost = thumb"
-            >
-              {{ thumb.title }}
-            </q-chip>
-          </div>
-        </div>
-      </template>
-
-      <template #default="{ post }">
+      <template #overlay="{ post }">
         <div class="vasir-full-copy">
+          <q-badge color="primary" text-color="dark">VAS IR</q-badge>
           <div class="vasir-full-copy__title">{{ post.title }}</div>
           <div class="vasir-full-copy__body">{{ post.caption || 'Vista completa de Vas Ir' }}</div>
         </div>
@@ -51,13 +40,14 @@
 
 <script setup>
 import { onMounted, ref, watch } from 'vue'
+import { useRouter } from 'vue-router'
 import FeedFullscreenBase from '@antojados/ui/base/FeedFullscreenBase.vue'
 import { bizFeedService } from '@antojados/api/services'
 import { useLocationScope } from '@antojados/api/composables/useLocationScope'
 
-const open = ref(true)
+const router = useRouter()
 const currentPost = ref({})
-const heroThumbs = ref([])
+const associatedPosts = ref([])
 const { cityCode, scopeLevel, scopeCode } = useLocationScope('vas_ir')
 const vasIrActions = ref([
   { key: 'chocalas', label: 'Chocalas', icon: 'front_hand', count: 0 },
@@ -76,16 +66,11 @@ async function loadFeed() {
       scopeLevel: scopeLevel.value,
       scopeCode: scopeCode.value,
     })
-    heroThumbs.value = feedPosts.slice(0, 5).map((post) => ({
-      id: post.id,
-      title: post.venueName || post.authorHandle || 'Vas Ir',
-      mediaUrl: post.mediaUrl,
-      caption: post.caption,
-    }))
-    currentPost.value = heroThumbs.value[0] || {}
+    currentPost.value = feedPosts[0] || {}
+    associatedPosts.value = feedPosts.slice(1)
   } catch {
-    heroThumbs.value = []
     currentPost.value = {}
+    associatedPosts.value = []
   }
 }
 
@@ -96,6 +81,20 @@ onMounted(async () => {
 watch([scopeLevel, scopeCode], () => {
   void loadFeed()
 })
+
+function goBack() {
+  router.push('/antojo/vas-ir/gallery')
+}
+
+function openAssociatedPost(item) {
+  if (!item?.id) return
+  const nextCurrent = associatedPosts.value.find((post) => post.id === item.id) || item
+  associatedPosts.value = [
+    currentPost.value,
+    ...associatedPosts.value.filter((post) => post.id !== item.id),
+  ].filter((post) => post?.id)
+  currentPost.value = nextCurrent
+}
 
 function onRailAction(actionKey) {
   if (
@@ -108,3 +107,23 @@ function onRailAction(actionKey) {
   }
 }
 </script>
+
+<style scoped>
+.vasir-full-view {
+  min-height: 100%;
+  background: #000;
+}
+
+.vasir-full-copy {
+  display: grid;
+  gap: 6px;
+}
+
+.vasir-full-copy__title {
+  font-weight: 800;
+}
+
+.vasir-full-copy__body {
+  color: rgba(255, 255, 255, 0.78);
+}
+</style>
