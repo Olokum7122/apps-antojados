@@ -44,6 +44,9 @@ $CapCli = Join-Path $CapacitorRoot "node_modules\.bin\cap.cmd"
 $AndroidRoot = Join-Path $CapacitorRoot "android"
 $Gradle = Join-Path $AndroidRoot "gradlew.bat"
 $PackagedIndex = Join-Path $AndroidRoot "app\src\main\assets\public\index.html"
+$ApkPath = Join-Path $AndroidRoot "app\build\outputs\apk\debug\app-debug.apk"
+$StateRoot = Join-Path $PSScriptRoot "state"
+$LatestApkState = Join-Path $StateRoot "latest-android-apk.json"
 $PackageName = "com.atlx.antojadosmx"
 
 Step "Android deploy root: $Root"
@@ -68,7 +71,46 @@ if ($packagedBundle -ne $distBundle) {
   throw "Packaged Android bundle does not match dist build. dist=$distBundle packaged=$packagedBundle"
 }
 
-Run $Gradle @("installDebug") $AndroidRoot
+Run $Gradle @("assembleDebug") $AndroidRoot
+
+if (!(Test-Path -LiteralPath $ApkPath)) {
+  throw "Missing generated APK: $ApkPath"
+}
+
+if (!(Test-Path -LiteralPath $StateRoot)) {
+  New-Item -ItemType Directory -Path $StateRoot | Out-Null
+}
+
+$gradleBuild = Get-Content -LiteralPath (Join-Path $AndroidRoot "app\build.gradle") -Raw
+$versionNameMatch = [regex]::Match($gradleBuild, 'versionName\s+"([^"]+)"')
+$versionCodeMatch = [regex]::Match($gradleBuild, 'versionCode\s+(\d+)')
+$apkItem = Get-Item -LiteralPath $ApkPath
+$apkState = [ordered]@{
+  project = "apps/android-new"
+  platform = "android"
+  artifact_type = "apk-debug"
+  artifact_path = (Resolve-Path $ApkPath).Path
+  version_name = if ($versionNameMatch.Success) { $versionNameMatch.Groups[1].Value } else { $null }
+  version_code = if ($versionCodeMatch.Success) { [int]$versionCodeMatch.Groups[1].Value } else { $null }
+  size_bytes = $apkItem.Length
+  sha256 = (Get-FileHash -LiteralPath $ApkPath -Algorithm SHA256).Hash
+  dist_bundle = $distBundle
+  packaged_bundle = $packagedBundle
+  created_at = (Get-Date).ToString("o")
+  build_script = "apps/android-new/scripts/deploy-android-device.ps1"
+}
+$apkState | ConvertTo-Json -Depth 5 | Set-Content -LiteralPath $LatestApkState -Encoding UTF8
+
+Step "APK pipeline registered"
+Write-Host "  APK: $($apkState.artifact_path)" -ForegroundColor DarkGray
+Write-Host "  SHA256: $($apkState.sha256)" -ForegroundColor DarkGray
+
+$installArgs = @()
+if ($DeviceId.Trim()) {
+  $installArgs += @("-s", $DeviceId.Trim())
+}
+$installArgs += @("install", "-r", "-t", $ApkPath)
+Run "adb" $installArgs $Root
 
 $adbArgs = @()
 if ($DeviceId.Trim()) {

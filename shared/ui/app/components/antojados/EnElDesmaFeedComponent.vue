@@ -1,4 +1,4 @@
-﻿<template>
+<template>
   <section class="desma-feed-component">
     <feed-filter-bar-base
       :city-label="scopeLabel"
@@ -790,7 +790,9 @@ onBeforeUnmount(() => {
   inset: 0;
   width: 100%;
   height: 100%;
-  object-fit: cover;
+  object-fit: contain;
+  object-position: center;
+  background: #000;
 }
 
 .desma-feed-component__scrim {

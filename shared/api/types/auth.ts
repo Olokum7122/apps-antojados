@@ -142,6 +142,7 @@ export interface AuthProfileUpdateInput {
   displayName?: string
   bio?: string
   avatarUrl?: string
+  cityCode?: string | null
 }
 
 export interface LoginResponse {

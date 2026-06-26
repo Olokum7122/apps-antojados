@@ -145,6 +145,15 @@ const normalizedActions = computed(() =>
   will-change: transform;
 }
 
+.base-media-grid-cell--stage-s1 {
+  background: #000;
+}
+
+.base-media-grid-cell--stage-s1 .base-media-grid-cell__media {
+  object-fit: contain;
+  background: #000;
+}
+
 @media (hover: hover) and (pointer: fine) {
   .base-media-grid-cell--interactive:hover {
     transform: translateY(-2px);
@@ -153,7 +162,7 @@ const normalizedActions = computed(() =>
   }
 
   .base-media-grid-cell--interactive:hover .base-media-grid-cell__media {
-    transform: scale(1.035);
+    transform: scale(1.015);
   }
 
   .base-media-grid-cell--has-actions .base-media-grid-cell__actions {

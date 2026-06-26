@@ -2,6 +2,10 @@
   <section class="barrio-feed-component">
     <feed-filter-bar-base
       :city-label="scopeLabel"
+      :search-enabled="true"
+      :search-value="searchValue"
+      :suggestions="suggestions"
+      search-placeholder="Buscar ciudad para visitar"
       :scope-options="scopeOptions"
       :active-scope-level="scopeLevel"
       :is-filter-open="showVisualFilter"
@@ -20,6 +24,9 @@
       @toggle-filter="showVisualFilter = !showVisualFilter"
       @refresh="refreshFeed"
       @open-spots="onOpenSpots"
+      @update:searchValue="onSearchUpdate"
+      @commit-search="commitSearch"
+      @select-suggestion="onSelectSuggestion"
     />
 
     <feed-gallery-base
@@ -108,8 +115,11 @@ const {
   scopeLabel,
   cityOptions,
   scopeOptions,
+  searchValue,
+  suggestions,
   selectScope,
   selectCityByCode,
+  selectSuggestion,
 } = useLocationScope('barrio')
 
 function loadFeed() {
@@ -159,8 +169,21 @@ function onPublish() {
   router.push('/red/barrio/publicar')
 }
 
+function onSearchUpdate(value) {
+  searchValue.value = value
+}
+
+function commitSearch() {
+  if (suggestions.value[0]) onSelectSuggestion(suggestions.value[0])
+}
+
+function onSelectSuggestion(suggestion) {
+  selectSuggestion(suggestion)
+  isCityPickerOpen.value = false
+}
+
 function onSelectCity(code) {
-  selectCityByCode(code)
+  selectCityByCode(code, 'ciudad')
   isCityPickerOpen.value = false
 }
 

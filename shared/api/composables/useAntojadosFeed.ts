@@ -72,9 +72,9 @@ export function useAntojadosFeed(scope: AntojadosFeedScope) {
     try {
       const allPosts = await socialFeedService.list({
         scope: scope === 'barrio' ? undefined : scope,
-        limit: 40,
-        cityCode: options.cityCode,
-        scopeLevel: options.scopeLevel,
+        limit: 200,
+        cityCode: scope === 'barrio' && options.scopeLevel !== 'ciudad' ? undefined : options.cityCode,
+        scopeLevel: scope === 'barrio' ? (options.scopeLevel === 'ciudad' ? 'ciudad' : 'mexico') : options.scopeLevel,
         scopeCode: options.scopeCode,
       })
       posts.value = filterScopePosts(allPosts, scope)

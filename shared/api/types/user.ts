@@ -14,6 +14,7 @@ export interface UserCreateInput {
   displayName?: string
   username?: string
   status?: string
+  cityCode?: string | null
 }
 
 export interface UserUpdateInput {
@@ -21,6 +22,7 @@ export interface UserUpdateInput {
   displayName?: string
   username?: string
   status?: string
+  cityCode?: string | null
 }
 
 export interface UserListQuery {
@@ -28,4 +30,5 @@ export interface UserListQuery {
   perPage?: number
   search?: string
   status?: string
+  cityCode?: string | null
 }

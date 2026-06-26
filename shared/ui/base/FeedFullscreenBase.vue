@@ -27,7 +27,7 @@
             ref="videoRef"
             :src="videoSource"
             :poster="videoPoster"
-            class="base-feed-fullscreen__asset"
+            :class="mediaFit === 'contain' ? 'base-feed-fullscreen__asset base-feed-fullscreen__asset--contain' : 'base-feed-fullscreen__asset'"
             autoplay
             :muted="isMuted"
             loop
@@ -191,7 +191,7 @@ const props = defineProps({
   },
   mediaFit: {
     type: String,
-    default: 'cover',
+    default: 'contain',
     validator: (value) => ['cover', 'contain'].includes(value),
   },
   showActionRail: { type: Boolean, default: false },

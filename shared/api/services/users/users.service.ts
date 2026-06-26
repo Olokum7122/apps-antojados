@@ -40,6 +40,7 @@ function toApiPayload(input: UserCreateInput | UserUpdateInput): Record<string, 
     display_name: input.displayName,
     username: input.username,
     status: input.status,
+    city_code: input.cityCode,
   }
 }
 

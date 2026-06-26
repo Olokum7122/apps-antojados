@@ -39,6 +39,7 @@
           <media-grid-cell-base
             v-else
             :post="item"
+            :stage="stage"
             :variant="resolveTileVariant(item, index)"
             :title="resolveTitle(item)"
             :badge="resolveBadge(item)"
@@ -137,11 +138,13 @@ const effectiveModel = computed(() => {
 })
 
 function densePatternClass(index) {
-  const mod = index % 8
-  if (mod === 0) return 'base-feed-gallery__cell--lg'
+  const mod = index % 10
+  if (mod === 0 || mod === 1) return 'base-feed-gallery__cell--vertical'
+  if (mod === 2 || mod === 3) return 'base-feed-gallery__cell--medium'
   if (mod === 4) return 'base-feed-gallery__cell--wide'
-  if (mod === 2 || mod === 6) return 'base-feed-gallery__cell--tall'
-  return 'base-feed-gallery__cell--sm'
+  if (mod === 5 || mod === 6) return 'base-feed-gallery__cell--square'
+  if (mod === 7 || mod === 8) return 'base-feed-gallery__cell--medium'
+  return 'base-feed-gallery__cell--wide'
 }
 
 function cellClasses(item, index) {

@@ -58,6 +58,7 @@
 
     <div class="base-feed-filter-bar__actions">
       <q-btn
+        v-if="showCityAction"
         flat
         dense
         round
@@ -100,6 +101,7 @@ defineProps({
     validator: (value) => ['default', 'business', 'event', 'barrio', 'socialSearch'].includes(value),
   },
   cityLabel: { type: String, default: 'Mi ciudad' },
+  showCityAction: { type: Boolean, default: false },
   searchValue: { type: String, default: '' },
   searchPlaceholder: { type: String, default: 'Buscar ciudad' },
   searchEnabled: { type: Boolean, default: false },

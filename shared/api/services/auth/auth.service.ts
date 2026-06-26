@@ -254,6 +254,7 @@ export class AuthService {
       display_name: payload.displayName,
       bio: payload.bio,
       avatar_url: payload.avatarUrl,
+      city_code: payload.cityCode,
     })
 
     const stored = await this.getSession()

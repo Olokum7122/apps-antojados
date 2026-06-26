@@ -112,6 +112,27 @@ function onGeoPermissionRequest(event) {
   })
 }
 
+function onGeoCityChangeRequest(event) {
+  const detail = event?.detail || {}
+  const cityLabel = detail.city?.cityLabel || 'esta ciudad'
+  const accept = typeof detail.accept === 'function' ? detail.accept : null
+  $q.notify({
+    type: 'info',
+    message: `${detail.message || `Detectamos que estas en ${cityLabel}.`} Usarla como ciudad de tus feeds?`,
+    timeout: 12000,
+    actions: [
+      {
+        label: 'Usar ciudad',
+        color: 'white',
+        handler: () => {
+          if (accept) void accept()
+        },
+      },
+      { label: 'Mantener', color: 'white' },
+    ],
+  })
+}
+
 function refreshGeoFromForeground() {
   void requestDeviceGeo(false, true)
 }
@@ -125,6 +146,7 @@ function onVisibilityChange() {
 onMounted(() => {
   if (typeof window !== 'undefined') {
     window.addEventListener('antojados:geo-permission-request', onGeoPermissionRequest)
+    window.addEventListener('antojados:geo-city-change-request', onGeoCityChangeRequest)
   }
   if (typeof document !== 'undefined') {
     document.addEventListener('visibilitychange', onVisibilityChange)
@@ -134,6 +156,7 @@ onMounted(() => {
 onBeforeUnmount(() => {
   if (typeof window !== 'undefined') {
     window.removeEventListener('antojados:geo-permission-request', onGeoPermissionRequest)
+    window.removeEventListener('antojados:geo-city-change-request', onGeoCityChangeRequest)
   }
   if (typeof document !== 'undefined') {
     document.removeEventListener('visibilitychange', onVisibilityChange)

@@ -5,7 +5,7 @@ import { API_ENDPOINTS } from '@antojados/http/endpoints'
 import { apiConfig } from '@antojados/http/config/api'
 import type { TragonSession } from '@antojados/api/types/auth'
 
-const GT_ACCESS_STORAGE_KEY = 'antojados.gt.checked.snapshot'
+const GT_ACCESS_STORAGE_KEY = 'antojados.gt.checked.snapshot.v3'
 const GRANULAR_LEVELS = new Set(['BUTTON', 'FULLSCREEN', 'DIALOG', 'SUB_COMPONENT', 'SUBTAB'])
 
 export const gtAccessRevision = ref(0)
@@ -46,6 +46,38 @@ function normalizeCode(value: unknown): string {
   return String(value || '').trim().toUpperCase()
 }
 
+function addCodeAlias(codes: string[], value: unknown): void {
+  const code = normalizeCode(value)
+  if (!code || codes.includes(code)) return
+  codes.push(code)
+}
+
+function dimensionCodeAliases(row: Record<string, unknown>): string[] {
+  const codes: string[] = []
+  addCodeAlias(codes, row.dimension_code)
+  addCodeAlias(codes, row.code)
+  addCodeAlias(codes, row.component_code)
+  addCodeAlias(codes, row.area_code)
+  addCodeAlias(codes, row.module_code)
+
+  for (const code of [...codes]) {
+    const tabless = code.endsWith('.TAB') ? code.slice(0, -4) : code
+    addCodeAlias(codes, tabless)
+
+    if (tabless.startsWith('PARA_TI.')) {
+      addCodeAlias(codes, `ANTOJADOS.${tabless}`)
+    }
+    if (tabless.startsWith('COMUNIDAD.')) {
+      addCodeAlias(codes, `ANTOJADOS.${tabless}`)
+    }
+    if (tabless.startsWith('MI_CHAMBA.')) {
+      addCodeAlias(codes, `ANTOJO.${tabless}`)
+    }
+  }
+
+  return codes
+}
+
 function normalizeParentCode(value: unknown): string | null {
   const normalized = normalizeCode(value)
   if (!normalized || normalized === 'ROOT') return null
@@ -78,30 +110,31 @@ function normalizeDimensionRows(raw: unknown): GtCheckedRow[] {
   const instanceType = normalizeCode(container.instance_type || (container.instance as Record<string, unknown> | undefined)?.instance_type)
 
   return rowsFrom(raw, 'dimension_locations')
-    .map((row) => {
-      const code = normalizeCode(row.component_code || row.code || row.dimension_code || row.area_code || row.module_code)
-      if (!code) return null
+    .flatMap((row) => {
+      const codes = dimensionCodeAliases(row)
+      if (!codes.length) return []
 
       const controlMode = normalizeCode(row.control_mode)
       if (instanceType === 'SPONSOR' && controlMode && controlMode !== 'OPERABLE') {
-        return null
+        return []
       }
 
       const checked = toFlag(row.is_checked, false)
       const sponsorVisible = row.visible_override == null ? checked : toFlag(row.visible_override, false)
       const sponsorEnabled = row.enabled_override == null ? checked : toFlag(row.enabled_override, false)
+      const visible = instanceType === 'SPONSOR'
+        ? sponsorVisible
+        : toFlag(row.effective_visible, toFlag(row.visible, false))
+      const enabled = instanceType === 'SPONSOR'
+        ? sponsorEnabled
+        : toFlag(row.effective_enabled, toFlag(row.enabled, false))
 
-      return {
+      return codes.map((code) => ({
         code,
-        visible: instanceType === 'SPONSOR'
-          ? sponsorVisible
-          : toFlag(row.effective_visible, toFlag(row.visible, false)),
-        enabled: instanceType === 'SPONSOR'
-          ? sponsorEnabled
-          : toFlag(row.effective_enabled, toFlag(row.enabled, false)),
-      }
+        visible,
+        enabled,
+      }))
     })
-    .filter((row): row is GtCheckedRow => Boolean(row))
 }
 
 function normalizeSubDimensionRows(raw: unknown): GtCheckedRow[] {
@@ -137,16 +170,17 @@ function normalizeSubDimensionRows(raw: unknown): GtCheckedRow[] {
 
 function normalizeTemplateDimensionRows(raw: unknown): GtCheckedRow[] {
   return rowsFrom(raw, 'dimension_locations')
-    .map((row) => {
-      const code = normalizeCode(row.component_code || row.code || row.dimension_code || row.area_code || row.module_code)
-      if (!code) return null
-      return {
+    .flatMap((row) => {
+      const codes = dimensionCodeAliases(row)
+      if (!codes.length) return []
+      const visible = toFlag(row.visible, false)
+      const enabled = toFlag(row.enabled, false)
+      return codes.map((code) => ({
         code,
-        visible: toFlag(row.visible, false),
-        enabled: toFlag(row.enabled, false),
-      }
+        visible,
+        enabled,
+      }))
     })
-    .filter((row): row is GtCheckedRow => Boolean(row))
 }
 
 function buildSubDimensionCatalogById(raw: unknown): Map<string, { sub_code: string }> {
@@ -281,6 +315,18 @@ export function resolveGtMetadataAccessSync(metadata: Record<string, unknown> | 
     return { visible: true, enabled: true, reason: 'no_metadata_codes' }
   }
   if (primaryCode && !primaryMatch) {
+    if (GRANULAR_LEVELS.has(level) && parentDimension) {
+      const inheritedVisible = parentDimension.visible === true
+      const inheritedEnabled = parentDimension.enabled === true
+      const inheritedEffectiveVisible = level === 'BUTTON'
+        ? (inheritedVisible && inheritedEnabled)
+        : inheritedVisible
+      return {
+        visible: inheritedEffectiveVisible,
+        enabled: inheritedEnabled,
+        reason: inheritedEffectiveVisible && inheritedEnabled ? 'inherited_parent_dimension' : 'disabled_by_parent_dimension',
+      }
+    }
     return { visible: false, enabled: false, reason: 'primary_code_not_mapped' }
   }
   if (parentCode && !parentDimension && !GRANULAR_LEVELS.has(level) && !primaryMatch) {

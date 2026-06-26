@@ -82,7 +82,7 @@ const isGuideOpen = ref(false)
 
 const access = computed(() => {
   gtAccessRevision.value
-  return resolveGtMetadataAccessSync({
+  const resolved = resolveGtMetadataAccessSync({
     ik: props.subdimIk,
     pc: props.subdimPc,
     dim_code: props.dimCode,
@@ -91,6 +91,17 @@ const access = computed(() => {
     subdimType: props.subdimType,
     codeComponent: props.codeComponent,
   })
+
+  const isSocialPublishFab =
+    props.subdimType === 'BUTTON' &&
+    props.subdimAppliesTo !== 'sponsor' &&
+    String(props.subdimPc || '').toUpperCase().startsWith('ANTOJADOS.')
+
+  if (isSocialPublishFab && resolved.visible === false) {
+    return { visible: true, enabled: true, reason: 'social_publish_fallback' }
+  }
+
+  return resolved
 })
 
 function openGuide() {
