@@ -13,6 +13,7 @@ export const DEFAULT_ALLOWED_SCOPES: Record<LocationFeedKey, ScopeLevel[]> = {
   barrio: ['mexico', 'ciudad'],
   pachanga: ['mexico', 'zona', 'ciudad'],
   la_neta: ['mexico', 'zona', 'ciudad'],
+  que_pex: ['mexico', 'zona', 'ciudad'],
   desma: ['mexico', 'zona', 'ciudad'],
 }
 

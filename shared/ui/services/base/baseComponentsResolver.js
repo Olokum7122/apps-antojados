@@ -185,6 +185,7 @@ export function resolveBaseComponentClasses(componentName, options = {}) {
   case 'feedPostCard':
     return resolveFeedPostCardClasses(options)
   case 'feedGallery':
+  case 'feedGrid':
     return resolveFeedGalleryClasses(options)
   case 'feedPost':
     return resolveFeedPostClasses(options)

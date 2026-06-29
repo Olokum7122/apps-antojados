@@ -7,6 +7,7 @@ export type LocationFeedKey =
   | 'barrio'
   | 'pachanga'
   | 'la_neta'
+  | 'que_pex'
   | 'desma'
 
 export interface CityOption {

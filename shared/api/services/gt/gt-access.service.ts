@@ -14,11 +14,12 @@
  * Separado de gt-cache.service.ts para cumplir SRP (DEBT-002).
  */
 
-import type { GtCheckedRow, GtCheckedSnapshot } from '@antojados/api/services/gt/gt-cache.service'
 import { readStoredGtAccessSnapshot } from '@antojados/api/services/gt/gt-cache.service'
+import type { GtCheckedRow, GtCheckedSnapshot } from '@antojados/api/services/gt/gt-cache.service'
 
 export {
   gtAccessRevision,
+  readStoredGtAccessSnapshot,
   clearGtAccessCache,
   primeGtAccessForSession,
   buildGtAccessSnapshotForSession,
@@ -32,20 +33,21 @@ export interface GtMetadataAccessResult {
   reason: string
 }
 
-/**
- * Informacion completa de acceso GT para un usuario.
- * Se obtiene del snapshot cacheado.
- */
 export interface GtAccessInfo {
   userId: string | null
   instanceId: string | null
   instanceType: 'user' | 'sponsor' | null
   domainContext: 'user' | 'sponsor' | null
-  /** Modulos a los que tiene acceso (dimension_locations visible + enabled) */
   accessibleModules: string[]
   totalDimensions: number
   totalSubDimensions: number
   refreshedAt: string | null
+}
+
+const GRANULAR_LEVELS = new Set(['BUTTON', 'FULLSCREEN', 'DIALOG', 'SUB_COMPONENT', 'SUBTAB'])
+
+function normalizeCode(value: unknown): string {
+  return String(value || '').trim().toUpperCase()
 }
 
 function normalizeParentCode(value: unknown): string | null {
@@ -149,11 +151,6 @@ export function resolveGtMetadataAccessSync(metadata: Record<string, unknown> | 
   }
 }
 
-/**
- * Obtiene informacion completa de acceso GT del snapshot cacheado.
- * 
- * @returns GtAccessInfo con datos del snapshot, o valores por defecto si no hay cache.
- */
 export function getAccessInfo(): GtAccessInfo {
   const snapshot = readStoredGtAccessSnapshot()
   if (!snapshot) {
@@ -185,21 +182,12 @@ export function getAccessInfo(): GtAccessInfo {
   }
 }
 
-/**
- * Verifica si una instancia tiene acceso a un modulo especifico.
- * Busca el codigo del modulo en las dimensiones del snapshot.
- * 
- * @param instanceId - ID de la instancia a verificar
- * @param moduleCode - Codigo del modulo (ej: 'BARRIO', 'LA_NETA', 'VAS_IR')
- * @returns true si el modulo existe y tiene visible + enabled en el snapshot
- */
 export function hasModuleAccess(instanceId: string | null | undefined, moduleCode: string): boolean {
   if (!instanceId || !moduleCode) return false
 
   const snapshot = readStoredGtAccessSnapshot()
   if (!snapshot) return false
 
-  // Verificar que la instancia coincida
   if (snapshot.session.instanceId !== instanceId) return false
 
   const normalizedCode = normalizeCode(moduleCode)
@@ -209,17 +197,6 @@ export function hasModuleAccess(instanceId: string | null | undefined, moduleCod
   return match.visible === true && match.enabled === true
 }
 
-/**
- * Obtiene el rol de un usuario en una instancia basado en el snapshot cacheado.
- * 
- * El snapshot actual no contiene informacion granular de roles por usuario,
- * solo el tipo de instancia (user/sponsor) y su contexto de dominio.
- * Esta funcion retorna el rol inferido del contexto.
- * 
- * @param instanceId - ID de la instancia
- * @param userId - ID del usuario
- * @returns 'admin' si es instancia sponsor (owner), 'user' si es instancia regular, o null si no hay snapshot
- */
 export function getRole(instanceId: string | null | undefined, userId: string | null | undefined): string | null {
   if (!instanceId || !userId) return null
 
@@ -229,10 +206,8 @@ export function getRole(instanceId: string | null | undefined, userId: string | 
   if (snapshot.session.instanceId !== instanceId) return null
   if (snapshot.session.userId !== userId) return null
 
-  // Inferir rol del contexto de dominio
   if (snapshot.session.domainContext === 'sponsor') return 'admin'
   if (snapshot.session.instanceType === 'sponsor') return 'admin'
 
   return 'user'
 }
-
