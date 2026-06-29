@@ -1,6 +1,6 @@
 {
   "appId": "com.atlx.antojadosmx",
-  "appName": "AntojadosMx Social",
+  "appName": "AntojadosMX",
   "webDir": "../dist/spa",
   "server": {
     "androidScheme": "http"

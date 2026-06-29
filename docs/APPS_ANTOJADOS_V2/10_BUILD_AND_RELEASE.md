@@ -88,8 +88,8 @@ android {
         applicationId "com.atlx.antojadosmx"
         minSdk 24
         targetSdk 34
-        versionCode 7               // Incrementar en cada release
-        versionName "2.0.0"         // Version semantica
+        versionCode 8               // Incrementar en cada release
+        versionName "2.0.1"         // Version semantica (sincronizada con iOS)
     }
     signingConfigs {
         release {
@@ -104,8 +104,9 @@ android {
 
 **Regla de versionCode:**
 - Android New V2 debe ser MAYOR que Android Old (versionCode 6)
-- Version actual: `versionCode 7`, `versionName 2.0.0`
+- Version actual: `versionCode 8`, `versionName 2.0.1`
 - Para nuevo release: incrementar versionCode en 1
+- iOS `CURRENT_PROJECT_VERSION` debe coincidir con `versionCode` de Android
 
 ### 5.3 APK de Debug (pruebas locales)
 
@@ -173,10 +174,10 @@ cd src-capacitor/android
 
 ### 6.2 Configuracion de Version
 
-En Xcode:
-- `CFBundleShortVersionString` = `2.0.0` (version visible)
-- `CFBundleVersion` = `1` (build number, incrementar cada release)
-- `Bundle Identifier` = `com.atlx.antojadosmx`
+En Xcode (project.pbxproj):
+- `MARKETING_VERSION` = `2.0.1` (version visible, sincronizada con Android)
+- `CURRENT_PROJECT_VERSION` = `8` (build number, debe coincidir con versionCode de Android)
+- `Bundle Identifier` = `com.atlx.antojadosmx` (mismo appId que Android)
 
 ### 6.3 Sincronizar y Abrir en Xcode
 
@@ -286,27 +287,28 @@ firebase appdistribution:distribute \
 
 ### 8.1 Android
 
-| Elemento | Donde | Ejemplo |
+| Elemento | Donde | Valor actual |
 |---|---|---|
-| versionCode | build.gradle (defaultConfig) | 7 |
-| versionName | build.gradle (defaultConfig) | 2.0.0 |
+| versionCode | build.gradle (defaultConfig) | 8 |
+| versionName | build.gradle (defaultConfig) | 2.0.1 |
 | appId | capacitor.config.json | com.atlx.antojadosmx |
-| appName | capacitor.config.json | AntojadosMx Social |
+| appName | capacitor.config.json | AntojadosMX |
 
 ### 8.2 iOS
 
-| Elemento | Donde | Ejemplo |
+| Elemento | Donde | Valor actual |
 |---|---|---|
-| CFBundleVersion | Info.plist (Xcode) | 1 |
-| CFBundleShortVersionString | Info.plist (Xcode) | 2.0.0 |
-| Bundle Identifier | Xcode target | com.atlx.antojadosmx |
+| CURRENT_PROJECT_VERSION | project.pbxproj | 8 (debe coincidir con versionCode) |
+| MARKETING_VERSION | project.pbxproj | 2.0.1 (debe coincidir con versionName) |
+| Bundle Identifier | project.pbxproj / capacitor.config.json | com.atlx.antojadosmx |
+| appName | capacitor.config.json / Info.plist | AntojadosMX |
 
-### 8.3 Regla de Compatibilidad
+### 8.3 Regla de Compatibilidad (OBLIGATORIA)
 
-- Android y iOS deben tener el MISMO `versionName` (visible al usuario)
-- El `versionCode` (Android) y `CFBundleVersion` (iOS) son independientes
-- Ambos deben incrementarse en cada release
-- `versionCode` de Android New debe ser siempre MAYOR que Android Old
+- Android y iOS deben tener el MISMO `versionName` / `MARKETING_VERSION` (visible al usuario)
+- Android `versionCode` e iOS `CURRENT_PROJECT_VERSION` deben coincidir
+- Android `appId` e iOS `Bundle Identifier` deben ser el mismo
+- Ambos `appName` / `CFBundleDisplayName` deben ser iguales
 
 ## 9. Firmas
 
@@ -411,3 +413,4 @@ Requiere macOS runner. Recomendado: usar Fastlane + GitHub Actions.
 | Version | Fecha | Cambio |
 |---|---|---|
 | 1.0.0 | 28/06/2026 | Contrato inicial. Build Android, iOS, Firebase, TestFlight |
+| 1.1.0 | 29/06/2026 | Sincronizacion Android/iOS: appId, versionName, appName unificados |
