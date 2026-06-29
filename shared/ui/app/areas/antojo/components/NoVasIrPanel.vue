@@ -16,7 +16,7 @@
       <span v-for="filter in filters" :key="filter" class="filter-chip">{{ filter }}</span>
     </div>
 
-    <feed-gallery-base
+    <feed-grid-base
       :items="mockItems"
       key-field="id"
       empty-message="Sin promos disponibles"
@@ -53,12 +53,12 @@
           </template>
         </feed-post-base>
       </template>
-    </feed-gallery-base>
+    </feed-grid-base>
   </section>
 </template>
 
 <script setup>
-import FeedGalleryBase from '@antojados/ui/base/FeedGalleryBase.vue'
+import FeedGridBase from '@antojados/ui/base/FeedGridBase.vue'
 import FeedPostBase from '@antojados/ui/base/FeedPostBase.vue'
 
 // Accepted test debt: No Vas Ir/ZonaD stays mock for the iOS TestFlight cut.

@@ -37,9 +37,9 @@ interface RawFeedItem extends Record<string, unknown> {
   moment_tag?: string
   feed_type?: string
   event_group_id?: string
-  post_type?: string
   post_type_label?: string
-  media_gallery?: unknown
+  media_full_url?: unknown
+  video_1080_url?: unknown
   comments?: unknown
   rating_verdicts?: unknown
 }
@@ -104,36 +104,6 @@ function normalizeMediaType(rawType: unknown): string | null {
   if (value === 'photo' || value.startsWith('image/')) return 'image'
   if (value === 'video' || value.startsWith('video/')) return 'video'
   return value
-}
-
-function mapMediaGallery(rawGallery: unknown, fallbackMediaUrl: string | null): string[] {
-  if (Array.isArray(rawGallery)) {
-    const mediaItems = rawGallery
-      .map((item) => {
-        if (typeof item === 'string') {
-          return item
-        }
-
-        if (item && typeof item === 'object') {
-          const candidate = item as Record<string, unknown>
-          if (typeof candidate.media_url === 'string') {
-            return candidate.media_url
-          }
-          if (typeof candidate.url === 'string') {
-            return candidate.url
-          }
-        }
-
-        return null
-      })
-      .filter((item): item is string => Boolean(item))
-
-    if (mediaItems.length > 0) {
-      return mediaItems
-    }
-  }
-
-  return fallbackMediaUrl ? [fallbackMediaUrl] : []
 }
 
 function mapComments(rawComments: unknown): FeedComment[] {
@@ -213,6 +183,8 @@ function mapFeedItem(raw: RawFeedItem): FeedItem {
   const mediaThumbUrl =
     resolveMediaUrl(raw.media_thumbnail_url) ||
     (mediaType === 'video' ? mediaUrl : buildImageFeedThumb(mediaUrl))
+  const mediaFullUrl = resolveMediaUrl(raw.media_full_url)
+  const video1080Url = resolveMediaUrl(raw.video_1080_url)
 
   return {
     id,
@@ -232,7 +204,8 @@ function mapFeedItem(raw: RawFeedItem): FeedItem {
     venue: typeof raw.venue === 'string' ? raw.venue : null,
     mediaUrl,
     mediaThumbUrl,
-    mediaGallery: mapMediaGallery(raw.media_gallery, mediaUrl),
+    mediaFullUrl,
+    video1080Url,
     mediaType,
     likesCount: toNumber(raw.likes_count, 0),
     commentsCount: toNumber(raw.comments_count, 0),
@@ -260,8 +233,8 @@ function matchesScope(item: FeedItem, scope: AntojadosFeedScope | AntojoFeedScop
   const feedType = normalizeFeedType(item.feedType)
   const mediaType = normalizeFeedType(item.mediaType)
 
-  if (scope === 'la-neta') {
-    return ['neta', 'la-neta', 'la_neta'].includes(feedType) && mediaType !== 'video'
+  if (scope === 'que-pex' || scope === 'la-neta') {
+    return ['que-pex', 'que_pex', 'neta', 'la-neta', 'la_neta'].includes(feedType) && mediaType !== 'video'
   }
 
   if (scope === 'pachanga') {

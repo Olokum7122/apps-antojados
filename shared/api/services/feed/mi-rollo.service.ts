@@ -134,9 +134,19 @@ export class MiRolloService {
     return mapSummary(response.data.data)
   }
 
-  async listPosts(userId: string): Promise<MiRolloPostItem[]> {
+  /**
+   * Lista posts del usuario con paginación explícita.
+   * @param userId - ID del usuario
+   * @param options - Parámetros de paginación (page, limit)
+   */
+  async listPosts(
+    userId: string,
+    options: { page?: number; limit?: number } = {},
+  ): Promise<MiRolloPostItem[]> {
+    const page = options.page ?? 1
+    const limit = options.limit ?? 20
     const response = await this.http.get<ApiResponse<{ data?: RawPost[] }>>(API_ENDPOINTS.socialPosts.create, {
-      params: { user_id: userId, limit: 20, page: 1 },
+      params: { user_id: userId, limit, page },
     })
 
     const rows = Array.isArray(response.data.data?.data) ? response.data.data.data : []
@@ -159,16 +169,26 @@ export class MiRolloService {
     })
   }
 
-  async listActivity(userId: string): Promise<MiRolloActivityItem[]> {
+  /**
+   * Lista actividad reciente del usuario con paginación explícita.
+   * @param userId - ID del usuario
+   * @param options - Parámetros de paginación (page, limit)
+   */
+  async listActivity(
+    userId: string,
+    options: { page?: number; limit?: number } = {},
+  ): Promise<MiRolloActivityItem[]> {
+    const page = options.page ?? 1
+    const limit = options.limit ?? 10
     const [followingResponse, followersResponse, savesResponse] = await Promise.all([
       this.http.get<ApiResponse<{ data?: RawFollow[] }>>(API_ENDPOINTS.socialPosts.following(userId), {
-        params: { limit: 10, page: 1 },
+        params: { limit, page },
       }),
       this.http.get<ApiResponse<{ data?: RawFollow[] }>>(API_ENDPOINTS.socialPosts.followers(userId), {
-        params: { limit: 10, page: 1 },
+        params: { limit, page },
       }),
       this.http.get<ApiResponse<{ data?: RawSave[] }>>(API_ENDPOINTS.socialPosts.saves(userId), {
-        params: { limit: 10, page: 1 },
+        params: { limit, page },
       }),
     ])
 

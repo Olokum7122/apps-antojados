@@ -92,11 +92,14 @@ const props = defineProps({
 defineEmits(['action'])
 
 const isVideo = computed(() => String(props.post?.mediaType || '').toLowerCase() === 'video')
-const mediaSource = computed(
-  () => props.post?.mediaThumbUrl || props.post?.thumbnailUrl || props.post?.mediaUrl || '',
-)
+const thumbSource = computed(() => props.post?.mediaThumbUrl || props.post?.thumbnailUrl || '')
+const mediaSource = computed(() => {
+  // S1 (grid thumbnail) -> thumbUrl (400px). S2/S3 -> feedUrl (1080px)
+  if (props.stage === 'S1') return thumbSource.value || props.post?.mediaUrl || ''
+  return props.post?.mediaUrl || thumbSource.value || ''
+})
 const videoSource = computed(() => props.post?.mediaUrl || '')
-const videoPoster = computed(() => props.post?.mediaThumbUrl || props.post?.thumbnailUrl || '')
+const videoPoster = computed(() => thumbSource.value)
 const hasMedia = computed(() => !!mediaSource.value)
 const normalizedActions = computed(() =>
   props.actions

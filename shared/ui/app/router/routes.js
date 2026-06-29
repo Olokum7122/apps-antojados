@@ -131,24 +131,45 @@ const routes = [
                 component: () => import('@antojados/ui/app/areas/antojados/components/pa-ti/PublicarPachangaView.vue'),
               },
               {
+                path: 'pachanga/publicar-resena',
+                component: () => import('@antojados/ui/app/areas/antojados/components/pa-ti/PublicarResenaView.vue'),
+              },
+              {
+                path: 'que-pex',
+                component: () => import('@antojados/ui/app/areas/antojados/components/pa-ti/QuePexView.vue'),
+              },
+              {
+                path: 'que-pex/usuario/:user_id',
+                component: () => import('@antojados/ui/app/areas/antojados/components/pa-ti/QuePexUsuarioView.vue'),
+              },
+              {
+                path: 'que-pex/post/:post_id',
+                component: () => import('@antojados/ui/app/areas/antojados/components/pa-ti/QuePexPostFullscreenView.vue'),
+              },
+              // Legacy redirect — La Neta ahora es Que Pex
+              {
                 path: 'la-neta',
-                component: () => import('@antojados/ui/app/areas/antojados/components/pa-ti/LaNetaView.vue'),
+                redirect: '/red/pa-ti/que-pex',
               },
               {
                 path: 'la-neta/usuario/:user_id',
-                component: () => import('@antojados/ui/app/areas/antojados/components/pa-ti/LaNetaUsuarioView.vue'),
+                redirect: (to) => `/red/pa-ti/que-pex/usuario/${to.params.user_id}${to.query.post_id ? `?post_id=${to.query.post_id}` : ''}`,
               },
               {
                 path: 'la-neta/post/:post_id',
-                component: () => import('@antojados/ui/app/areas/antojados/components/pa-ti/LaNetaPostFullscreenView.vue'),
+                redirect: (to) => `/red/pa-ti/que-pex/post/${to.params.post_id}${to.query.user_id ? `?user_id=${to.query.user_id}` : ''}`,
               },
               {
                 path: 'la-neta/publicar',
-                component: () => import('@antojados/ui/app/areas/antojados/components/pa-ti/PublicarLaNetaView.vue'),
+                redirect: '/red/pa-ti/pachanga',
               },
             ],
           },
           { path: 'en-el-desma', component: () => import('@antojados/ui/app/areas/antojados/components/EnElDesmaPanel.vue') },
+          {
+            path: 'que-pex',
+            redirect: '/red/pa-ti/que-pex',
+          },
           {
             path: 'la-banda',
             component: () => import('@antojados/ui/app/areas/antojados/components/LaBandaPanel.vue'),
@@ -181,6 +202,7 @@ const routes = [
   // but you can also remove it
   {
     path: '/:catchAll(.*)*',
+    name: 'catchAll',
     component: () => import('pages/ErrorNotFound.vue'),
   },
 ]

@@ -25,7 +25,7 @@
       @select-suggestion="onSelectSuggestion"
     />
 
-    <feed-gallery-base
+    <feed-grid-base
       :items="posts"
       empty-message="Sin actividad en Pachanga"
       key-field="id"
@@ -47,7 +47,7 @@
       <template #empty>
         <app-empty-state message="Aun no hay publicaciones para Pachanga" />
       </template>
-    </feed-gallery-base>
+    </feed-grid-base>
 
     <q-dialog v-model="isCityPickerOpen" position="bottom">
       <q-card class="pachanga-component__sheet bg-grey-10 text-white">
@@ -73,9 +73,9 @@
       color="primary"
       text-color="dark"
       tooltip="Publicar en Pachanga"
-      title="Arma la Pachanga"
-      body="Sube fotos y videos del momento: arma una galeria completa o elige directo de tu camara. Lo que pase en la fiesta, aqui se queda."
-      confirm-label="Vamos ->"
+      title="Que quieres publicar?"
+      body="Elige entre un momento de Pachanga o una resena de un lugar."
+      confirm-label="Publicar momento"
       guide-icon="celebration"
       image-src="/media/shared/publicar.png"
       subdim-ik="BTN_PUBLICAR"
@@ -84,7 +84,20 @@
       subdim-applies-to="all"
       code-component="PACHANGA.PUBLICAR"
       @confirm="onPublish"
-    />
+    >
+      <template #extra-actions>
+        <q-btn
+          unelevated
+          rounded
+          no-caps
+          color="secondary"
+          text-color="dark"
+          label="Publicar resena"
+          size="md"
+          @click="onPublishResena"
+        />
+      </template>
+    </publish-fab-base>
   </section>
 </template>
 
@@ -93,7 +106,7 @@ import { onMounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import AppEmptyState from '@antojados/ui/base/AppEmptyState.vue'
 import FeedFilterBarBase from '@antojados/ui/base/FeedFilterBarBase.vue'
-import FeedGalleryBase from '@antojados/ui/base/FeedGalleryBase.vue'
+import FeedGridBase from '@antojados/ui/base/FeedGridBase.vue'
 import PublishFabBase from '@antojados/ui/base/PublishFabBase.vue'
 import { useAntojadosFeed } from '@antojados/api/composables/useAntojadosFeed'
 import { useLocationScope } from '@antojados/api/composables/useLocationScope'
@@ -143,6 +156,10 @@ function onSelect(post) {
 
 function onPublish() {
   router.push('/red/pa-ti/pachanga/publicar')
+}
+
+function onPublishResena() {
+  router.push('/red/pa-ti/pachanga/publicar-resena')
 }
 
 function onSelectScope(level) {

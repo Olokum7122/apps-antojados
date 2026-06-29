@@ -1,5 +1,5 @@
 <template>
-  <div v-if="access.visible" class="publish-fab-base">
+  <div v-if="effectiveVisible" class="publish-fab-base">
     <q-btn
       fab
       :icon="imageSrc ? undefined : 'add'"
@@ -14,7 +14,7 @@
       :subdim-applies-to="subdimAppliesTo"
       :data-dim-code="dimCode"
       :data-code-component="codeComponent"
-      :disable="!access.enabled"
+      :disable="!effectiveEnabled"
       @click="openGuide"
     >
       <img v-if="imageSrc" :src="imageSrc" alt="" class="publish-fab-base__image" />
@@ -58,8 +58,6 @@
 
 <script setup>
 import { computed, ref } from 'vue'
-import { gtAccessRevision, resolveGtMetadataAccessSync } from '@antojados/api/services/gt/gt-access.service'
-
 const props = defineProps({
   color: { type: String, default: 'primary' },
   textColor: { type: String, default: 'dark' },
@@ -69,6 +67,9 @@ const props = defineProps({
   confirmLabel: { type: String, default: 'Continuar' },
   guideIcon: { type: String, default: 'add' },
   imageSrc: { type: String, default: '' },
+  /** Control de visibilidad y habilitacion desde el padre (ej: via GT access) */
+  visible: { type: Boolean, default: true },
+  enabled: { type: Boolean, default: true },
   subdimIk: { type: String, default: 'BTN_PUBLICAR' },
   subdimPc: { type: String, default: '' },
   dimCode: { type: String, default: '' },
@@ -80,37 +81,33 @@ const props = defineProps({
 const emit = defineEmits(['confirm'])
 const isGuideOpen = ref(false)
 
-const access = computed(() => {
-  gtAccessRevision.value
-  const resolved = resolveGtMetadataAccessSync({
-    ik: props.subdimIk,
-    pc: props.subdimPc,
-    dim_code: props.dimCode,
-    appliesTo: props.subdimAppliesTo,
-    level: props.subdimType,
-    subdimType: props.subdimType,
-    codeComponent: props.codeComponent,
-  })
-
+const effectiveVisible = computed(() => {
   const isSocialPublishFab =
     props.subdimType === 'BUTTON' &&
     props.subdimAppliesTo !== 'sponsor' &&
     String(props.subdimPc || '').toUpperCase().startsWith('ANTOJADOS.')
 
-  if (isSocialPublishFab && resolved.visible === false) {
-    return { visible: true, enabled: true, reason: 'social_publish_fallback' }
-  }
+  // Social publish FAB siempre visible, incluso si GT access dice oculto
+  if (isSocialPublishFab) return true
+  return props.visible
+})
+const effectiveEnabled = computed(() => {
+  const isSocialPublishFab =
+    props.subdimType === 'BUTTON' &&
+    props.subdimAppliesTo !== 'sponsor' &&
+    String(props.subdimPc || '').toUpperCase().startsWith('ANTOJADOS.')
 
-  return resolved
+  if (isSocialPublishFab) return true
+  return props.enabled
 })
 
 function openGuide() {
-  if (!access.value.visible || !access.value.enabled) return
+  if (!effectiveVisible.value || !effectiveEnabled.value) return
   isGuideOpen.value = true
 }
 
 function confirm() {
-  if (!access.value.visible || !access.value.enabled) {
+  if (!effectiveVisible.value || !effectiveEnabled.value) {
     isGuideOpen.value = false
     return
   }
@@ -166,3 +163,4 @@ function confirm() {
   }
 }
 </style>
+

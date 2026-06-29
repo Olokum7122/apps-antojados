@@ -100,7 +100,7 @@
 
         <slot :post="safePost" />
 
-        <feed-gallery-base
+        <feed-grid-base
           v-if="associatedItems.length"
           :items="associatedItems"
           :stage="stage"
@@ -121,7 +121,7 @@
           <template v-if="$slots.associatedItem" #item="{ item, index }">
             <slot name="associatedItem" :item="item" :index="index" />
           </template>
-        </feed-gallery-base>
+        </feed-grid-base>
 
         <div v-if="$slots.actions" :class="classes.actions">
           <slot name="actions" :post="safePost" />
@@ -159,7 +159,7 @@
 import { computed, nextTick, ref, watch } from 'vue'
 import { resolveBaseComponentClasses } from '@antojados/ui/services/base/baseComponentsResolver'
 import CommentsInputBase from '@antojados/ui/base/CommentsInputBase.vue'
-import FeedGalleryBase from '@antojados/ui/base/FeedGalleryBase.vue'
+import FeedGridBase from '@antojados/ui/base/FeedGridBase.vue'
 import FullscreenVideoControlsBase from '@antojados/ui/base/FullscreenVideoControlsBase.vue'
 import PostActionRailBase from '@antojados/ui/base/PostActionRailBase.vue'
 
@@ -283,10 +283,14 @@ const classes = resolveBaseComponentClasses('feedFullscreen', {
 })
 const safePost = computed(() => props.post || {})
 const isVideo = computed(() => String(safePost.value?.mediaType || '').toLowerCase() === 'video')
-const fullscreenMediaUrl = computed(
-  () => safePost.value?.mediaUrl || safePost.value?.mediaThumbUrl || safePost.value?.thumbnailUrl || '',
-)
-const videoSource = computed(() => safePost.value?.mediaUrl || '')
+const fullscreenMediaUrl = computed(() => {
+  // S3 (fullscreen) -> fullUrl (1920px). Fallback a mediaUrl (1080px).
+  return safePost.value?.mediaFullUrl || safePost.value?.mediaUrl || safePost.value?.mediaThumbUrl || ''
+})
+const videoSource = computed(() => {
+  // Fullscreen video -> 1080p si existe, fallback a 720p
+  return safePost.value?.video1080Url || safePost.value?.mediaUrl || ''
+})
 const videoPoster = computed(() => safePost.value?.mediaThumbUrl || safePost.value?.thumbnailUrl || '')
 const hasPlayableVideo = computed(() => isVideo.value && Boolean(videoSource.value))
 const titleLabel = computed(() => safePost.value?.title || safePost.value?.venue || safePost.value?.venueName || '')

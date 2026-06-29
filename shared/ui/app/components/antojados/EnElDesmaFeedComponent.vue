@@ -295,6 +295,7 @@ const cameraInputRef = ref(null)
 const deviceInputRef = ref(null)
 const selectedVideoName = ref('Video listo para publicar o guardar personal.')
 const selectedVideoBase64 = ref(null)
+const selectedVideoFile = ref(null)
 const selectedVideoError = ref('')
 const selectedVideoSource = ref('record')
 const publishingVideo = ref(false)
@@ -552,6 +553,7 @@ async function onVideoSelected(event) {
     }
     selectedVideoName.value = selected.fileName
     selectedVideoBase64.value = selected.base64
+    selectedVideoFile.value = selected.file
     selectedVideoError.value = ''
     showDecisionDialog.value = true
   } catch (error) {
@@ -575,6 +577,7 @@ function updatePublishingStage(stage, detail = '') {
 function resetSelectedVideo() {
   selectedVideoName.value = 'Video listo para publicar o guardar personal.'
   selectedVideoBase64.value = null
+  selectedVideoFile.value = null
   selectedVideoError.value = ''
   publishingStage.value = 'idle'
   publishingStageLabel.value = 'Preparando video...'
@@ -593,8 +596,9 @@ async function uploadSelectedDesmaVideo(result) {
 
   const postId = `desma-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`
   const uploaded = await mediaService.uploadMedia({
-    base64: selectedVideoBase64.value,
-    mediaType: 'video',
+  base64: selectedVideoBase64.value,
+  file: selectedVideoFile.value,
+  mediaType: 'video',
     channel: result === 'personal' ? 'gallery' : 'feed_post',
     entityId: result === 'personal' ? session.userId : postId,
     entityContext:

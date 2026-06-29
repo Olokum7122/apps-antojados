@@ -25,11 +25,20 @@
       @select-suggestion="onSelectSuggestion"
     />
 
-    <template v-if="posts.length">
+    <template v-if="loading && !posts.length">
+      <feed-skeleton-card
+        v-for="i in 5"
+        :key="`skel-${i}`"
+        :style="{ animationDelay: `${(i - 1) * 80}ms` }"
+      />
+    </template>
+
+    <template v-else-if="posts.length">
       <feed-post-card
         v-for="post in normalizedPosts"
         :key="post.id"
         :post="post"
+        stage="S2"
         card-class="q-mb-sm"
         subdim-ik="LA_NETA_POST"
         subdim-pc="ANTOJADOS.PARA_TI"
@@ -56,7 +65,7 @@
       </feed-post-card>
     </template>
 
-    <app-empty-state v-else message="Aun no hay resenas para La Neta" />
+    <app-empty-state v-else-if="!loading" message="Aun no hay resenas para La Neta" />
 
     <q-dialog v-model="isCityPickerOpen" position="bottom">
       <q-card class="la-neta-component__sheet bg-grey-10 text-white">
@@ -86,6 +95,7 @@ import { useRouter } from 'vue-router'
 import AppEmptyState from '@antojados/ui/base/AppEmptyState.vue'
 import FeedFilterBarBase from '@antojados/ui/base/FeedFilterBarBase.vue'
 import FeedPostCard from '@antojados/ui/base/FeedPostCard.vue'
+import FeedSkeletonCard from '@antojados/ui/base/FeedSkeletonCard.vue'
 import PostActionRailBase from '@antojados/ui/base/PostActionRailBase.vue'
 import { useAntojadosFeed } from '@antojados/api/composables/useAntojadosFeed'
 import { useLocationScope } from '@antojados/api/composables/useLocationScope'
@@ -93,7 +103,7 @@ import { useSocialActionSync } from '@antojados/api/composables/useSocialActionS
 
 const router = useRouter()
 const isCityPickerOpen = ref(false)
-const { posts, load } = useAntojadosFeed('la-neta')
+const { posts, loading, load } = useAntojadosFeed('la-neta')
 const { pushEvent } = useSocialActionSync()
 const {
   cityCode,

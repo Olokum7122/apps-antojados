@@ -16,6 +16,7 @@ export function resolveMediaUploadStageLabel(stage: MediaUploadStage): string {
 
 export async function uploadPublishMediaFlow(input: {
   base64: string
+  file?: File | null
   mediaType: MediaType
   channel: string
   entityId?: string | null
@@ -27,6 +28,7 @@ export async function uploadPublishMediaFlow(input: {
 
   const uploaded = await uploadMedia({
     base64: input.base64,
+    file: input.file,
     mediaType: input.mediaType,
     channel: input.channel,
     entityId: input.entityId || null,

@@ -29,7 +29,7 @@
       @select-suggestion="onSelectSuggestion"
     />
 
-    <feed-gallery-base
+    <feed-grid-base
       :items="posts"
       :loading="loading"
       empty-message="Sin publicaciones de Barrio"
@@ -52,7 +52,7 @@
       <template #empty>
         <app-empty-state :message="error || 'Aun no hay actividad en Barrio'" />
       </template>
-    </feed-gallery-base>
+    </feed-grid-base>
 
     <q-dialog v-model="isCityPickerOpen" position="bottom">
       <q-card class="barrio-feed-component__sheet bg-grey-10 text-white">
@@ -98,7 +98,7 @@ import { computed, onMounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import AppEmptyState from '@antojados/ui/base/AppEmptyState.vue'
 import FeedFilterBarBase from '@antojados/ui/base/FeedFilterBarBase.vue'
-import FeedGalleryBase from '@antojados/ui/base/FeedGalleryBase.vue'
+import FeedGridBase from '@antojados/ui/base/FeedGridBase.vue'
 import PublishFabBase from '@antojados/ui/base/PublishFabBase.vue'
 import { useAntojadosFeed } from '@antojados/api/composables/useAntojadosFeed'
 import { useLocationScope } from '@antojados/api/composables/useLocationScope'

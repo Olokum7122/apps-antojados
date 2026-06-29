@@ -1,4 +1,4 @@
-export type AntojadosFeedScope = 'barrio' | 'pachanga' | 'la-neta' | 'desma'
+export type AntojadosFeedScope = 'barrio' | 'pachanga' | 'que-pex' | 'desma'
 export type AntojoFeedScope = 'vas-ir' | 'arre'
 export type BizFeedScope = 'vas_ir' | 'arre'
 export type BizPostType = 'promo' | 'new_dish' | 'discount' | 'general' | 'event'
@@ -25,9 +25,14 @@ export interface FeedItem {
   caption: string | null
   venueName: string | null
   venue?: string | null
+  /** URL para S2 (feed card, 1080px WebP). Mapeado desde feed_url del engine. */
   mediaUrl: string | null
+  /** URL para S1 (thumbnail grid, 400px WebP). Mapeado desde thumb_url del engine. */
   mediaThumbUrl?: string | null
-  mediaGallery?: string[]
+  /** URL para S3 (fullscreen, 1920px WebP). Mapeado desde full_url del engine. */
+  mediaFullUrl?: string | null
+  /** URL para video 1080p (fullscreen). Mapeado desde video_1080_url del engine. */
+  video1080Url?: string | null
   mediaType: string | null
   likesCount: number
   commentsCount: number
@@ -87,3 +92,4 @@ export interface SocialSyncEvent {
   channel?: string | null
   payload?: Record<string, unknown>
 }
+

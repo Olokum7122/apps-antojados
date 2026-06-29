@@ -1,29 +1,89 @@
-﻿import { httpClient } from '@antojados/http/client'
-import { API_ENDPOINTS } from '@antojados/http/endpoints'
 import type { MediaUploadInput, MediaUploadResult } from '@antojados/api/types/publish'
+import {
+  createMediaRequest,
+  registerRightsOrigin,
+  uploadOriginal,
+  waitForReadyPayload,
+  mapReadyPayloadToMediaResult,
+} from '@antojados/api/services/media-engine/mediaEngineClient'
 
-function stripDataUrl(value: string): string {
-  return value.includes(',') ? value.split(',').pop() || '' : value
-}
-
+/**
+ * Sube media usando ATLX Media Engine V3.
+ *
+ * Flujo:
+ *   1. createMediaRequest  → declara metadata
+ *   2. registerRightsOrigin → registra derechos/origen
+ *   3. uploadOriginal       → sube el binario (multipart)
+ *   4. waitForReadyPayload  → polling hasta ready
+ *   5. Mapea a MediaUploadResult para mantener compatibilidad
+ */
 export async function uploadMedia(input: MediaUploadInput): Promise<MediaUploadResult> {
-  if (!input.base64) throw new Error('uploadMedia: base64 requerido')
+  if (!input.base64 && !input.file) throw new Error('uploadMedia: base64 o file requerido')
 
-  const { data } = await httpClient.post<MediaUploadResult>(API_ENDPOINTS.media.upload, {
-    media_data_base64: stripDataUrl(input.base64),
-    media_type: input.mediaType,
-    channel: input.channel,
-    entity_id: input.entityId || null,
-    entity_context: input.entityContext || null,
+  const mediaType = input.mediaType === 'video' ? 'video' : 'image'
+  const targetContext = _resolveTargetContext(input.channel)
+
+  const request = await createMediaRequest({
+    sourceApp: 'ios',
+    sourceActorType: 'user',
+    sourceActorId: input.entityId || 'unknown',
+    targetContext,
+    mediaType,
+    clientReferenceId: input.entityId
+      ? `${input.channel}-${input.entityId}-${Date.now()}`
+      : undefined,
   })
 
-  return data
+  const mediaId = request.mediaId
+
+  await registerRightsOrigin(mediaId, {
+    originType: 'created_in_antojados',
+    ownershipType: 'creator_owned',
+    rightsDeclaration: 'i_am_author',
+    rightsStatus: 'declared',
+    licenseType: 'user_generated',
+    licenseScope: 'platform_public',
+    allowPublicDisplay: true,
+    allowDownload: false,
+    allowShare: true,
+    allowEngineWatermark: true,
+    isDemoContent: false,
+  })
+
+  // Subir archivo: directo si es File (preferido), o desde base64 (fallback legacy)
+  if (input.file) {
+    const fileName = input.file.name || `media-${mediaId}.${mediaType === 'video' ? 'mp4' : 'jpg'}`
+    await uploadOriginal(mediaId, input.file, fileName)
+  } else if (input.base64) {
+    const { base64ToBlob } = await import('@antojados/api/services/media-engine/mediaEngineClient')
+    const mimeType = input.mediaType === 'video' ? 'video/mp4' : 'image/jpeg'
+    const blob = base64ToBlob(input.base64, mimeType)
+    const ext = input.mediaType === 'video' ? 'mp4' : 'jpg'
+    await uploadOriginal(mediaId, blob, `media-${mediaId}.${ext}`)
+  }
+
+  const payload = await waitForReadyPayload(mediaId, {
+    onStatus: (p, meta) => {
+      console.log(`[media] ${mediaId} intento ${meta.attempt}/${meta.attempts}: ${p.status}`)
+    },
+  })
+
+  return mapReadyPayloadToMediaResult(payload)
 }
 
-export async function getIntakeStatus(intakeId: string): Promise<MediaUploadResult | null> {
-  if (!intakeId) return null
-  const { data } = await httpClient.get<MediaUploadResult>(API_ENDPOINTS.media.intake(intakeId))
-  return data
+/**
+ * Verifica el estado de un intake de media.
+ * Usa el engine directamente, no endpoints legacy.
+ */
+export async function getIntakeStatus(mediaId: string): Promise<MediaUploadResult | null> {
+  if (!mediaId) return null
+  try {
+    const { getReadyPayload } = await import('@antojados/api/services/media-engine/mediaEngineClient')
+    const payload = await getReadyPayload(mediaId)
+    return mapReadyPayloadToMediaResult(payload)
+  } catch {
+    return null
+  }
 }
 
 export function resolveUploadedMediaUrl(result: MediaUploadResult): string | null {
@@ -45,12 +105,10 @@ export function requireUploadedMediaUrl(result: MediaUploadResult, context = 'me
   return mediaUrl
 }
 
-function delay(ms: number): Promise<void> {
-  return new Promise((resolve) => {
-    globalThis.setTimeout(resolve, ms)
-  })
-}
-
+/**
+ * Espera a que una URL de media esté disponible.
+ * Puede hacer polling si el resultado inicial no tiene URL.
+ */
 export async function waitForUploadedMediaUrl(
   result: MediaUploadResult,
   context = 'media',
@@ -63,27 +121,43 @@ export async function waitForUploadedMediaUrl(
   const immediateUrl = resolveUploadedMediaUrl(result)
   if (immediateUrl) return immediateUrl
 
-  const intakeId = result.intake_id
-  if (!intakeId) {
+  const mediaId = result.intake_id
+  if (!mediaId) {
     throw new Error(`El intake de ${context} no devolvio URL normalizada.`)
   }
 
-  const attempts = options.attempts ?? 80
-  const intervalMs = options.intervalMs ?? 3000
-
-  for (let index = 0; index < attempts; index += 1) {
-    if (index > 0) await delay(intervalMs)
-    const status = await getIntakeStatus(intakeId)
-    options.onStatus?.(status, { attempt: index + 1, attempts })
-    if (!status) continue
-    if (status.status === 'error') {
-      throw new Error(status.error_msg || `El intake de ${context} fallo al procesar el video.`)
-    }
-    const url = resolveUploadedMediaUrl(status)
+  try {
+    const payload = await waitForReadyPayload(mediaId, {
+      attempts: options.attempts,
+      intervalMs: options.intervalMs,
+      onStatus: (p, meta) => {
+        options.onStatus?.(
+          mapReadyPayloadToMediaResult(p),
+          meta,
+        )
+      },
+    })
+    const url = resolveUploadedMediaUrl(mapReadyPayloadToMediaResult(payload))
     if (url) return url
+  } catch (err) {
+    if (err instanceof Error) {
+      throw new Error(`El intake de ${context} fallo: ${err.message}`)
+    }
+    throw err
   }
 
-  throw new Error(`El intake de ${context} sigue procesando el video. Intenta de nuevo en unos minutos.`)
+  throw new Error(`El intake de ${context} sigue procesando. Intenta de nuevo en unos minutos.`)
 }
 
-
+function _resolveTargetContext(channel: string): 'post' | 'avatar' | 'gallery' | 'story' | 'cover' {
+  switch (channel) {
+    case 'avatar':
+      return 'avatar'
+    case 'gallery':
+      return 'gallery'
+    case 'tile':
+      return 'cover'
+    default:
+      return 'post'
+  }
+}

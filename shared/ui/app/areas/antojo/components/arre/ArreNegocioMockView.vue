@@ -69,6 +69,8 @@
   <publish-fab-base
     color="deep-purple-6"
     text-color="white"
+    :visible="fabAccess.visible"
+    :enabled="fabAccess.enabled"
     tooltip="Publicar en Arre"
     title="Publicar en Arre"
     body="Comparte tus eventos: conciertos, noches tematicas, fiestas y experiencias unicas.
@@ -91,6 +93,7 @@ import { computed, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import FeedDetailColumnBase from '@antojados/ui/base/FeedDetailColumnBase.vue'
 import PublishFabBase from '@antojados/ui/base/PublishFabBase.vue'
+import { useFabAccess } from '@antojados/ui/base/useFabAccess'
 import { bizFeedService } from '@antojados/api/services'
 
 const route = useRoute()
@@ -113,6 +116,15 @@ const eventActions = computed(() => [
   { key: 'califica', label: 'Califica', icon: 'rate_review', color: 'deep-purple-6', textColor: 'white' },
   { key: 'compa', label: 'Tu compa', icon: 'person_add_alt_1', color: 'grey-8', textColor: 'white' },
 ])
+
+const fabAccess = useFabAccess({
+  subdimIk: 'BTN_PUBLICAR',
+  subdimPc: 'ANTOJO.ARRE.ARRE_FEED',
+  dimCode: 'ANTOJO.ARRE.ARRE_FEED.BTN_PUBLICAR',
+  subdimType: 'BUTTON',
+  subdimAppliesTo: 'sponsor',
+  codeComponent: 'ANTOJO.ARRE.ARRE_FEED.FAB_PUBLICAR',
+})
 
 watch(
   () => [route.params.publisher_id, route.query.post_id],

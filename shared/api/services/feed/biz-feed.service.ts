@@ -15,7 +15,8 @@ interface RawBizPost extends Record<string, unknown> {
   place_name?: string
   media_url?: string
   media_type?: string
-  media_urls?: unknown
+  media_full_url?: unknown
+  video_1080_url?: unknown
   likes_count?: number | string
   comments_count?: number | string
   created_at?: string
@@ -72,36 +73,6 @@ function mapComments(rawComments: unknown): FeedComment[] {
     .filter((comment): comment is FeedComment => Boolean(comment))
 }
 
-function mapMediaGallery(rawGallery: unknown, fallbackMediaUrl: string | null): string[] {
-  if (Array.isArray(rawGallery)) {
-    const mediaItems = rawGallery
-      .map((item) => {
-        if (typeof item === 'string') {
-          return resolveMediaUrl(item)
-        }
-
-        if (item && typeof item === 'object') {
-          const candidate = item as Record<string, unknown>
-          if (typeof candidate.media_url === 'string') {
-            return resolveMediaUrl(candidate.media_url)
-          }
-          if (typeof candidate.url === 'string') {
-            return resolveMediaUrl(candidate.url)
-          }
-        }
-
-        return null
-      })
-      .filter((item): item is string => Boolean(item))
-
-    if (mediaItems.length > 0) {
-      return mediaItems
-    }
-  }
-
-  return fallbackMediaUrl ? [fallbackMediaUrl] : []
-}
-
 function toPostTypeLabel(postType: string | null): string | null {
   switch (postType) {
     case 'promo':
@@ -126,6 +97,8 @@ function mapBizPost(raw: RawBizPost): FeedItem {
   }
 
   const mediaUrl = resolveMediaUrl(raw.media_url)
+  const mediaFullUrl = resolveMediaUrl(raw.media_full_url)
+  const video1080Url = resolveMediaUrl(raw.video_1080_url)
   const postType = typeof raw.post_type === 'string' ? raw.post_type : null
   const caption =
     typeof raw.caption === 'string'
@@ -158,7 +131,8 @@ function mapBizPost(raw: RawBizPost): FeedItem {
           ? raw.place_name
           : null,
     mediaUrl,
-    mediaGallery: mapMediaGallery(raw.media_urls, mediaUrl),
+    mediaFullUrl,
+    video1080Url,
     mediaType: typeof raw.media_type === 'string' ? raw.media_type : null,
     likesCount: toNumber(raw.likes_count, 0),
     commentsCount: toNumber(raw.comments_count, 0),

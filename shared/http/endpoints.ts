@@ -70,10 +70,6 @@ export const API_ENDPOINTS = {
     sponsorMetrics: '/api/v1/antojados/analytics/sponsor-metrics',
     userSummary: '/api/v1/antojados/analytics/user-summary',
   },
-  media: {
-    upload: '/api/v1/antojados/media/upload',
-    intake: (intakeId: string) => `/api/v1/antojados/media/intake/${encodeURIComponent(intakeId)}`,
-  },
   efirma: {
     create: '/api/v1/antojados/gt/efirma/create',
     sendActivation: '/api/v1/antojados/gt/efirma/send-activation',

@@ -138,10 +138,9 @@ import { useQuasar } from 'quasar'
 import { useRouter } from 'vue-router'
 import FeedFlowOrchestratorBase from '@antojados/ui/base/FeedFlowOrchestratorBase.vue'
 import { useLocationScope } from '@antojados/api/composables/useLocationScope'
-import { publishService } from '@antojados/api/services'
-import { resolveMediaUploadStageLabel, uploadPublishMediaFlow } from '@antojados/api/services/media/media-publish-flow.service'
 import { usePublishMedia } from '@antojados/api/composables/usePublishMedia'
-import { getSharedSession } from '@antojados/api/storage/session.storage'
+import { resolveMediaUploadStageLabel } from '@antojados/api/services/media/media-publish-flow.service'
+import { usePublish } from '@antojados/api/composables/usePublish'
 
 const $q = useQuasar()
 const router = useRouter()
@@ -158,6 +157,7 @@ const caption = ref('Algo se esta armando en el barrio.')
 const publishing = ref(false)
 const publishingStageLabel = ref('Preparando video...')
 const publishingStageDetail = ref('')
+const { publish } = usePublish()
 const {
   photoInputRef,
   videoInputRef,
@@ -167,6 +167,7 @@ const {
   mediaError,
   selectedSource,
   hasMedia,
+  selectedFile,
   triggerFilePicker,
   onFileChange,
   clearMedia,
@@ -198,51 +199,41 @@ function selectMediaSource(sourceKey) {
 async function submit() {
   if (publishing.value) return
   publishing.value = true
-  publishingStageLabel.value = resolveMediaUploadStageLabel('preparing_media')
+  publishingStageLabel.value = 'Preparando...'
   publishingStageDetail.value = ''
-  try {
-    const session = await getSharedSession()
-    if (!session?.userId) throw new Error('Necesitas iniciar sesion para publicar.')
-    if (!mediaBase64.value) throw new Error('Selecciona una foto o video para publicar en Barrio.')
 
-    const postId = `barrio-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`
-    const { uploaded, mediaUrl } = await uploadPublishMediaFlow({
+  const { postId } = await publish(
+    {
       base64: mediaBase64.value,
+      file: selectedFile.value,
       mediaType: mediaType.value,
       channel: 'feed_post',
-      entityId: postId,
+      entityId: `barrio-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`,
       entityContext: `antojados.barrio.${selectedSource.value}`,
+    },
+    {
+      target: 'social',
+      feedScope: 'barrio',
+      venueName: venueName.value,
+      caption: caption.value,
+      description: caption.value,
+      cityCode: cityCode.value,
+      scopeLevel: scopeLevel.value,
+      scopeCode: scopeCode.value,
+      redirectSuccess: (id) => id ? `/red/barrio/fullscreen/${id}` : '/red/barrio',
+    },
+    {
       context: 'barrio',
       onStage: (stage, detail = '') => {
         publishingStageLabel.value = resolveMediaUploadStageLabel(stage)
         publishingStageDetail.value = detail
       },
-    })
-
-    const result = await publishService.createSocialPost({
-      post_id: postId,
-      user_id: session.userId,
-      feed_scope: 'barrio',
-      venue_name: venueName.value.trim() || 'Sin ubicacion',
-      caption: caption.value.trim() || null,
-      description: caption.value.trim() || null,
-      city_code: cityCode.value || session.cityCode || null,
-      scope_level: scopeLevel.value || null,
-      scope_code: scopeCode.value || null,
-      media_url: mediaUrl,
-      media_type: mediaType.value,
-      media_intake_id: uploaded.intake_id || null,
-    })
-
-    $q.notify({ type: 'positive', message: 'Post publicado.' })
-    router.replace(result.post_id ? `/red/barrio/fullscreen/${result.post_id}` : '/red/barrio')
-  } catch (error) {
-    $q.notify({ type: 'negative', message: error?.message || 'No se pudo publicar.' })
-  } finally {
-    publishing.value = false
-    publishingStageLabel.value = resolveMediaUploadStageLabel('preparing_media')
-    publishingStageDetail.value = ''
-  }
+    },
+  )
+  if (postId) router.replace(`/red/barrio/fullscreen/${postId}`)
+  publishing.value = false
+  publishingStageLabel.value = 'Preparando...'
+  publishingStageDetail.value = ''
 }
 </script>
 

@@ -1,4 +1,4 @@
-export type ScopeLevel = 'global' | 'mexico' | 'zona' | 'metro' | 'ciudad' | 'municipio'
+export type ScopeLevel = 'global' | 'mexico' | 'zona' | 'ciudad' | 'municipio'
 
 export type LocationFeedKey =
   | 'vas_ir'

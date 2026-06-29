@@ -13,6 +13,7 @@ import { SocialActionsService } from '@antojados/api/services/feed/social-action
 import { SocialFeedService } from '@antojados/api/services/feed/social-feed.service'
 import { SystemService } from '@antojados/api/services/system/system.service'
 import { TenantsService } from '@antojados/api/services/tenants/tenants.service'
+import { SponsorFacade } from '@antojados/api/services/sponsors/sponsor-facade'
 import * as mediaService from '@antojados/api/services/media/media.service'
 import * as publishService from '@antojados/api/services/publish/publish.service'
 import * as rankingsService from '@antojados/api/services/rankings/rankings.service'
@@ -30,6 +31,7 @@ const miRolloService = new MiRolloService(httpClient)
 const modulosService = new ModulosService(httpClient)
 const placesService = new PlacesService(httpClient)
 const registroService = new RegistroService(httpClient)
+const sponsorFacade = new SponsorFacade(httpClient)
 const socialActionsService = new SocialActionsService(httpClient)
 const socialFeedService = new SocialFeedService(httpClient)
 const systemService = new SystemService(httpClient)
@@ -51,6 +53,7 @@ export {
   rankingsService,
   registroService,
   rewardsService,
+  sponsorFacade,
   socialActionsService,
   socialFeedService,
   sponsorsService,
@@ -60,6 +63,8 @@ export {
 }
 
 export { AuthService } from '@antojados/api/services/auth/auth.service'
+export { SessionService } from '@antojados/api/services/auth/session.service'
+export { ProfileService } from '@antojados/api/services/auth/profile.service'
 export { BizFeedService } from '@antojados/api/services/feed/biz-feed.service'
 export { EfirmaService } from '@antojados/api/services/efirma/efirma.service'
 export { EquipoService } from '@antojados/api/services/equipo/equipo.service'
@@ -71,14 +76,19 @@ export { PlacesService } from '@antojados/api/services/places/places.service'
 export { RegistroService } from '@antojados/api/services/registro/registro.service'
 export { SocialActionsService } from '@antojados/api/services/feed/social-actions.service'
 export { SocialFeedService } from '@antojados/api/services/feed/social-feed.service'
+export { SponsorFacade } from '@antojados/api/services/sponsors/sponsor-facade'
 export { SystemService } from '@antojados/api/services/system/system.service'
 export { TenantsService } from '@antojados/api/services/tenants/tenants.service'
 export * from '@antojados/api/services/auth/auth.service'
+export * from '@antojados/api/services/auth/session.service'
+export * from '@antojados/api/services/auth/profile.service'
 export * from '@antojados/api/services/auth/auth-crypto'
 export * from '@antojados/api/services/feed/biz-feed.service'
 export * from '@antojados/api/services/feed/mi-rollo.service'
 export * from '@antojados/api/services/feed/social-actions.service'
 export * from '@antojados/api/services/feed/social-feed.service'
+export * from '@antojados/api/services/feed/feed-cache.service'
+export * from '@antojados/api/services/gt/gt-cache.service'
 export * from '@antojados/api/services/efirma/efirma.service'
 export * from '@antojados/api/services/equipo/equipo.service'
 export * from '@antojados/api/services/explorers/explorers.service'

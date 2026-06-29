@@ -48,10 +48,10 @@
 </template>
 
 <script setup>
-import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
-import { useQuasar } from 'quasar'
+import { computed, onMounted, ref } from 'vue'
 import { useRoute } from 'vue-router'
 import { useGeoScopeMaster } from '@antojados/api/composables/useLocationScope'
+import { useGeoEvents } from '@antojados/api/composables/useGeoEvents'
 import { MAIN_TABS } from '@antojados/ui/dimensions/navigationDimensions.js'
 import { getActiveTheme, getAvailableThemes, setTheme } from '@antojados/ui/theme/themeManager'
 import splashBrand from '@antojados/ui/assets/brand/splash.png'
@@ -68,7 +68,9 @@ const BRAND_SECONDARY = primaryBrand
 const BRAND_FALLBACK = liteBrand
 const brandImgSrc = ref(BRAND_PRIMARY)
 const mainTabs = MAIN_TABS
-let lastGeoNoticeAt = 0
+
+// DEBT-028: Eventos de geo delegados a composable separado
+useGeoEvents({ requestDeviceGeo })
 
 const title = computed(() => {
   if (route.path.startsWith('/antojo')) return 'Antojo'
@@ -100,68 +102,6 @@ function onBrandImgError() {
     brandImgSrc.value = BRAND_FALLBACK
   }
 }
-
-function onGeoPermissionRequest(event) {
-  const now = Date.now()
-  if (now - lastGeoNoticeAt < 15000) return
-  lastGeoNoticeAt = now
-  $q.notify({
-    type: 'info',
-    message: event?.detail?.message || 'Usamos tu ubicacion para mostrar publicaciones por ciudad y zona.',
-    timeout: 3600,
-  })
-}
-
-function onGeoCityChangeRequest(event) {
-  const detail = event?.detail || {}
-  const cityLabel = detail.city?.cityLabel || 'esta ciudad'
-  const accept = typeof detail.accept === 'function' ? detail.accept : null
-  $q.notify({
-    type: 'info',
-    message: `${detail.message || `Detectamos que estas en ${cityLabel}.`} Usarla como ciudad de tus feeds?`,
-    timeout: 12000,
-    actions: [
-      {
-        label: 'Usar ciudad',
-        color: 'white',
-        handler: () => {
-          if (accept) void accept()
-        },
-      },
-      { label: 'Mantener', color: 'white' },
-    ],
-  })
-}
-
-function refreshGeoFromForeground() {
-  void requestDeviceGeo(false, true)
-}
-
-function onVisibilityChange() {
-  if (document.visibilityState === 'visible') {
-    refreshGeoFromForeground()
-  }
-}
-
-onMounted(() => {
-  if (typeof window !== 'undefined') {
-    window.addEventListener('antojados:geo-permission-request', onGeoPermissionRequest)
-    window.addEventListener('antojados:geo-city-change-request', onGeoCityChangeRequest)
-  }
-  if (typeof document !== 'undefined') {
-    document.addEventListener('visibilitychange', onVisibilityChange)
-  }
-})
-
-onBeforeUnmount(() => {
-  if (typeof window !== 'undefined') {
-    window.removeEventListener('antojados:geo-permission-request', onGeoPermissionRequest)
-    window.removeEventListener('antojados:geo-city-change-request', onGeoCityChangeRequest)
-  }
-  if (typeof document !== 'undefined') {
-    document.removeEventListener('visibilitychange', onVisibilityChange)
-  }
-})
 </script>
 
 <style scoped>

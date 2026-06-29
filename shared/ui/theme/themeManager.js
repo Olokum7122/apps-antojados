@@ -198,6 +198,11 @@ export function applyTheme(themeName) {
   const normalizedTheme = THEME_DEFINITIONS[themeName] ? themeName : DEFAULT_THEME
   const themeDefinition = getThemeDefinition(normalizedTheme)
 
+  // DEBT-023: Usar clases en root en lugar de solo inline
+  // Se remueven clases de tema previas del root y body
+  doc.documentElement.classList.remove('theme-ambar', 'theme-aqua', 'theme-indigo')
+  doc.documentElement.classList.add(`theme-${normalizedTheme}`)
+
   Object.entries(themeDefinition).forEach(([token, value]) => {
     doc.documentElement.style.setProperty(token, value)
   })

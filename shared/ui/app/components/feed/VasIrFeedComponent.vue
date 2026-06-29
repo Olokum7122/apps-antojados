@@ -46,7 +46,7 @@
       </div>
     </transition>
 
-    <feed-gallery-base
+    <feed-grid-base
       :items="filteredPosts"
       :loading="loading"
       empty-message="Sin publicaciones para este filtro"
@@ -86,7 +86,7 @@
       <template #empty>
         <app-empty-state :message="error || 'Sin publicaciones en Vas Ir por ahora'" />
       </template>
-    </feed-gallery-base>
+    </feed-grid-base>
 
     <q-dialog v-model="isCityPickerOpen" position="bottom">
       <q-card class="vasir-feed-component__sheet bg-grey-10 text-white">
@@ -133,7 +133,7 @@ import { computed, onMounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import AppEmptyState from '@antojados/ui/base/AppEmptyState.vue'
 import FeedFilterBarBase from '@antojados/ui/base/FeedFilterBarBase.vue'
-import FeedGalleryBase from '@antojados/ui/base/FeedGalleryBase.vue'
+import FeedGridBase from '@antojados/ui/base/FeedGridBase.vue'
 import MediaGridCellBase from '@antojados/ui/base/MediaGridCellBase.vue'
 import { useAntojoFeed } from '@antojados/api/composables/useAntojoFeed'
 import { useLocationScope } from '@antojados/api/composables/useLocationScope'

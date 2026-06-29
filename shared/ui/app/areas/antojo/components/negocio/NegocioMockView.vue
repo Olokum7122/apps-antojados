@@ -76,6 +76,8 @@
   <publish-fab-base
     color="primary"
     text-color="dark"
+    :visible="fabAccess.visible"
+    :enabled="fabAccess.enabled"
     tooltip="Publicar en Vas Ir"
     title="Publicar en Vas Ir"
     body="Comparte lo mejor de tu negocio: platillos, promociones y descuentos especiales.
@@ -98,6 +100,7 @@ import { computed, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import FeedDetailColumnBase from '@antojados/ui/base/FeedDetailColumnBase.vue'
 import PublishFabBase from '@antojados/ui/base/PublishFabBase.vue'
+import { useFabAccess } from '@antojados/ui/base/useFabAccess'
 import { bizFeedService } from '@antojados/api/services'
 
 const route = useRoute()
@@ -119,6 +122,15 @@ const businessActions = computed(() => [
   { key: 'califica', label: 'Califica', icon: 'rate_review', color: 'deep-purple-6', textColor: 'white' },
   { key: 'compa', label: 'Tu compa', icon: 'person_add_alt_1', color: 'grey-8', textColor: 'white' },
 ])
+
+const fabAccess = useFabAccess({
+  subdimIk: 'BTN_PUBLICAR',
+  subdimPc: 'ANTOJO.VAS_IR.BIZ_FEED',
+  dimCode: 'ANTOJO.VAS_IR.BIZ_FEED.BTN_PUBLICAR',
+  subdimType: 'BUTTON',
+  subdimAppliesTo: 'sponsor',
+  codeComponent: 'ANTOJO.VAS_IR.BIZ_FEED.FAB_PUBLICAR',
+})
 
 watch(
   () => [route.params.publisher_id, route.query.post_id],

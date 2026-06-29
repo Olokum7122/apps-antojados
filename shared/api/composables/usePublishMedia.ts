@@ -3,6 +3,34 @@ import type { MediaType } from '@antojados/api/types/publish'
 
 export type PublishMediaSource = 'photo' | 'video' | 'device'
 
+/**
+ * Limites de tamaño de archivo para validacion antes de subir al engine.
+ * El engine acepta hasta 500MB, pero las apps tienen limites conservadores
+ * para evitar abusos y ofrecer feedback temprano al usuario.
+ * DEBT-017: Validacion de tamaño de archivo.
+ */
+export const MEDIA_SIZE_LIMITS = {
+  /** Foto: maximo 20MB */
+  photo: 20 * 1024 * 1024,
+  /** Video: maximo 200MB */
+  video: 200 * 1024 * 1024,
+} as const
+
+export function formatBytes(bytes: number): string {
+  if (bytes >= 1024 * 1024 * 1024) return `${(bytes / (1024 * 1024 * 1024)).toFixed(1)} GB`
+  if (bytes >= 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(0)} MB`
+  if (bytes >= 1024) return `${(bytes / 1024).toFixed(0)} KB`
+  return `${bytes} B`
+}
+
+export function resolveMediaSizeLimit(mediaType: MediaType): number {
+  return MEDIA_SIZE_LIMITS[mediaType] || MEDIA_SIZE_LIMITS.photo
+}
+
+export function resolveHumanReadableSizeLimit(mediaType: MediaType): string {
+  return formatBytes(resolveMediaSizeLimit(mediaType))
+}
+
 export interface PublishMediaSelection {
   preview: string
   base64: string
@@ -10,6 +38,8 @@ export interface PublishMediaSelection {
   fileName: string
   mimeType: string
   sizeBytes: number
+  /** Archivo original seleccionado. Preferido sobre base64 para upload. */
+  file: File | null
 }
 
 interface PickerSettings {
@@ -94,6 +124,7 @@ export function readPublishMediaFile(file: File): Promise<PublishMediaSelection>
         fileName: file.name || 'media',
         mimeType,
         sizeBytes: Number(file.size || 0),
+        file,
       })
     }
     reader.readAsDataURL(file)
@@ -115,6 +146,8 @@ export function usePublishMedia(options: PublishMediaOptions = {}) {
   const mediaSizeBytes = ref<number | null>(null)
   const mediaError = ref<string | null>(null)
   const selectedSource = ref<PublishMediaSource>('photo')
+  /** Archivo original seleccionado. Preferido sobre base64 para upload (DEBT-015). */
+  const selectedFile = ref<File | null>(null)
 
   const hasMedia = computed(() => Boolean(mediaBase64.value))
 
@@ -157,6 +190,17 @@ export function usePublishMedia(options: PublishMediaOptions = {}) {
 
     try {
       const selected = await readPublishMediaFile(file)
+
+      // DEBT-017: Validar tamaño antes de continuar
+      const mediaLimit = MEDIA_SIZE_LIMITS[selected.mediaType] || MEDIA_SIZE_LIMITS.photo
+      if (selected.sizeBytes > mediaLimit) {
+        const readableLimit = formatBytes(mediaLimit)
+        const actualSize = formatBytes(selected.sizeBytes)
+        throw new Error(
+          `El archivo es demasiado grande (${actualSize}). El limite es ${readableLimit}.`,
+        )
+      }
+
       if (!allowedMediaTypes.includes(selected.mediaType)) {
         throw new Error(mediaTypeNotAllowedMessage(selected.mediaType))
       }
@@ -173,6 +217,7 @@ export function usePublishMedia(options: PublishMediaOptions = {}) {
       mediaFileName.value = selected.fileName
       mediaMimeType.value = selected.mimeType
       mediaSizeBytes.value = selected.sizeBytes
+      selectedFile.value = selected.file
       mediaError.value = null
     } catch (error) {
       clearMedia()
@@ -186,6 +231,7 @@ export function usePublishMedia(options: PublishMediaOptions = {}) {
     mediaFileName.value = null
     mediaMimeType.value = null
     mediaSizeBytes.value = null
+    selectedFile.value = null
     mediaError.value = null
     if (photoInputRef.value) photoInputRef.value.value = ''
     if (videoInputRef.value) videoInputRef.value.value = ''
@@ -207,6 +253,7 @@ export function usePublishMedia(options: PublishMediaOptions = {}) {
     mediaError,
     selectedSource,
     hasMedia,
+    selectedFile,
     triggerFilePicker,
     onFileChange,
     clearMedia,

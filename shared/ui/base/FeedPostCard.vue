@@ -73,6 +73,12 @@ const props = defineProps({
   post: { type: Object, required: true },
   feedDebug: { type: Boolean, default: false },
   cardClass: { type: [String, Array, Object], default: '' },
+  /** Stage del engine: S1 (thumb 400px), S2 (feed 1080px), S3 (full 1920px) */
+  stage: {
+    type: String,
+    default: 'S1',
+    validator: (value) => ['S1', 'S2', 'S3'].includes(value),
+  },
   subdimIk: { type: String, default: '' },
   subdimPc: { type: String, default: '' },
   subdimType: { type: String, default: 'SUB_COMPONENT' },
@@ -90,7 +96,13 @@ const venueLabel = computed(() => props.post.venue || props.post.venueName || ''
 const dishLabel = computed(() => props.post.dish || props.post.dishName || '')
 const momentLabel = computed(() => props.post.momentTag || '')
 const captionLabel = computed(() => props.post.caption || '')
-const mediaUrl = computed(() => props.post.mediaThumbUrl || props.post.mediaUrl || '')
+const mediaUrl = computed(() => {
+  // S1: thumb (400px), S2/S3: feed (1080px)
+  if (props.stage === 'S1') {
+    return props.post.mediaThumbUrl || props.post.mediaUrl || ''
+  }
+  return props.post.mediaUrl || props.post.mediaThumbUrl || ''
+})
 const averageRating = computed(() => Number(props.post.averageRating || 0))
 const ratingVerdicts = computed(() => props.post.ratingVerdicts || [])
 
@@ -106,3 +118,4 @@ function resolveVerdictIcon(dim) {
   return icons[dim] || 'star'
 }
 </script>
+

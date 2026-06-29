@@ -151,10 +151,9 @@ import { useQuasar } from 'quasar'
 import { useRouter } from 'vue-router'
 import FeedFlowOrchestratorBase from '@antojados/ui/base/FeedFlowOrchestratorBase.vue'
 import { VAS_IR_POST_TYPES } from '@antojados/ui/mocks/uiFeeds'
-import { publishService } from '@antojados/api/services'
-import { resolveMediaUploadStageLabel, uploadPublishMediaFlow } from '@antojados/api/services/media/media-publish-flow.service'
 import { usePublishMedia } from '@antojados/api/composables/usePublishMedia'
-import { getSharedSession } from '@antojados/api/storage/session.storage'
+import { resolveMediaUploadStageLabel } from '@antojados/api/services/media/media-publish-flow.service'
+import { usePublish } from '@antojados/api/composables/usePublish'
 
 const $q = useQuasar()
 const router = useRouter()
@@ -170,6 +169,7 @@ const caption = ref('Promo nueva para que la banda se anime a venir.')
 const publishing = ref(false)
 const publishingStageLabel = ref('Preparando video...')
 const publishingStageDetail = ref('')
+const { publish } = usePublish()
 const {
   photoInputRef,
   videoInputRef,
@@ -179,6 +179,7 @@ const {
   mediaError,
   selectedSource,
   hasMedia,
+  selectedFile,
   triggerFilePicker,
   onFileChange,
   clearMedia,
@@ -218,49 +219,38 @@ function selectMediaSource(sourceKey) {
 async function submit() {
   if (publishing.value) return
   publishing.value = true
-  publishingStageLabel.value = resolveMediaUploadStageLabel('preparing_media')
+  publishingStageLabel.value = 'Preparando...'
   publishingStageDetail.value = ''
-  try {
-    const session = await getSharedSession()
-    if (!session?.userId || !session?.placeId) {
-      throw new Error('Necesitas una sesion sponsor con negocio asignado para publicar.')
-    }
-    if (!mediaBase64.value) throw new Error('Selecciona una foto o video para publicar en Vas Ir.')
 
-    const { mediaUrl } = await uploadPublishMediaFlow({
+  const { bizPostId } = await publish(
+    {
       base64: mediaBase64.value,
+      file: selectedFile.value,
       mediaType: mediaType.value,
       channel: 'biz_post',
-      entityId: session.placeId,
       entityContext: `antojo.vas_ir.${selectedSource.value}`,
+    },
+    {
+      target: 'biz',
+      channel: 'vas_ir',
+      postType: selectedType.value,
+      publicationType: selectedType.value,
+      title: selectedTypeMeta.value.label,
+      body: caption.value,
+      redirectSuccess: (id) => id ? `/negocio/${session?.userId}/post/${id}` : '/antojo/vas-ir/gallery',
+    },
+    {
       context: 'vas_ir',
       onStage: (stage, detail = '') => {
         publishingStageLabel.value = resolveMediaUploadStageLabel(stage)
         publishingStageDetail.value = detail
       },
-    })
-
-    const result = await publishService.createBizPost({
-      place_id: session.placeId,
-      publisher_user_id: session.userId,
-      channel: 'vas_ir',
-      post_type: selectedType.value,
-      publication_type: selectedType.value,
-      title: selectedTypeMeta.value.label,
-      body: caption.value.trim() || null,
-      media_url: mediaUrl,
-      media_type: mediaType.value,
-    })
-
-    $q.notify({ type: 'positive', message: 'Publicacion creada.' })
-    router.replace(result.biz_post_id ? `/negocio/${session.userId}/post/${result.biz_post_id}` : '/antojo/vas-ir/gallery')
-  } catch (error) {
-    $q.notify({ type: 'negative', message: error?.message || 'No se pudo publicar.' })
-  } finally {
-    publishing.value = false
-    publishingStageLabel.value = resolveMediaUploadStageLabel('preparing_media')
-    publishingStageDetail.value = ''
-  }
+    },
+  )
+  if (bizPostId) router.replace(`/antojo/vas-ir/negocio/${bizPostId}`)
+  publishing.value = false
+  publishingStageLabel.value = 'Preparando...'
+  publishingStageDetail.value = ''
 }
 </script>
 

@@ -3,7 +3,18 @@ export type BizPostChannel = 'vas_ir' | 'arre'
 export type SocialPostScope = 'barrio' | 'pachanga' | 'la-neta' | 'desma'
 
 export interface MediaUploadInput {
-  base64: string
+  /**
+   * Archivo directamente del picker. Preferido sobre base64.
+   * Si se proporciona, se sube directo sin conversion base64.
+   */
+  file?: File | null
+
+  /**
+   * @deprecated Desde DEBT-015. Usar `file` en su lugar.
+   * Mantenido por compatibilidad — se convertira a Blob internamente si file no esta presente.
+   */
+  base64?: string | null
+
   mediaType: MediaType
   channel: 'biz_post' | 'feed_post' | 'gallery' | 'avatar' | 'tile'
   entityId?: string | null
@@ -62,3 +73,4 @@ export interface SocialPostCreateInput {
 export interface SocialPostCreateResult {
   post_id: string
 }
+

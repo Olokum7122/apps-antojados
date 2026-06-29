@@ -1,19 +1,12 @@
 import type { AxiosInstance } from 'axios'
 import { httpClient } from '@antojados/http/client'
 import { API_ENDPOINTS } from '@antojados/http/endpoints'
-import {
-  clearTokens,
-  getAccessToken as readAccessToken,
-  getRefreshToken as readRefreshToken,
-  getTokens as readTokens,
-  setTokens,
-} from '@antojados/api/storage/token.storage'
-import type { AuthTokens } from '@antojados/api/storage/token.storage'
-import { secureStorage } from '@antojados/api/storage/secure-storage'
+import { setTokens } from '@antojados/api/storage/token.storage'
+import { sharedSessionService } from '@antojados/api/services/auth/session.service'
+import { sharedProfileService } from '@antojados/api/services/auth/profile.service'
 import { sha256Hex, sha256SecretRef } from '@antojados/api/services/auth/auth-crypto'
 import type { ApiResponse } from '@antojados/api/types/api'
 import type {
-  AuthContextResolution,
   AuthProfileUpdateInput,
   AuthUser,
   AuthUserProfile,
@@ -29,12 +22,9 @@ import type {
   SponsorRegisterInput,
   TragonSession,
 } from '@antojados/api/types/auth'
-import { clearGtAccessCache, primeGtAccessForSession } from '@antojados/api/services/gt/gt-access.service'
-
-const ACTIVE_SESSION_KEY = 'antojados.session'
 
 interface LoginApiResponse {
-  user_id: string
+  user_id?: string
   display_name?: string | null
   username?: string | null
   place_id?: string | null
@@ -52,27 +42,12 @@ interface LoginApiResponse {
   refresh_token?: string | null
 }
 
-interface ProfileApiResponse extends LoginApiResponse {
-  instagram_handle?: string | null
-  facebook_url?: string | null
-  tiktok_handle?: string | null
-  x_handle?: string | null
-  whatsapp_number?: string | null
-  follower_count?: number | null
-  following_count?: number | null
-  reputation_level?: number | null
-  verified_reviewer?: boolean | number | null
-  created_at?: string | null
-}
-
-interface InstanceInfoResponse {
-  instance_id?: string | null
-  status?: string | null
-}
-
-interface MyTenantResponse {
+interface RegisterApiResponse {
+  user_id?: string
   instance_id?: string | null
   tenant_user_id?: string | null
+  access_token?: string | null
+  refresh_token?: string | null
 }
 
 function normalizeEmail(email: string): string {
@@ -89,99 +64,134 @@ function createId(prefix: string): string {
   if (globalThis.crypto?.randomUUID) {
     return `${prefix}_${globalThis.crypto.randomUUID()}`
   }
-
   return `${prefix}_${Date.now()}_${Math.random().toString(16).slice(2)}`
-}
-
-function mapProfile(raw: ProfileApiResponse, email: string): AuthUserProfile {
-  return {
-    id: String(raw.user_id),
-    userId: String(raw.user_id),
-    email,
-    name: String(raw.display_name || '').trim() || email,
-    username: raw.username || null,
-    cityCode: raw.city_code || null,
-    avatarUrl: raw.avatar_url || null,
-    bio: raw.bio || null,
-    instagramHandle: raw.instagram_handle || null,
-    facebookUrl: raw.facebook_url || null,
-    tiktokHandle: raw.tiktok_handle || null,
-    xHandle: raw.x_handle || null,
-    whatsappNumber: raw.whatsapp_number || null,
-    followerCount: Number(raw.follower_count || 0),
-    followingCount: Number(raw.following_count || 0),
-    reputationLevel: Number(raw.reputation_level || 0),
-    verifiedReviewer: raw.verified_reviewer === true || Number(raw.verified_reviewer || 0) === 1,
-    socialAccountRoleCode: raw.social_account_role_code || null,
-    collaborationTypeCode: raw.collaboration_type_code || null,
-    corpInstanceId: raw.corp_instance_id || null,
-    programInstanceId: raw.program_instance_id || null,
-    commissionProfileCode: raw.commission_profile_code || null,
-    economicStatus: raw.economic_status || null,
-    status: raw.status || null,
-    createdAt: raw.created_at || null,
-  }
-}
-
-function mapAuthUser(profile: AuthUserProfile, session?: TragonSession | null): AuthUser {
-  return {
-    userId: profile.userId,
-    email: profile.email,
-    displayName: profile.name,
-    username: profile.username,
-    avatarUrl: profile.avatarUrl,
-    instanceType: session?.instanceType || null,
-    instanceId: session?.instanceId || null,
-    tenantUserId: session?.tenantUserId || null,
-    placeId: session?.placeId || null,
-    cityCode: profile.cityCode || session?.cityCode || null,
-  }
 }
 
 export class AuthService {
   constructor(private readonly http: AxiosInstance = httpClient) {}
 
+  // ─── Register ─────────────────────────────────────────────────────────────
+
   async registerSocial(input: SocialRegisterInput): Promise<TragonSession> {
-    return this.registerAccount({
-      fullName: input.fullName,
-      email: input.email,
-      password: input.password,
-      confirmPassword: input.confirmPassword,
-      instanceType: 'user',
-      marketingOptIn: input.marketingOptIn,
+    const normalizedEmail = normalizeEmail(input.email)
+    const userId = createId('user')
+
+    const payload: Record<string, unknown> = {
+      user_id: userId,
+      local_account_id: createId('acct'),
+      email_hash: await sha256Hex(normalizedEmail),
+      display_name: input.fullName,
+      username: deriveUsername(input.email),
+      instance_type: 'user',
+      password_secret_ref: await sha256SecretRef(input.password),
+      password_confirm_secret_ref: await sha256SecretRef(input.confirmPassword || input.password),
+      marketing_opt_in: input.marketingOptIn ? 1 : 0,
+      place_id: input.placeId || null,
+    }
+
+    const { data } = await this.http.post<RegisterApiResponse>(API_ENDPOINTS.auth.register, payload)
+    await this.handleTokens(data)
+
+    const session = await sharedSessionService.buildSession({
+      userId: String(data.user_id || userId),
+      email: normalizedEmail,
+      displayName: input.fullName,
+      username: deriveUsername(input.email),
+      cityCode: null,
       placeId: input.placeId || null,
     })
+
+    await sharedSessionService.setSession(session)
+    return session
   }
 
   async registerSponsor(input: SponsorRegisterInput): Promise<TragonSession> {
-    return this.registerAccount({
-      fullName: input.fullName,
-      email: input.email,
-      username: input.username,
-      password: input.password,
-      confirmPassword: input.confirmPassword,
-      instanceType: 'sponsor',
-      businessName: input.businessName,
-      bizType: input.bizType,
-      cityCode: input.cityCode,
+    const normalizedEmail = normalizeEmail(input.email)
+    const userId = createId('user')
+
+    const payload: Record<string, unknown> = {
+      user_id: userId,
+      local_account_id: createId('acct'),
+      email_hash: await sha256Hex(normalizedEmail),
+      display_name: input.fullName,
+      username: deriveUsername(input.username || input.email),
+      instance_type: 'sponsor',
+      password_secret_ref: await sha256SecretRef(input.password),
+      password_confirm_secret_ref: await sha256SecretRef(input.confirmPassword || input.password),
+      marketing_opt_in: input.marketingOptIn ? 1 : 0,
+      place_id: input.placeId || null,
+      business_name: input.businessName || null,
+      biz_type: input.bizType || null,
+      city_code: input.cityCode || null,
       phone: input.phone || null,
-      marketingOptIn: input.marketingOptIn,
+      team_seed: Array.isArray(input.teamSeed)
+        ? input.teamSeed
+            .map((member) => ({
+              invitee_email: String(member.email || '').trim() || null,
+              invitee_phone_e164: String(member.phone || '').trim() || null,
+              channel: String(member.channel || '').trim().toLowerCase() || null,
+            }))
+            .filter((member) => member.invitee_email || member.invitee_phone_e164)
+        : [],
+    }
+
+    const { data } = await this.http.post<RegisterApiResponse>(API_ENDPOINTS.auth.register, payload)
+    await this.handleTokens(data)
+
+    const session = await sharedSessionService.buildSession({
+      userId: String(data.user_id || userId),
+      email: normalizedEmail,
+      displayName: input.fullName,
+      username: deriveUsername(input.username || input.email),
+      cityCode: input.cityCode || null,
       placeId: input.placeId || null,
-      teamSeed: input.teamSeed || [],
+      instanceIdHint: data.instance_id || null,
+      tenantUserIdHint: data.tenant_user_id || null,
+      instanceTypeHint: 'sponsor',
     })
+
+    await sharedSessionService.setSession(session)
+    return session
   }
 
   async registerEmployee(input: EmployeeRegisterInput): Promise<TragonSession> {
-    return this.registerAccount({
-      fullName: input.fullName,
-      email: input.email,
-      password: input.password,
-      confirmPassword: input.confirmPassword,
-      instanceType: 'user',
-      inviteCode: input.inviteCode,
-      marketingOptIn: input.marketingOptIn,
+    const normalizedEmail = normalizeEmail(input.email)
+    const userId = createId('user')
+    const inviteCode = String(input.inviteCode || '').trim().toUpperCase() || null
+
+    const payload: Record<string, unknown> = {
+      user_id: userId,
+      local_account_id: createId('acct'),
+      email_hash: await sha256Hex(normalizedEmail),
+      display_name: input.fullName,
+      username: deriveUsername(input.email),
+      instance_type: 'user',
+      password_secret_ref: await sha256SecretRef(input.password),
+      password_confirm_secret_ref: await sha256SecretRef(input.confirmPassword || input.password),
+      marketing_opt_in: input.marketingOptIn ? 1 : 0,
+      invite_code: inviteCode,
+    }
+
+    const { data } = await this.http.post<RegisterApiResponse>(API_ENDPOINTS.auth.registerEmployee, payload)
+    await this.handleTokens(data)
+
+    const session = await sharedSessionService.buildSession({
+      userId: String(data.user_id || userId),
+      email: normalizedEmail,
+      displayName: input.fullName,
+      username: deriveUsername(input.email),
+      cityCode: null,
+      placeId: null,
+      instanceIdHint: data.instance_id || null,
+      tenantUserIdHint: data.tenant_user_id || null,
+      instanceTypeHint: data.tenant_user_id ? 'sponsor' : 'user',
     })
+
+    await sharedSessionService.setSession(session)
+    return session
   }
+
+  // ─── Login ────────────────────────────────────────────────────────────────
 
   async login(credentials: LoginCredentials): Promise<ApiResponse<LoginResponse>> {
     const normalizedEmail = normalizeEmail(credentials.email)
@@ -201,23 +211,23 @@ export class AuthService {
       })
     }
 
-    const session = await this.buildSession({
-      userId: data.user_id,
+    const session = await sharedSessionService.buildSession({
+      userId: String(data.user_id),
       email: normalizedEmail,
       displayName: data.display_name || null,
       username: data.username || null,
       cityCode: data.city_code || null,
       placeId: data.place_id || null,
     })
-    const profile = await this.profile(session.userId, session.email)
 
-    await this.setSession(session)
+    const profileResponse = await sharedProfileService.profile(session.userId, session.email)
+    await sharedSessionService.setSession(session)
 
     return {
       success: true,
       data: {
         session,
-        user: profile.data,
+        user: profileResponse.data,
         accessToken: data.access_token || null,
         refreshToken: data.refresh_token || null,
       },
@@ -232,34 +242,7 @@ export class AuthService {
     return response.data
   }
 
-  async profile(userId: string, emailHint?: string): Promise<ApiResponse<AuthUserProfile>> {
-    const { data } = await this.http.get<ProfileApiResponse>(API_ENDPOINTS.auth.profile(userId))
-    return {
-      success: true,
-      data: mapProfile(data, emailHint || ''),
-    }
-  }
-
-  async getProfile(userId: string): Promise<AuthUser> {
-    const stored = await this.getSession()
-    const response = await this.profile(userId, stored?.email || '')
-    return mapAuthUser(response.data, stored)
-  }
-
-  async updateProfile(
-    userId: string,
-    payload: AuthProfileUpdateInput,
-  ): Promise<ApiResponse<AuthUserProfile>> {
-    await this.http.patch(API_ENDPOINTS.auth.profile(userId), {
-      display_name: payload.displayName,
-      bio: payload.bio,
-      avatar_url: payload.avatarUrl,
-      city_code: payload.cityCode,
-    })
-
-    const stored = await this.getSession()
-    return this.profile(userId, stored?.email || '')
-  }
+  // ─── Password Recovery ────────────────────────────────────────────────────
 
   async requestPasswordRecovery(
     input: PasswordRecoveryRequestInput,
@@ -300,11 +283,7 @@ export class AuthService {
       recovery_request_id: input.recoveryRequestId,
       recovery_code: input.recoveryCode,
     })
-
-    return {
-      success: true,
-      data: { verified: true },
-    }
+    return { success: true, data: { verified: true } }
   }
 
   async resetPasswordRecovery(
@@ -319,266 +298,60 @@ export class AuthService {
       password_secret_ref: passwordSecretRef,
       password_confirm_secret_ref: confirmSecretRef,
     })
-
-    return {
-      success: true,
-      data: { reset: true },
-    }
+    return { success: true, data: { reset: true } }
   }
 
+  // ─── Session delegation ───────────────────────────────────────────────────
+
   async setSession(session: TragonSession): Promise<void> {
-    await secureStorage.set(ACTIVE_SESSION_KEY, JSON.stringify(session))
-    await primeGtAccessForSession(session)
+    return sharedSessionService.setSession(session)
   }
 
   async clearSession(): Promise<void> {
-    await Promise.all([
-      secureStorage.remove(ACTIVE_SESSION_KEY),
-      clearTokens(),
-    ])
-    clearGtAccessCache()
+    return sharedSessionService.clearSession()
   }
 
   async getSession(): Promise<TragonSession | null> {
-    const value = await secureStorage.get(ACTIVE_SESSION_KEY)
-    if (!value) return null
-
-    try {
-      const session = JSON.parse(value) as TragonSession
-      await primeGtAccessForSession(session)
-      return session
-    } catch {
-      return null
-    }
+    return sharedSessionService.getSession()
   }
 
   async getAccessToken(): Promise<string | null> {
-    return readAccessToken()
+    return sharedSessionService.getAccessToken()
   }
 
   async getRefreshToken(): Promise<string | null> {
-    return readRefreshToken()
+    return sharedSessionService.getRefreshToken()
   }
 
-  async getTokens(): Promise<AuthTokens> {
-    return readTokens()
+  async getTokens(): Promise<{ accessToken: string | null; refreshToken: string | null }> {
+    return sharedSessionService.getTokens()
   }
 
-  private async registerAccount(input: {
-    fullName: string
-    email: string
-    password: string
-    confirmPassword?: string
-    instanceType: 'user' | 'sponsor'
-    inviteCode?: string
-    marketingOptIn?: boolean
-    placeId?: string | null
-    username?: string
-    businessName?: string
-    bizType?: string
-    cityCode?: string | null
-    phone?: string | null
-    teamSeed?: { email?: string | null; phone?: string | null; channel?: string | null }[]
-  }): Promise<TragonSession> {
-    const normalizedEmail = normalizeEmail(input.email)
-    const userId = createId('user')
-    const localAccountId = createId('acct')
-    const emailHash = await sha256Hex(normalizedEmail)
-    const passwordSecretRef = await sha256SecretRef(input.password)
-    const passwordConfirmSecretRef = await sha256SecretRef(input.confirmPassword || input.password)
-    const inviteCode = String(input.inviteCode || '').trim().toUpperCase() || null
-    const endpoint = inviteCode ? API_ENDPOINTS.auth.registerEmployee : API_ENDPOINTS.auth.register
+  // ─── Profile delegation ───────────────────────────────────────────────────
 
-    const payload: Record<string, unknown> = {
-      user_id: userId,
-      local_account_id: localAccountId,
-      email_hash: emailHash,
-      display_name: input.fullName,
-      username: deriveUsername(input.username || input.email),
-      instance_type: inviteCode ? 'user' : input.instanceType,
-      password_secret_ref: passwordSecretRef,
-      password_confirm_secret_ref: passwordConfirmSecretRef,
-      marketing_opt_in: input.marketingOptIn ? 1 : 0,
-      invite_code: inviteCode,
-    }
+  async profile(userId: string, emailHint?: string): Promise<ApiResponse<AuthUserProfile>> {
+    return sharedProfileService.profile(userId, emailHint)
+  }
 
-    if (!inviteCode) {
-      payload.place_id = input.placeId || null
+  async getProfile(userId: string): Promise<AuthUser> {
+    return sharedProfileService.getProfile(userId)
+  }
 
-      if (input.instanceType === 'sponsor') {
-        payload.business_name = input.businessName || null
-        payload.biz_type = input.bizType || null
-        payload.city_code = input.cityCode || null
-        payload.phone = input.phone || null
-        payload.team_seed = Array.isArray(input.teamSeed)
-          ? input.teamSeed
-            .map((member) => ({
-              invitee_email: String(member.email || '').trim() || null,
-              invitee_phone_e164: String(member.phone || '').trim() || null,
-              channel: String(member.channel || '').trim().toLowerCase() || null,
-            }))
-            .filter((member) => member.invitee_email || member.invitee_phone_e164)
-          : []
-      }
-    }
+  async updateProfile(
+    userId: string,
+    payload: AuthProfileUpdateInput,
+  ): Promise<ApiResponse<AuthUserProfile>> {
+    return sharedProfileService.updateProfile(userId, payload)
+  }
 
-    const { data } = await this.http.post<{
-      user_id?: string
-      instance_id?: string | null
-      tenant_user_id?: string | null
-      access_token?: string | null
-      refresh_token?: string | null
-    }>(endpoint, payload)
+  // ─── Helpers ──────────────────────────────────────────────────────────────
 
+  private async handleTokens(data: RegisterApiResponse): Promise<void> {
     if (data.access_token || data.refresh_token) {
       await setTokens({
         accessToken: data.access_token || null,
         refreshToken: data.refresh_token || null,
       })
-    }
-
-    const session = await this.buildSession({
-      userId: String(data.user_id || userId),
-      email: normalizedEmail,
-      displayName: input.fullName,
-      username: deriveUsername(input.username || input.email),
-      cityCode: input.cityCode || null,
-      placeId: inviteCode ? null : (input.placeId || null),
-      instanceIdHint: data.instance_id || null,
-      tenantUserIdHint: data.tenant_user_id || null,
-      instanceTypeHint: input.instanceType === 'sponsor' || inviteCode || data.tenant_user_id ? 'sponsor' : 'user',
-    })
-
-    await this.setSession(session)
-    return session
-  }
-
-  private async buildSession(input: {
-    userId: string
-    email: string
-    displayName: string | null
-    username: string | null
-    cityCode: string | null
-    placeId: string | null
-    instanceIdHint?: string | null
-    tenantUserIdHint?: string | null
-    instanceTypeHint?: 'user' | 'sponsor'
-  }): Promise<TragonSession> {
-    const resolved = await this.resolveSessionContext(input.userId, input.instanceTypeHint)
-
-    return {
-      userId: input.userId,
-      email: input.email,
-      displayName: input.displayName || null,
-      username: input.username || null,
-      instanceType: resolved.instanceType,
-      domainContext: resolved.domainContext,
-      instanceId: resolved.instanceId || input.instanceIdHint || null,
-      tenantUserId: resolved.tenantUserId || input.tenantUserIdHint || null,
-      placeId: input.placeId || null,
-      cityCode: input.cityCode || null,
-    }
-  }
-
-  private async resolveSessionContext(
-    userId: string,
-    preferredType?: 'user' | 'sponsor',
-  ): Promise<AuthContextResolution> {
-    let sponsorInstanceId: string | null = null
-    let userInstanceId: string | null = null
-    let sponsorWorkspaceInstanceId: string | null = null
-    let tenantUserId: string | null = null
-
-    try {
-      const { data } = await this.http.get<InstanceInfoResponse>(API_ENDPOINTS.instance.me, {
-        params: { user_id: userId, instance_type: 'sponsor' },
-      })
-      sponsorInstanceId = data.instance_id || null
-    } catch {
-      sponsorInstanceId = null
-    }
-
-    try {
-      const { data } = await this.http.get<InstanceInfoResponse>(API_ENDPOINTS.instance.me, {
-        params: { user_id: userId, instance_type: 'user' },
-      })
-      userInstanceId = data.instance_id || null
-    } catch {
-      userInstanceId = null
-    }
-
-    try {
-      const { data } = await this.http.get<MyTenantResponse>(API_ENDPOINTS.equipo.myTenant, {
-        params: { user_id: userId },
-      })
-      // Shared iOS/TestFlight parity: this endpoint resolves the app workspace
-      // as sponsor instance + tenant_user_id; it does not make tenant the UI axis.
-      sponsorWorkspaceInstanceId = data.instance_id || null
-      tenantUserId = data.tenant_user_id || null
-    } catch {
-      sponsorWorkspaceInstanceId = null
-      tenantUserId = null
-    }
-
-    if (preferredType === 'sponsor' && sponsorWorkspaceInstanceId) {
-      return {
-        domainContext: 'sponsor',
-        instanceType: 'sponsor',
-        instanceId: sponsorWorkspaceInstanceId,
-        tenantUserId,
-      }
-    }
-
-    if (preferredType === 'sponsor' && sponsorInstanceId) {
-      return {
-        domainContext: 'sponsor',
-        instanceType: 'sponsor',
-        instanceId: sponsorInstanceId,
-        tenantUserId,
-      }
-    }
-
-    if (preferredType === 'user' && userInstanceId) {
-      return {
-        domainContext: 'user',
-        instanceType: 'user',
-        instanceId: userInstanceId,
-        tenantUserId: null,
-      }
-    }
-
-    if (userInstanceId) {
-      return {
-        domainContext: 'user',
-        instanceType: 'user',
-        instanceId: userInstanceId,
-        tenantUserId: null,
-      }
-    }
-
-    if (sponsorWorkspaceInstanceId) {
-      return {
-        domainContext: 'sponsor',
-        instanceType: 'sponsor',
-        instanceId: sponsorWorkspaceInstanceId,
-        tenantUserId,
-      }
-    }
-
-    if (sponsorInstanceId) {
-      return {
-        domainContext: 'sponsor',
-        instanceType: 'sponsor',
-        instanceId: sponsorInstanceId,
-        tenantUserId,
-      }
-    }
-
-    return {
-      domainContext: preferredType === 'sponsor' ? 'sponsor' : 'user',
-      instanceType: preferredType === 'sponsor' ? 'sponsor' : 'user',
-      instanceId: null,
-      tenantUserId: null,
     }
   }
 }

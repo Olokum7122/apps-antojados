@@ -1,36 +1,20 @@
-import { ref } from 'vue'
-import type { AxiosInstance } from 'axios'
-import { httpClient } from '@antojados/http/client'
-import { API_ENDPOINTS } from '@antojados/http/endpoints'
-import { apiConfig } from '@antojados/http/config/api'
-import type { TragonSession } from '@antojados/api/types/auth'
+/**
+ * gt-access.service.ts — Resolucion de acceso a componentes GT.
+ *
+ * Responsabilidades:
+ *   - Resolver acceso sincrono a metadata GT via snapshot cacheado
+ *   - Delegar cache y suscripcion SSE a gt-cache.service.ts (DEBT-002)
+ *   - Consultas de informacion de acceso: getAccessInfo, hasModuleAccess, getRole (DEBT-031)
+ *
+ * Ver gt-cache.service.ts para:
+ *   - Cache en localStorage con TTL de 5 min (DEBT-027)
+ *   - Suscripcion a eventos de invalidacion SSE
+ *   - Construccion de snapshot desde API
+ *
+ * Separado de gt-cache.service.ts para cumplir SRP (DEBT-002).
+ */
 
-const GT_ACCESS_STORAGE_KEY = 'antojados.gt.checked.snapshot.v3'
-const GRANULAR_LEVELS = new Set(['BUTTON', 'FULLSCREEN', 'DIALOG', 'SUB_COMPONENT', 'SUBTAB'])
-
-export const gtAccessRevision = ref(0)
-
-let activeCheckedEventSource: EventSource | null = null
-let activeCheckedInstanceId = ''
-
-export interface GtCheckedRow {
-  code: string
-  visible: boolean
-  enabled: boolean
-}
-
-export interface GtCheckedSnapshot {
-  session: {
-    userId: string | null
-    instanceId: string | null
-    instanceType: 'user' | 'sponsor' | null
-    domainContext: 'user' | 'sponsor' | null
-    tenantUserId: string | null
-  }
-  dimension_locations: GtCheckedRow[]
-  sub_dimension_locations: GtCheckedRow[]
-  refreshed_at: string
-}
+import type { GtCheckedRow, GtCheckedSnapshot } from '@antojados/api/services/gt/gt-cache.service'
 
 export interface GtMetadataAccessResult {
   visible: boolean
@@ -38,216 +22,43 @@ export interface GtMetadataAccessResult {
   reason: string
 }
 
-function bumpRevision(): void {
-  gtAccessRevision.value += 1
+/**
+ * Informacion completa de acceso GT para un usuario.
+ * Se obtiene del snapshot cacheado.
+ */
+export interface GtAccessInfo {
+  userId: string | null
+  instanceId: string | null
+  instanceType: 'user' | 'sponsor' | null
+  domainContext: 'user' | 'sponsor' | null
+  /** Modulos a los que tiene acceso (dimension_locations visible + enabled) */
+  accessibleModules: string[]
+  totalDimensions: number
+  totalSubDimensions: number
+  refreshedAt: string | null
 }
+
+// Re-export desde cache service
+export {
+  gtAccessRevision,
+  readStoredGtAccessSnapshot,
+  clearGtAccessCache,
+  primeGtAccessForSession,
+  buildGtAccessSnapshotForSession,
+} from '@antojados/api/services/gt/gt-cache.service'
+
+export type { GtCheckedRow, GtCheckedSnapshot } from '@antojados/api/services/gt/gt-cache.service'
+
+const GRANULAR_LEVELS = new Set(['BUTTON', 'FULLSCREEN', 'DIALOG', 'SUB_COMPONENT', 'SUBTAB'])
 
 function normalizeCode(value: unknown): string {
   return String(value || '').trim().toUpperCase()
-}
-
-function addCodeAlias(codes: string[], value: unknown): void {
-  const code = normalizeCode(value)
-  if (!code || codes.includes(code)) return
-  codes.push(code)
-}
-
-function dimensionCodeAliases(row: Record<string, unknown>): string[] {
-  const codes: string[] = []
-  addCodeAlias(codes, row.dimension_code)
-  addCodeAlias(codes, row.code)
-  addCodeAlias(codes, row.component_code)
-  addCodeAlias(codes, row.area_code)
-  addCodeAlias(codes, row.module_code)
-
-  for (const code of [...codes]) {
-    const tabless = code.endsWith('.TAB') ? code.slice(0, -4) : code
-    addCodeAlias(codes, tabless)
-
-    if (tabless.startsWith('PARA_TI.')) {
-      addCodeAlias(codes, `ANTOJADOS.${tabless}`)
-    }
-    if (tabless.startsWith('COMUNIDAD.')) {
-      addCodeAlias(codes, `ANTOJADOS.${tabless}`)
-    }
-    if (tabless.startsWith('MI_CHAMBA.')) {
-      addCodeAlias(codes, `ANTOJO.${tabless}`)
-    }
-  }
-
-  return codes
 }
 
 function normalizeParentCode(value: unknown): string | null {
   const normalized = normalizeCode(value)
   if (!normalized || normalized === 'ROOT') return null
   return normalized
-}
-
-function toFlag(value: unknown, fallback = false): boolean {
-  if (value === null || value === undefined || value === '') return fallback
-  return value === true || value === 1 || value === '1' || value === 'true'
-}
-
-function resolveSessionInstanceType(session: TragonSession | null | undefined): 'user' | 'sponsor' {
-  return session?.instanceType === 'sponsor' || session?.domainContext === 'sponsor'
-    ? 'sponsor'
-    : 'user'
-}
-
-function rowsFrom(data: unknown, primaryKey: string): Record<string, unknown>[] {
-  if (Array.isArray(data)) return data as Record<string, unknown>[]
-  const container = (data && typeof data === 'object') ? (data as Record<string, unknown>) : {}
-  const direct = container[primaryKey]
-  if (Array.isArray(direct)) return direct as Record<string, unknown>[]
-  if (Array.isArray(container.rows)) return container.rows as Record<string, unknown>[]
-  if (Array.isArray(container.data)) return container.data as Record<string, unknown>[]
-  return []
-}
-
-function normalizeDimensionRows(raw: unknown): GtCheckedRow[] {
-  const container = (raw && typeof raw === 'object') ? (raw as Record<string, unknown>) : {}
-  const instanceType = normalizeCode(container.instance_type || (container.instance as Record<string, unknown> | undefined)?.instance_type)
-
-  return rowsFrom(raw, 'dimension_locations')
-    .flatMap((row) => {
-      const codes = dimensionCodeAliases(row)
-      if (!codes.length) return []
-
-      const controlMode = normalizeCode(row.control_mode)
-      if (instanceType === 'SPONSOR' && controlMode && controlMode !== 'OPERABLE') {
-        return []
-      }
-
-      const checked = toFlag(row.is_checked, false)
-      const sponsorVisible = row.visible_override == null ? checked : toFlag(row.visible_override, false)
-      const sponsorEnabled = row.enabled_override == null ? checked : toFlag(row.enabled_override, false)
-      const visible = instanceType === 'SPONSOR'
-        ? sponsorVisible
-        : toFlag(row.effective_visible, toFlag(row.visible, false))
-      const enabled = instanceType === 'SPONSOR'
-        ? sponsorEnabled
-        : toFlag(row.effective_enabled, toFlag(row.enabled, false))
-
-      return codes.map((code) => ({
-        code,
-        visible,
-        enabled,
-      }))
-    })
-}
-
-function normalizeSubDimensionRows(raw: unknown): GtCheckedRow[] {
-  const container = (raw && typeof raw === 'object') ? (raw as Record<string, unknown>) : {}
-  const instanceType = normalizeCode(container.instance_type || (container.instance as Record<string, unknown> | undefined)?.instance_type)
-
-  return rowsFrom(raw, 'sub_dimension_locations')
-    .map((row) => {
-      const code = normalizeCode(row.sub_code || row.code)
-      if (!code) return null
-
-      const controlMode = normalizeCode(row.control_mode)
-      if (instanceType === 'SPONSOR' && controlMode && controlMode !== 'OPERABLE') {
-        return null
-      }
-
-      const checked = toFlag(row.is_checked, false)
-      const sponsorVisible = row.visible_override == null ? checked : toFlag(row.visible_override, false)
-      const sponsorEnabled = row.enabled_override == null ? checked : toFlag(row.enabled_override, false)
-
-      return {
-        code,
-        visible: instanceType === 'SPONSOR'
-          ? sponsorVisible
-          : toFlag(row.effective_visible, toFlag(row.visible, false)),
-        enabled: instanceType === 'SPONSOR'
-          ? sponsorEnabled
-          : toFlag(row.effective_enabled, toFlag(row.enabled, false)),
-      }
-    })
-    .filter((row): row is GtCheckedRow => Boolean(row))
-}
-
-function normalizeTemplateDimensionRows(raw: unknown): GtCheckedRow[] {
-  return rowsFrom(raw, 'dimension_locations')
-    .flatMap((row) => {
-      const codes = dimensionCodeAliases(row)
-      if (!codes.length) return []
-      const visible = toFlag(row.visible, false)
-      const enabled = toFlag(row.enabled, false)
-      return codes.map((code) => ({
-        code,
-        visible,
-        enabled,
-      }))
-    })
-}
-
-function buildSubDimensionCatalogById(raw: unknown): Map<string, { sub_code: string }> {
-  const catalog = new Map<string, { sub_code: string }>()
-  for (const row of rowsFrom(raw, 'rows')) {
-    const subDimensionId = String(row.sub_dimension_id || '').trim()
-    const subCode = normalizeCode(row.sub_code || row.code)
-    if (!subDimensionId || !subCode) continue
-    catalog.set(subDimensionId, { sub_code: subCode })
-  }
-  return catalog
-}
-
-function normalizeTemplateSubDimensionRows(raw: unknown, catalogById: Map<string, { sub_code: string }>): GtCheckedRow[] {
-  return rowsFrom(raw, 'sub_dimension_locations')
-    .map((row) => {
-      const subDimensionId = String(row.sub_dimension_id || '').trim()
-      const catalogMatch = subDimensionId ? catalogById.get(subDimensionId) : null
-      const code = normalizeCode(row.sub_code || row.code || catalogMatch?.sub_code)
-      if (!code) return null
-      const enabled = toFlag(row.enabled, false)
-      return {
-        code,
-        visible: toFlag(row.visible, enabled),
-        enabled,
-      }
-    })
-    .filter((row): row is GtCheckedRow => Boolean(row))
-}
-
-function mergeRows(primaryRows: GtCheckedRow[], fallbackRows: GtCheckedRow[]): GtCheckedRow[] {
-  const merged = new Map<string, GtCheckedRow>()
-  for (const row of primaryRows || []) merged.set(row.code, row)
-  for (const row of fallbackRows || []) {
-    if (!merged.has(row.code)) merged.set(row.code, row)
-  }
-  return [...merged.values()]
-}
-
-function writeSnapshot(snapshot: GtCheckedSnapshot): void {
-  localStorage.setItem(GT_ACCESS_STORAGE_KEY, JSON.stringify(snapshot))
-  bumpRevision()
-}
-
-export function readStoredGtAccessSnapshot(): GtCheckedSnapshot | null {
-  gtAccessRevision.value
-  const raw = localStorage.getItem(GT_ACCESS_STORAGE_KEY)
-  if (!raw) return null
-  try {
-    return JSON.parse(raw) as GtCheckedSnapshot
-  } catch {
-    return null
-  }
-}
-
-function clearStoredSnapshot(): void {
-  localStorage.removeItem(GT_ACCESS_STORAGE_KEY)
-  bumpRevision()
-}
-
-export function clearGtAccessCache(): void {
-  clearStoredSnapshot()
-  if (activeCheckedEventSource) {
-    activeCheckedEventSource.close()
-    activeCheckedEventSource = null
-  }
-  activeCheckedInstanceId = ''
 }
 
 function findRow(rows: GtCheckedRow[], code: string | null): GtCheckedRow | null {
@@ -345,133 +156,90 @@ export function resolveGtMetadataAccessSync(metadata: Record<string, unknown> | 
   }
 }
 
-function ensureCheckedInvalidationSubscription(session: TragonSession): void {
-  const instanceId = String(session.instanceId || '').trim()
-  if (!instanceId || typeof EventSource === 'undefined') {
-    if (activeCheckedEventSource) {
-      activeCheckedEventSource.close()
-      activeCheckedEventSource = null
-    }
-    activeCheckedInstanceId = ''
-    return
-  }
-
-  if (activeCheckedEventSource && activeCheckedInstanceId === instanceId) {
-    return
-  }
-
-  if (activeCheckedEventSource) {
-    activeCheckedEventSource.close()
-  }
-
-  const source = new EventSource(`${apiConfig.apiUrl}${API_ENDPOINTS.gt.checkedEvents(instanceId)}`)
-  source.addEventListener('checked.invalidate', () => {
-    void primeGtAccessForSession(session, { forceRefresh: true, preserveSubscription: true })
-  })
-  source.onerror = () => {
-    // EventSource reconnects automatically.
-  }
-
-  activeCheckedEventSource = source
-  activeCheckedInstanceId = instanceId
-}
-
-export async function buildGtAccessSnapshotForSession(
-  session: TragonSession,
-  client: AxiosInstance = httpClient,
-): Promise<GtCheckedSnapshot | null> {
-  const instanceType = resolveSessionInstanceType(session)
-  const instanceId = String(session.instanceId || '').trim()
-
-  if (instanceType === 'user') {
-    if (!instanceId) return null
-
-    const [templateResponse, subDimensionsResponse] = await Promise.all([
-      client.get(API_ENDPOINTS.gt.template('DEFAULT_USER'), { params: { scope_type: 'user' } }),
-      client.get(API_ENDPOINTS.gt.subDimensions, { params: { is_active: '1' } }),
-    ])
-
-    const subDimensionCatalogById = buildSubDimensionCatalogById(subDimensionsResponse.data)
+/**
+ * Obtiene informacion completa de acceso GT del snapshot cacheado.
+ * 
+ * @returns GtAccessInfo con datos del snapshot, o valores por defecto si no hay cache.
+ */
+export function getAccessInfo(): GtAccessInfo {
+  const snapshot = readStoredGtAccessSnapshot()
+  if (!snapshot) {
     return {
-      session: {
-        userId: session.userId,
-        instanceId,
-        instanceType: 'user',
-        domainContext: 'user',
-        tenantUserId: session.tenantUserId || null,
-      },
-      dimension_locations: normalizeTemplateDimensionRows(templateResponse.data),
-      sub_dimension_locations: normalizeTemplateSubDimensionRows(templateResponse.data, subDimensionCatalogById),
-      refreshed_at: new Date().toISOString(),
+      userId: null,
+      instanceId: null,
+      instanceType: null,
+      domainContext: null,
+      accessibleModules: [],
+      totalDimensions: 0,
+      totalSubDimensions: 0,
+      refreshedAt: null,
     }
   }
 
-  if (!instanceId) return null
-
-  const [dimensionsResponse, subDimensionsResponse, templateResponse, subDimensionCatalogResponse] = await Promise.all([
-    client.get(API_ENDPOINTS.gt.checkedDimensions(instanceId), {
-      params: { template_code: 'DEFAULT_SPONSOR', scope_type: 'sponsor' },
-    }),
-    client.get(API_ENDPOINTS.gt.checkedSubDimensions(instanceId), {
-      params: { template_code: 'DEFAULT_SPONSOR', scope_type: 'sponsor' },
-    }),
-    client.get(API_ENDPOINTS.gt.template('DEFAULT_SPONSOR'), {
-      params: { scope_type: 'sponsor' },
-    }),
-    client.get(API_ENDPOINTS.gt.subDimensions, { params: { is_active: '1' } }),
-  ])
-
-  const checkedDimensionRows = normalizeDimensionRows(dimensionsResponse.data)
-  const checkedSubDimensionRows = normalizeSubDimensionRows(subDimensionsResponse.data)
-  const templateDimensionRows = normalizeTemplateDimensionRows(templateResponse.data)
-  const subDimensionCatalogById = buildSubDimensionCatalogById(subDimensionCatalogResponse.data)
-  const templateSubDimensionRows = normalizeTemplateSubDimensionRows(templateResponse.data, subDimensionCatalogById)
+  const accessibleModules = snapshot.dimension_locations
+    .filter((row) => row.visible && row.enabled)
+    .map((row) => row.code)
 
   return {
-    session: {
-      userId: session.userId,
-      instanceId,
-      instanceType: 'sponsor',
-      domainContext: 'sponsor',
-      tenantUserId: session.tenantUserId || null,
-    },
-    dimension_locations: mergeRows(checkedDimensionRows, templateDimensionRows),
-    sub_dimension_locations: mergeRows(checkedSubDimensionRows, templateSubDimensionRows),
-    refreshed_at: new Date().toISOString(),
+    userId: snapshot.session.userId,
+    instanceId: snapshot.session.instanceId,
+    instanceType: snapshot.session.instanceType,
+    domainContext: snapshot.session.domainContext,
+    accessibleModules,
+    totalDimensions: snapshot.dimension_locations.length,
+    totalSubDimensions: snapshot.sub_dimension_locations.length,
+    refreshedAt: snapshot.refreshed_at,
   }
 }
 
-export async function primeGtAccessForSession(
-  session: TragonSession | null,
-  options: { forceRefresh?: boolean; preserveSubscription?: boolean } = {},
-): Promise<GtCheckedSnapshot | null> {
-  if (!session?.userId) {
-    clearGtAccessCache()
-    return null
-  }
+/**
+ * Verifica si una instancia tiene acceso a un modulo especifico.
+ * Busca el codigo del modulo en las dimensiones del snapshot.
+ * 
+ * @param instanceId - ID de la instancia a verificar
+ * @param moduleCode - Codigo del modulo (ej: 'BARRIO', 'LA_NETA', 'VAS_IR')
+ * @returns true si el modulo existe y tiene visible + enabled en el snapshot
+ */
+export function hasModuleAccess(instanceId: string | null | undefined, moduleCode: string): boolean {
+  if (!instanceId || !moduleCode) return false
 
-  const current = readStoredGtAccessSnapshot()
-  const currentKey = current
-    ? `${current.session.userId}:${current.session.instanceType}:${current.session.instanceId || ''}`
-    : ''
-  const nextKey = `${session.userId}:${resolveSessionInstanceType(session)}:${session.instanceId || ''}`
+  const snapshot = readStoredGtAccessSnapshot()
+  if (!snapshot) return false
 
-  if (!options.forceRefresh && current && currentKey === nextKey) {
-    if (!options.preserveSubscription) ensureCheckedInvalidationSubscription(session)
-    return current
-  }
+  // Verificar que la instancia coincida
+  if (snapshot.session.instanceId !== instanceId) return false
 
-  try {
-    const snapshot = await buildGtAccessSnapshotForSession(session)
-    if (!snapshot) {
-      clearGtAccessCache()
-      return null
-    }
-    writeSnapshot(snapshot)
-    if (!options.preserveSubscription) ensureCheckedInvalidationSubscription(session)
-    return snapshot
-  } catch {
-    return current && currentKey === nextKey ? current : null
-  }
+  const normalizedCode = normalizeCode(moduleCode)
+  const match = findRow(snapshot.dimension_locations, normalizedCode)
+  if (!match) return false
+
+  return match.visible === true && match.enabled === true
+}
+
+/**
+ * Obtiene el rol de un usuario en una instancia basado en el snapshot cacheado.
+ * 
+ * El snapshot actual no contiene informacion granular de roles por usuario,
+ * solo el tipo de instancia (user/sponsor) y su contexto de dominio.
+ * Esta funcion retorna el rol inferido del contexto.
+ * 
+ * @param instanceId - ID de la instancia
+ * @param userId - ID del usuario
+ * @returns 'admin' si es instancia sponsor (owner), 'user' si es instancia regular, o null si no hay snapshot
+ */
+export function getRole(instanceId: string | null | undefined, userId: string | null | undefined): string | null {
+  if (!instanceId || !userId) return null
+
+  const snapshot = readStoredGtAccessSnapshot()
+  if (!snapshot) return null
+
+  if (snapshot.session.instanceId !== instanceId) return null
+  if (snapshot.session.userId !== userId) return null
+
+  // Inferir rol del contexto de dominio
+  if (snapshot.session.domainContext === 'sponsor') return 'admin'
+  if (snapshot.session.instanceType === 'sponsor') return 'admin'
+
+  return 'user'
 }
 
