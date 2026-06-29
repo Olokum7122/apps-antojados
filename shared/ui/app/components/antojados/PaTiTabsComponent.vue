@@ -11,7 +11,7 @@
     />
 
     <pa-ti-pachanga-component v-if="activeSubTab === 'pachanga'" />
-    <pa-ti-la-neta-component v-else />
+    <que-pex-feed-component v-else />
   </section>
 </template>
 
@@ -19,7 +19,7 @@
 import { ref } from 'vue'
 import TabBarSubDimensionBase from '@antojados/ui/base/TabBarSubDimensionBase.vue'
 import PaTiPachangaComponent from '@antojados/ui/app/components/antojados/PaTiPachangaComponent.vue'
-import PaTiLaNetaComponent from '@antojados/ui/app/components/antojados/PaTiLaNetaComponent.vue'
+import QuePexFeedComponent from '@antojados/ui/app/components/antojados/QuePexFeedComponent.vue'
 import { DIMENSION_CONTEXTS, PA_TI_TABS } from '@antojados/ui/dimensions/navigationDimensions.js'
 
 const activeSubTab = ref('pachanga')
