@@ -50,6 +50,7 @@
 <script setup>
 import { computed, onMounted, ref } from 'vue'
 import { useRoute } from 'vue-router'
+import { useQuasar } from 'quasar'
 import { useGeoScopeMaster } from '@antojados/api/composables/useLocationScope'
 import { useGeoEvents } from '@antojados/api/composables/useGeoEvents'
 import { MAIN_TABS } from '@antojados/ui/dimensions/navigationDimensions.js'

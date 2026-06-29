@@ -48,6 +48,21 @@ export interface GtAccessInfo {
   refreshedAt: string | null
 }
 
+export interface GtAccessInfo {,
+  readStoredGtAccessSnapshot,
+  clearGtAccessCache,
+  primeGtAccessForSession,
+  buildGtAccessSnapshotForSession,
+} from '@antojados/api/services/gt/gt-cache.service'
+
+export type { GtCheckedRow, GtCheckedSnapshot } from '@antojados/api/services/gt/gt-cache.service'
+
+const GRANULAR_LEVELS = new Set(['BUTTON', 'FULLSCREEN', 'DIALOG', 'SUB_COMPONENT', 'SUBTAB'])
+
+function normalizeCode(value: unknown): string {
+  return String(value || '').trim().toUpperCase()
+}
+
 function normalizeParentCode(value: unknown): string | null {
   const normalized = normalizeCode(value)
   if (!normalized || normalized === 'ROOT') return null
