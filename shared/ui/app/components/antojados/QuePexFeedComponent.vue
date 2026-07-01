@@ -34,38 +34,76 @@
     </template>
 
     <template v-else-if="posts.length">
-      <feed-post-card
-        v-for="post in normalizedPosts"
-        :key="post.id"
-        :post="post"
-        stage="S2"
-        card-class="q-mb-sm"
-        subdim-ik="QUE_PEX_POST"
-        subdim-pc="ANTOJADOS.PARA_TI"
-        subdim-type="SUB_COMPONENT"
-        subdim-applies-to="all"
-        code-component="QUE_PEX.POST_CARD"
-        @open="onOpenPost"
-        @author="onOpenAuthor"
-        @venue="onOpenVenue"
-      >
-        <template #actions="{ post: item }">
-          <post-action-rail-base
-            :actions="buildActions(item)"
-            :show-counts="true"
-            mode="themeAuto"
-            subdim-ik="QUE_PEX_ACTION_RAIL"
-            subdim-pc="ANTOJADOS.PARA_TI"
-            subdim-type="SUB_COMPONENT"
-            subdim-applies-to="all"
-            code-component="QUE_PEX.ACTIONS"
-            @action="(action) => onRailAction(action, item)"
-          />
-        </template>
-      </feed-post-card>
+      <template v-for="post in normalizedPosts" :key="post.id">
+        <!-- Explorer post con composicion.blocks → tap abre short fullscreen -->
+        <feed-explorer-card
+          v-if="isExplorerPost(post)"
+          :post="post"
+          class="q-mb-sm"
+          @block-tap="(block) => onExplorerBlockTap(block, post)"
+        >
+          <template #actions>
+            <post-action-rail-base
+              :actions="buildActions(post)"
+              :show-counts="true"
+              mode="themeAuto"
+              subdim-ik="QUE_PEX_ACTION_RAIL"
+              subdim-pc="ANTOJADOS.PARA_TI"
+              subdim-type="SUB_COMPONENT"
+              subdim-applies-to="all"
+              code-component="QUE_PEX.ACTION_RAIL"
+              @action="(key) => onRailAction(key, post)"
+            />
+          </template>
+        </feed-explorer-card>
+
+        <!-- Post legacy (sin composicion) -->
+        <feed-post-card
+          v-else
+          :post="post"
+          stage="S2"
+          card-class="q-mb-sm"
+          subdim-ik="QUE_PEX_POST"
+          subdim-pc="ANTOJADOS.PARA_TI"
+          subdim-type="SUB_COMPONENT"
+          subdim-applies-to="all"
+          code-component="QUE_PEX.POST_CARD"
+          @open="onOpenPost"
+          @author="onOpenAuthor"
+          @venue="onOpenVenue"
+        >
+          <template #actions="{ post: item }">
+            <post-action-rail-base
+              :actions="buildActions(item)"
+              :show-counts="true"
+              mode="themeAuto"
+              subdim-ik="QUE_PEX_ACTION_RAIL"
+              subdim-pc="ANTOJADOS.PARA_TI"
+              subdim-type="SUB_COMPONENT"
+              subdim-applies-to="all"
+              code-component="QUE_PEX.ACTION_RAIL"
+              @action="(key) => onRailAction(key, item)"
+            />
+          </template>
+        </feed-post-card>
+      </template>
     </template>
 
     <app-empty-state v-else-if="!loading" message="Aun no hay publicaciones para Que Pex" />
+
+    <!-- Explorer Short Dialog: fullscreen tipo Shorts para posts con composicion -->
+    <explorer-short-dialog
+      v-model="showExplorerShort"
+      :items="explorerFeedItems"
+      :initial-post-id="selectedExplorerPostId"
+      badge-label="EXPLORER"
+      accent-color="primary"
+      subdim-ik="QUE_PEX_EXPLORER_SHORT"
+      subdim-pc="ANTOJADOS.PARA_TI"
+      code-component="QUE_PEX.EXPLORER_SHORT"
+      @rail-action="onExplorerRailAction"
+      @comment-submit="onExplorerComment"
+    />
 
     <q-dialog v-model="isCityPickerOpen" position="bottom">
       <q-card class="que-pex-component__sheet bg-grey-10 text-white">
@@ -93,6 +131,8 @@
 import { computed, onMounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import AppEmptyState from '@antojados/ui/base/AppEmptyState.vue'
+import ExplorerShortDialog from '@antojados/ui/base/ExplorerShortDialog.vue'
+import FeedExplorerCard from '@antojados/ui/base/FeedExplorerCard.vue'
 import FeedFilterBarBase from '@antojados/ui/base/FeedFilterBarBase.vue'
 import FeedPostCard from '@antojados/ui/base/FeedPostCard.vue'
 import FeedSkeletonCard from '@antojados/ui/base/FeedSkeletonCard.vue'
@@ -103,6 +143,9 @@ import { useSocialActionSync } from '@antojados/api/composables/useSocialActionS
 
 const router = useRouter()
 const isCityPickerOpen = ref(false)
+const showExplorerShort = ref(false)
+const selectedExplorerPostId = ref('')
+const explorerFeedItems = computed(() => posts.value.filter(isExplorerPost))
 const { posts, loading, load } = useAntojadosFeed('que-pex')
 const { pushEvent } = useSocialActionSync()
 const {
@@ -187,6 +230,31 @@ function onOpenVenue(post) {
   } else {
     onOpenAuthor(post)
   }
+}
+
+function isExplorerPost(post) {
+  const composicion = post?.composicion
+  return !!(composicion && Array.isArray(composicion.blocks) && composicion.blocks.length > 0)
+}
+
+function onExplorerBlockTap(block, post) {
+  // Tap en cualquier bloque abre el short fullscreen
+  selectedExplorerPostId.value = post.id
+  showExplorerShort.value = true
+  void syncAction('feed_open', { ...post, id: post.id })
+}
+
+function onExplorerRailAction(action, post) {
+  if (action === 'chocalas') void syncAction('post_like', post)
+  if (action === 'comentar') void syncAction('comment_open', post)
+  if (action === 'morral') void syncAction('post_save', post)
+  if (action === 'compartir') void syncAction('post_share', post)
+}
+
+function onExplorerComment(post, text) {
+  post.comments = [...(post.comments || []), { id: `local-${Date.now()}`, user: 'yo', text }]
+  post.commentsCount = Number(post.commentsCount || 0) + 1
+  void syncAction('post_comment', post, { text })
 }
 
 function onSelectScope(level) {

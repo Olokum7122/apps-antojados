@@ -76,8 +76,8 @@
   <publish-fab-base
     color="primary"
     text-color="dark"
-    :visible="fabAccess.visible"
-    :enabled="fabAccess.enabled"
+    :visible="fabAccess.visible.value"
+    :enabled="fabAccess.enabled.value"
     tooltip="Publicar en Vas Ir"
     title="Publicar en Vas Ir"
     body="Comparte lo mejor de tu negocio: platillos, promociones y descuentos especiales.

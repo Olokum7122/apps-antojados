@@ -14,6 +14,7 @@ import { SocialFeedService } from '@antojados/api/services/feed/social-feed.serv
 import { SystemService } from '@antojados/api/services/system/system.service'
 import { TenantsService } from '@antojados/api/services/tenants/tenants.service'
 import { SponsorFacade } from '@antojados/api/services/sponsors/sponsor-facade'
+import { ExplorerFeedService, createExplorerFeedService } from '@antojados/api/services/explorers/explorer-feed.service'
 import * as mediaService from '@antojados/api/services/media/media.service'
 import * as publishService from '@antojados/api/services/publish/publish.service'
 import * as rankingsService from '@antojados/api/services/rankings/rankings.service'
@@ -36,12 +37,14 @@ const socialActionsService = new SocialActionsService(httpClient)
 const socialFeedService = new SocialFeedService(httpClient)
 const systemService = new SystemService(httpClient)
 const tenantsService = new TenantsService(httpClient)
+const explorerFeedService = createExplorerFeedService(httpClient)
 
 export {
   authService,
   bizFeedService,
   efirmaService,
   equipoService,
+  explorerFeedService,
   explorersService,
   geoService,
   httpClient,
@@ -77,6 +80,7 @@ export { RegistroService } from '@antojados/api/services/registro/registro.servi
 export { SocialActionsService } from '@antojados/api/services/feed/social-actions.service'
 export { SocialFeedService } from '@antojados/api/services/feed/social-feed.service'
 export { SponsorFacade } from '@antojados/api/services/sponsors/sponsor-facade'
+export { ExplorerFeedService } from '@antojados/api/services/explorers/explorer-feed.service'
 export { SystemService } from '@antojados/api/services/system/system.service'
 export { TenantsService } from '@antojados/api/services/tenants/tenants.service'
 export * from '@antojados/api/services/auth/auth.service'

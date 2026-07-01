@@ -69,8 +69,8 @@
   <publish-fab-base
     color="deep-purple-6"
     text-color="white"
-    :visible="fabAccess.visible"
-    :enabled="fabAccess.enabled"
+    :visible="fabAccess.visible.value"
+    :enabled="fabAccess.enabled.value"
     tooltip="Publicar en Arre"
     title="Publicar en Arre"
     body="Comparte tus eventos: conciertos, noches tematicas, fiestas y experiencias unicas.

@@ -25,8 +25,33 @@
       @select-suggestion="onSelectSuggestion"
     />
 
+    <template v-if="hasExplorerPosts">
+      <!-- Vista en lista para explorer posts (necesitan canvas completo) -->
+      <feed-explorer-card
+        v-for="post in explorerPosts"
+        :key="post.id"
+        :post="post"
+        class="q-mb-sm"
+        @block-tap="(block) => onExplorerBlockTap(block, post)"
+      >
+        <template #actions>
+          <post-action-rail-base
+            :actions="buildActions(post)"
+            :show-counts="true"
+            mode="themeAuto"
+            subdim-ik="PACHANGA_ACTION_RAIL"
+            subdim-pc="ANTOJADOS.PARA_TI"
+            subdim-type="SUB_COMPONENT"
+            subdim-applies-to="all"
+            code-component="PACHANGA.ACTION_RAIL"
+            @action="(key) => onRailAction(key, post)"
+          />
+        </template>
+      </feed-explorer-card>
+    </template>
+
     <feed-grid-base
-      :items="posts"
+      :items="legacyPosts"
       empty-message="Sin actividad en Pachanga"
       key-field="id"
       stage="S1"
@@ -98,15 +123,32 @@
         />
       </template>
     </publish-fab-base>
+
+    <!-- Explorer Short Dialog -->
+    <explorer-short-dialog
+      v-model="showExplorerShort"
+      :items="explorerPosts"
+      :initial-post-id="selectedExplorerPostId"
+      badge-label="FOODIE"
+      accent-color="primary"
+      subdim-ik="PACHANGA_EXPLORER_SHORT"
+      subdim-pc="ANTOJADOS.PARA_TI"
+      code-component="PACHANGA.EXPLORER_SHORT"
+      @rail-action="onExplorerRailAction"
+      @comment-submit="onExplorerComment"
+    />
   </section>
 </template>
 
 <script setup>
-import { onMounted, ref, watch } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import AppEmptyState from '@antojados/ui/base/AppEmptyState.vue'
+import ExplorerShortDialog from '@antojados/ui/base/ExplorerShortDialog.vue'
+import FeedExplorerCard from '@antojados/ui/base/FeedExplorerCard.vue'
 import FeedFilterBarBase from '@antojados/ui/base/FeedFilterBarBase.vue'
 import FeedGridBase from '@antojados/ui/base/FeedGridBase.vue'
+import PostActionRailBase from '@antojados/ui/base/PostActionRailBase.vue'
 import PublishFabBase from '@antojados/ui/base/PublishFabBase.vue'
 import { useAntojadosFeed } from '@antojados/api/composables/useAntojadosFeed'
 import { useLocationScope } from '@antojados/api/composables/useLocationScope'
@@ -114,6 +156,8 @@ import { useSocialActionSync } from '@antojados/api/composables/useSocialActionS
 
 const router = useRouter()
 const isCityPickerOpen = ref(false)
+const showExplorerShort = ref(false)
+const selectedExplorerPostId = ref('')
 const { posts, load } = useAntojadosFeed('pachanga')
 const { pushEvent } = useSocialActionSync()
 const {
@@ -138,20 +182,68 @@ function loadFeed() {
   })
 }
 
+function isExplorerPost(post) {
+  const composicion = post?.composicion
+  return !!(composicion && Array.isArray(composicion.blocks) && composicion.blocks.length > 0)
+}
+
+const explorerPosts = computed(() => posts.value.filter(isExplorerPost))
+const legacyPosts = computed(() => posts.value.filter((p) => !isExplorerPost(p)))
+const hasExplorerPosts = computed(() => explorerPosts.value.length > 0)
+
+function buildActions(post) {
+  return [
+    { key: 'chocalas', label: 'Chocalas', icon: 'front_hand', count: post?.likesCount || 0 },
+    { key: 'pasala', label: 'Pasala', icon: 'reply', count: post?.commentsCount || 0 },
+    { key: 'morral', label: 'Morral', icon: 'backpack', count: 0 },
+  ]
+}
+
+function onRailAction(action, post) {
+  if (action === 'chocalas') void syncAction('post_like', post)
+  if (action === 'pasala') void syncAction('post_share', post)
+  if (action === 'morral') void syncAction('post_save', post)
+}
+
+function onExplorerBlockTap(block, post) {
+  selectedExplorerPostId.value = post.id
+  showExplorerShort.value = true
+  void syncAction('feed_open', { ...post, id: post.id })
+}
+
+function onExplorerRailAction(action, post) {
+  if (action === 'chocalas') void syncAction('post_like', post)
+  if (action === 'comentar') void syncAction('comment_open', post)
+  if (action === 'morral') void syncAction('post_save', post)
+  if (action === 'compartir') void syncAction('post_share', post)
+}
+
+function onExplorerComment(post, text) {
+  post.comments = [...(post.comments || []), { id: `local-${Date.now()}`, user: 'yo', text }]
+  post.commentsCount = Number(post.commentsCount || 0) + 1
+  void syncAction('post_comment', post, { text })
+}
+
 function onSelect(post) {
   if (post?._sponsor) return
-  void pushEvent({
-    eventType: 'feed_open',
+  void syncAction('feed_open', post)
+  router.push(`/red/pa-ti/pachanga/fullscreen/${post.id}?user_id=${post.userId || ''}`)
+}
+
+function syncAction(eventType, post, payload) {
+  return pushEvent({
+    eventType,
     postId: post?.id,
     placeId: post?.placeId || post?.place_id,
+    publisherUserId: post?.publisherUserId,
     targetUserId: post?.userId,
     scopeLevel: scopeLevel.value,
     scopeCode: scopeCode.value,
     cityCode: cityCode.value,
     feedScope: 'pachanga',
     channel: post?.channel || 'social',
+    payload,
   })
-  router.push(`/red/pa-ti/pachanga/fullscreen/${post.id}?user_id=${post.userId || ''}`)
 }
 
 function onPublish() {

@@ -25,7 +25,6 @@ export interface FabAccessResult {
 
 export function useFabAccess(input: FabAccessInput): FabAccessResult {
   const access = computed<GtMetadataResolution>(() => {
-    // Leer revision reactiva para que el computed se refresque
     // eslint-disable-next-line @typescript-eslint/no-unused-expressions
     gtAccessRevision.value
     return resolveGtMetadataAccessSync({
@@ -44,14 +43,15 @@ export function useFabAccess(input: FabAccessInput): FabAccessResult {
     (input.subdimAppliesTo || 'all') !== 'sponsor' &&
     String(input.subdimPc || '').toUpperCase().startsWith('ANTOJADOS.')
 
-  return {
-    visible: computed(() => {
-      if (isSocialPublishFab) return true
-      return access.value.visible !== false
-    }),
-    enabled: computed(() => {
-      if (isSocialPublishFab) return true
-      return access.value.enabled !== false
-    }),
-  } as unknown as FabAccessResult
+  const visible = computed(() => {
+    if (isSocialPublishFab) return true
+    return access.value.visible !== false
+  })
+
+  const enabled = computed(() => {
+    if (isSocialPublishFab) return true
+    return access.value.enabled !== false
+  })
+
+  return { visible, enabled } as unknown as FabAccessResult
 }

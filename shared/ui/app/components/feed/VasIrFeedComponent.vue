@@ -46,8 +46,33 @@
       </div>
     </transition>
 
+    <!-- Explorer posts (con composicion) se renderizan en lista -->
+    <template v-if="explorerPosts.length">
+      <feed-explorer-card
+        v-for="post in explorerPosts"
+        :key="post.id"
+        :post="post"
+        class="q-mb-sm"
+        @block-tap="(block) => onExplorerBlockTap(block, post)"
+      >
+        <template #actions>
+          <post-action-rail-base
+            :actions="buildActions(post)"
+            :show-counts="true"
+            mode="themeAuto"
+            subdim-ik="VASIR_EXPLORER_ACTIONS"
+            subdim-pc="ANTOJO.VAS_IR.BIZ_FEED"
+            subdim-type="SUB_COMPONENT"
+            subdim-applies-to="all"
+            code-component="VASIR.EXPLORER_ACTIONS"
+            @action="(key) => onRailAction(key, post)"
+          />
+        </template>
+      </feed-explorer-card>
+    </template>
+
     <feed-grid-base
-      :items="filteredPosts"
+      :items="legacyPosts"
       :loading="loading"
       empty-message="Sin publicaciones para este filtro"
       key-field="id"
@@ -87,6 +112,20 @@
         <app-empty-state :message="error || 'Sin publicaciones en Vas Ir por ahora'" />
       </template>
     </feed-grid-base>
+
+    <!-- Explorer Short Dialog -->
+    <explorer-short-dialog
+      v-model="showExplorerShort"
+      :items="explorerPosts"
+      :initial-post-id="selectedExplorerPostId"
+      badge-label="EXPLORER"
+      accent-color="primary"
+      subdim-ik="VASIR_EXPLORER_SHORT"
+      subdim-pc="ANTOJO.VAS_IR.BIZ_FEED"
+      code-component="VASIR.EXPLORER_SHORT"
+      @rail-action="onExplorerRailAction"
+      @comment-submit="onExplorerComment"
+    />
 
     <q-dialog v-model="isCityPickerOpen" position="bottom">
       <q-card class="vasir-feed-component__sheet bg-grey-10 text-white">
@@ -132,14 +171,19 @@
 import { computed, onMounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import AppEmptyState from '@antojados/ui/base/AppEmptyState.vue'
+import ExplorerShortDialog from '@antojados/ui/base/ExplorerShortDialog.vue'
+import FeedExplorerCard from '@antojados/ui/base/FeedExplorerCard.vue'
 import FeedFilterBarBase from '@antojados/ui/base/FeedFilterBarBase.vue'
 import FeedGridBase from '@antojados/ui/base/FeedGridBase.vue'
 import MediaGridCellBase from '@antojados/ui/base/MediaGridCellBase.vue'
+import PostActionRailBase from '@antojados/ui/base/PostActionRailBase.vue'
 import { useAntojoFeed } from '@antojados/api/composables/useAntojoFeed'
 import { useLocationScope } from '@antojados/api/composables/useLocationScope'
 
 const router = useRouter()
 const showTypeFilter = ref(false)
+const showExplorerShort = ref(false)
+const selectedExplorerPostId = ref('')
 const selectedType = ref('')
 const isCityPickerOpen = ref(false)
 const isSpotsOpen = ref(false)
@@ -174,6 +218,39 @@ const filteredPosts = computed(() => {
   if (!selectedType.value) return apiPosts.value
   return apiPosts.value.filter((post) => post.postType === selectedType.value)
 })
+const explorerPosts = computed(() => filteredPosts.value.filter(isExplorerPost))
+const legacyPosts = computed(() => filteredPosts.value.filter((p) => !isExplorerPost(p)))
+
+function isExplorerPost(post) {
+  const composicion = post?.composicion
+  return !!(composicion && Array.isArray(composicion.blocks) && composicion.blocks.length > 0)
+}
+
+function buildActions(post) {
+  return [
+    { key: 'chocalas', label: 'Chocalas', icon: 'front_hand', count: post?.likesCount || 0 },
+    { key: 'pasala', label: 'Pasala', icon: 'reply', count: post?.commentsCount || 0 },
+    { key: 'morral', label: 'Morral', icon: 'backpack', count: 0 },
+  ]
+}
+
+function onRailAction(action, post) {
+  console.debug('[VasIr] Rail action', action, post?.id)
+}
+
+function onExplorerBlockTap(block, post) {
+  selectedExplorerPostId.value = post.id
+  showExplorerShort.value = true
+}
+
+function onExplorerRailAction(action, post) {
+  console.debug('[VasIr] Explorer rail action', action, post?.id)
+}
+
+function onExplorerComment(post, text) {
+  post.comments = [...(post.comments || []), { id: `local-${Date.now()}`, user: 'yo', text }]
+  post.commentsCount = Number(post.commentsCount || 0) + 1
+}
 const spotsCount = computed(() => filteredPosts.value.length)
 const savedSpots = computed(() => filteredPosts.value.slice(0, 4))
 

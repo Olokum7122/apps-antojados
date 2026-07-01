@@ -35,8 +35,32 @@
       </div>
     </transition>
 
+    <!-- Explorer posts (con composicion) se renderizan en lista -->
+    <template v-if="explorerPosts.length">
+      <feed-explorer-card
+        v-for="post in explorerPosts"
+        :key="post.id"
+        :post="post"
+        class="q-mb-sm"
+      >
+        <template #actions>
+          <post-action-rail-base
+            :actions="buildActions(post)"
+            :show-counts="true"
+            mode="themeAuto"
+            subdim-ik="ARRE_EXPLORER_ACTIONS"
+            subdim-pc="ANTOJO.ARRE.ARRE_FEED"
+            subdim-type="SUB_COMPONENT"
+            subdim-applies-to="all"
+            code-component="ARRE.EXPLORER_ACTIONS"
+            @action="(key) => onRailAction(key, post)"
+          />
+        </template>
+      </feed-explorer-card>
+    </template>
+
     <feed-grid-base
-      :items="eventPosts"
+      :items="legacyPosts"
       empty-message="Sin eventos en Arre por ahora"
       key-field="id"
       stage="S1"
@@ -120,14 +144,36 @@
 import { computed, onMounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import AppEmptyState from '@antojados/ui/base/AppEmptyState.vue'
+import FeedExplorerCard from '@antojados/ui/base/FeedExplorerCard.vue'
 import FeedFilterBarBase from '@antojados/ui/base/FeedFilterBarBase.vue'
 import FeedGridBase from '@antojados/ui/base/FeedGridBase.vue'
 import MediaGridCellBase from '@antojados/ui/base/MediaGridCellBase.vue'
+import PostActionRailBase from '@antojados/ui/base/PostActionRailBase.vue'
 import { useAntojoFeed } from '@antojados/api/composables/useAntojoFeed'
 import { useLocationScope } from '@antojados/api/composables/useLocationScope'
 
 const router = useRouter()
 const { filteredPosts: eventPosts, load } = useAntojoFeed('arre')
+const explorerPosts = computed(() => eventPosts.value.filter(isExplorerPost))
+const legacyPosts = computed(() => eventPosts.value.filter((p) => !isExplorerPost(p)))
+
+function isExplorerPost(post) {
+  const composicion = post?.composicion
+  return !!(composicion && Array.isArray(composicion.blocks) && composicion.blocks.length > 0)
+}
+
+function buildActions(post) {
+  return [
+    { key: 'chocalas', label: 'Chocalas', icon: 'front_hand', count: post?.likesCount || 0 },
+    { key: 'pasala', label: 'Pasala', icon: 'reply', count: post?.commentsCount || 0 },
+    { key: 'morral', label: 'Morral', icon: 'backpack', count: 0 },
+  ]
+}
+
+function onRailAction(action, post) {
+  console.debug('[Arre] Rail action', action, post?.id)
+}
+
 const spotsCount = ref(2)
 const showTypeFilter = ref(false)
 const isCityPickerOpen = ref(false)
