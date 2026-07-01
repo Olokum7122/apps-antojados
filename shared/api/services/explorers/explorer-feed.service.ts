@@ -18,7 +18,7 @@ export class ExplorerFeedService {
     private readonly http: AxiosInstance,
     baseUrl?: string,
   ) {
-    this.baseUrl = (baseUrl || 'https://explorer-api.antojadosmx.mx').replace(/\/+$/, '')
+    this.baseUrl = (baseUrl || 'https://api.antojadosmx.mx').replace(/\/+$/, '')
   }
 
   /**
