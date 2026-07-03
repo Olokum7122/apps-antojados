@@ -136,6 +136,7 @@ const routes = [
               {
                 path: 'que-pex',
                 component: () => import('@antojados/ui/app/components/antojo/UserS1Page.vue'),
+                props: { channel: 'que_pex' },
               },
               {
                 path: 'que-pex/post/:post_id',
