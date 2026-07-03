@@ -114,18 +114,18 @@ async function loadFeed() {
   error.value = ''
 
   try {
-    // Qué Pex: solo contenido explorer (editorial de periodistas)
-    // Barrio/Pachanga: contenido explorer + contenido default (usuarios)
+    // Qué Pex: solo contenido explorer (editorial = feed_type 'publicity')
+    // Barrio/Pachanga: contenido editorial + contenido de usuarios (feed_type 'user')
     const promises = [documentPackageService.getByChannel({
       channel: props.channel as Channel,
-      feedType: 'explorer',
+      feedType: 'publicity',
       limit: 30,
     })]
 
     if (hasUserContent.value) {
       promises.push(documentPackageService.getByChannel({
         channel: props.channel as Channel,
-        feedType: 'default',
+        feedType: 'user',
         limit: 30,
       }))
     }
