@@ -1,10 +1,10 @@
 /**
- * Document Package Service V2 — Obtiene packages desde Explorer API vía Gateway.
+ * Document Package Service V2 — Obtiene packages desde Explorer API vía Gateway proxy.
  *
  * ═══════════════════════════════════════════════════════════════
  * CONTRATO: Único dominio permitido: https://api.antojadosmx.mx
  * El frontend NUNCA hace llamados directos a IP/puerto/HTTP.
- * Las rutas pasan por el Gateway en /api/v1/antojados/publications/*
+ * El Gateway redirige /api/v1/explorer/* al Explorer API (puerto 4101).
  * ═══════════════════════════════════════════════════════════════
  */
 
@@ -17,8 +17,8 @@ import type {
   PostComposition,
 } from '@antojados/api/types/document-package'
 
-// Publications API base path (Gateway → Explorer DB, mismo dominio)
-const PUBLICATIONS_API_BASE = '/api/v1/antojados/publications'
+// Explorer API base path (a través del Gateway proxy)
+const EXPLORER_API_BASE = '/api/v1/explorer'
 
 interface ContentRaw {
   id_post?: string
@@ -115,7 +115,7 @@ export class DocumentPackageService {
 
   async getByChannel(params: GetFeedParams): Promise<SponsorPost[]> {
     const response = await this.http.get<GetFeedResponse>(
-      `${PUBLICATIONS_API_BASE}/by-channel/${params.channel}`,
+      `${EXPLORER_API_BASE}/contents/by-channel/${params.channel}`,
       {
         params: {
           feed_type: params.feedType || undefined,
@@ -130,7 +130,7 @@ export class DocumentPackageService {
 
   async getBySponsor(params: GetFeedParams): Promise<SponsorPost[]> {
     const response = await this.http.get<GetFeedResponse>(
-      `${PUBLICATIONS_API_BASE}/by-sponsor/${params.sponsorId || ''}`,
+      `${EXPLORER_API_BASE}/contents/by-sponsor/${params.sponsorId || ''}`,
       {
         params: {
           channel: params.channel,
@@ -153,7 +153,7 @@ export class DocumentPackageService {
 
   async getByPost(idPost: string): Promise<SponsorPost | null> {
     const response = await this.http.get<GetFeedResponse>(
-      `${PUBLICATIONS_API_BASE}/by-post/${idPost}`,
+      `${EXPLORER_API_BASE}/contents/by-post/${idPost}`,
     )
 
     const items = this._extractAndMap(response.data)
