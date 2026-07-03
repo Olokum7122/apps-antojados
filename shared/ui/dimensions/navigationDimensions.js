@@ -165,14 +165,14 @@ const PA_TI_TABS = [
     to: '/red/pa-ti/pachanga',
   },
   {
-    name: 'la-neta',
-    label: 'La Neta',
-    ik: 'LA_NETA',
+    name: 'que-pex',
+    label: 'Qué Pex',
+    ik: 'QUE_PEX',
     pc: 'ANTOJADOS.PARA_TI',
-    dim_code: 'ANTOJADOS.PARA_TI.LA_NETA',
+    dim_code: 'ANTOJADOS.PARA_TI.QUE_PEX',
     subdimType: 'COMPONENT',
-    codeComponent: 'PARA_TI.LA_NETA.TAB',
-    to: '/red/pa-ti/la-neta',
+    codeComponent: 'PARA_TI.QUE_PEX.TAB',
+    to: '/red/pa-ti/que-pex',
   },
 ]
 
@@ -356,7 +356,7 @@ function resolveRedTab(path) {
 }
 
 function resolvePaTiTab(path) {
-  if (path.includes('/la-neta')) return 'la-neta'
+  if (path.includes('/que-pex') || path.includes('/la-neta')) return 'que-pex'
   return 'pachanga'
 }
 
