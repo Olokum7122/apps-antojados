@@ -4,7 +4,7 @@
  * ═══════════════════════════════════════════════════════════════
  * CONTRATO: Único dominio permitido: https://api.antojadosmx.mx
  * El frontend NUNCA hace llamados directos a IP/puerto/HTTP.
- * Explorer API está detrás del Gateway en /api/v1/explorer/*
+ * Las rutas pasan por el Gateway en /api/v1/antojados/publications/*
  * ═══════════════════════════════════════════════════════════════
  */
 
@@ -17,8 +17,8 @@ import type {
   PostComposition,
 } from '@antojados/api/types/document-package'
 
-// Explorer API base path (detrás del Gateway, mismo dominio)
-const EXPLORER_API_BASE = '/api/v1/explorer'
+// Publications API base path (Gateway → Explorer DB, mismo dominio)
+const PUBLICATIONS_API_BASE = '/api/v1/antojados/publications'
 
 interface ContentRaw {
   id_post?: string
@@ -115,7 +115,7 @@ export class DocumentPackageService {
 
   async getByChannel(params: GetFeedParams): Promise<SponsorPost[]> {
     const response = await this.http.get<GetFeedResponse>(
-      `${EXPLORER_API_BASE}/contents/by-channel/${params.channel}`,
+      `${PUBLICATIONS_API_BASE}/by-channel/${params.channel}`,
       {
         params: {
           feed_type: params.feedType || undefined,
@@ -130,7 +130,7 @@ export class DocumentPackageService {
 
   async getBySponsor(params: GetFeedParams): Promise<SponsorPost[]> {
     const response = await this.http.get<GetFeedResponse>(
-      `${EXPLORER_API_BASE}/contents/by-sponsor/${params.sponsorId || ''}`,
+      `${PUBLICATIONS_API_BASE}/by-sponsor/${params.sponsorId || ''}`,
       {
         params: {
           channel: params.channel,
@@ -153,7 +153,7 @@ export class DocumentPackageService {
 
   async getByPost(idPost: string): Promise<SponsorPost | null> {
     const response = await this.http.get<GetFeedResponse>(
-      `${EXPLORER_API_BASE}/contents/by-post/${idPost}`,
+      `${PUBLICATIONS_API_BASE}/by-post/${idPost}`,
     )
 
     const items = this._extractAndMap(response.data)
