@@ -3,6 +3,10 @@
   "appName": "AntojadosMx Social",
   "webDir": "../dist/spa",
   "server": {
-    "androidScheme": "http"
+    "androidScheme": "https",
+    "allowNavigation": [
+      "api.antojadosmx.mx",
+      "antojadosmx.mx"
+    ]
   }
 }

@@ -25,6 +25,7 @@
       @next="nextStep"
     >
       <template #default>
+        <!-- P1: TIPO -->
         <section v-if="activeStep === 'tipo'" class="publicar-vasir-view__panel">
           <h2>Tipo de publicacion</h2>
           <div class="publicar-vasir-view__types">
@@ -35,7 +36,7 @@
               :class="['publicar-vasir-view__type', selectedType === type.value && 'publicar-vasir-view__type--active']"
               @click="selectedType = type.value"
             >
-              <q-badge :color="type.color" :text-color="type.color === 'primary' ? 'dark' : 'white'">
+              <q-badge :color="type.color" text-color="white">
                 {{ type.label }}
               </q-badge>
               <span>{{ typeHelp[type.value] }}</span>
@@ -43,63 +44,131 @@
           </div>
         </section>
 
+        <!-- P1: MEDIA (multi-archivo) -->
         <section v-else-if="activeStep === 'media'" class="publicar-vasir-view__panel">
-          <h2>Media y texto</h2>
+          <h2>Agregar media</h2>
           <div class="publicar-vasir-view__media-actions">
             <button
-              v-for="source in mediaSources"
-              :key="source.key"
               type="button"
-              :class="['publicar-vasir-view__media-action', selectedMediaSource === source.key && 'publicar-vasir-view__media-action--active']"
-              @click="selectMediaSource(source.key)"
+              class="publicar-vasir-view__media-action"
+              @click="triggerMultiFilePicker"
             >
-              <q-icon :name="source.icon" color="primary" size="32px" />
-              <strong>{{ source.label }}</strong>
-              <span>{{ source.help }}</span>
+              <q-icon name="add_photo_alternate" color="primary" size="32px" />
+              <strong>Agregar fotos/video</strong>
+              <span>Selecciona 1 o mas archivos</span>
             </button>
           </div>
           <input
-            ref="photoInputRef"
+            ref="multiInputRef"
             type="file"
-            accept="image/*"
-            capture="environment"
-            class="publicar-vasir-view__file"
-            @change="onFileChange($event, 'photo')"
-          />
-          <input
-            ref="videoInputRef"
-            type="file"
-            accept="video/*"
-            capture="environment"
-            class="publicar-vasir-view__file"
-            @change="onFileChange($event, 'video')"
-          />
-          <input
-            ref="deviceInputRef"
-            type="file"
+            multiple
             accept="image/*,video/*"
             class="publicar-vasir-view__file"
-            @change="onFileChange($event, 'device')"
+            @change="onMultiFileChange"
           />
-          <div v-if="hasMedia" class="publicar-vasir-view__media-ready">
-            Media lista para subir
-            <q-btn flat dense no-caps color="grey-5" label="Quitar" @click="clearMedia" />
+
+          <!-- Lista de media seleccionada -->
+          <div v-if="mediaItems.length" class="publicar-vasir-view__media-list">
+            <div
+              v-for="(item, i) in mediaItems"
+              :key="i"
+              class="publicar-vasir-view__media-item"
+            >
+              <img v-if="item.mediaType === 'photo'" :src="item.preview" class="publicar-vasir-view__thumb" />
+              <video v-else :src="item.preview" class="publicar-vasir-view__thumb" muted />
+              <span class="publicar-vasir-view__media-label">{{ item.fileName }}</span>
+              <q-btn flat dense round icon="close" color="grey-5" size="sm" @click="removeMedia(i)" />
+            </div>
           </div>
-          <div v-if="mediaError" class="publicar-vasir-view__media-error">
-            {{ mediaError }}
+
+          <div v-if="mediaItems.length" class="publicar-vasir-view__media-ready">
+            {{ mediaItems.length }} archivo(s) seleccionado(s)
           </div>
-          <q-input v-model="caption" dark filled autogrow label="Texto de la publicacion" />
+          <div v-if="mediaError" class="publicar-vasir-view__media-error">{{ mediaError }}</div>
+
+          <q-input v-model="caption" dark filled autogrow label="Descripcion de la publicacion" />
         </section>
 
+        <!-- P2: PUBLICITY o GENERAL -->
+        <section v-else-if="activeStep === 'tipo-package'" class="publicar-vasir-view__panel">
+          <h2>Tipo de package</h2>
+          <div class="publicar-vasir-view__package-types">
+            <button
+              type="button"
+              :class="['publicar-vasir-view__package-btn', packageType === 'publicitypackage' && 'publicar-vasir-view__package-btn--active']"
+              @click="packageType = 'publicitypackage'"
+            >
+              <strong>PUBLICITY</strong>
+              <span>Contenido promocional con template, look y filtro</span>
+            </button>
+            <button
+              type="button"
+              :class="['publicar-vasir-view__package-btn', packageType === 'generalpackage' && 'publicar-vasir-view__package-btn--active']"
+              @click="packageType = 'generalpackage'"
+            >
+              <strong>GENERAL</strong>
+              <span>Contenido simple sin personalizacion visual</span>
+            </button>
+          </div>
+
+          <!-- Campos PUBLICITY -->
+          <template v-if="packageType === 'publicitypackage'">
+            <h2>Badge</h2>
+            <div class="publicar-vasir-view__badge-row">
+              <q-chip
+                v-for="b in publicityBadges"
+                :key="b.value"
+                :selected="selectedBadge === b.value"
+                :color="b.color"
+                text-color="white"
+                size="md"
+                clickable
+                @click="selectedBadge = b.value"
+              >
+                {{ b.label }}
+              </q-chip>
+            </div>
+            <q-input v-model="pubTitle" dark filled label="Titulo" maxlength="50" counter />
+            <q-input v-model="pubDesc" dark filled autogrow label="Descripcion (expand-text en S1)" />
+            <q-input v-model="pubPrice" dark filled label="Precio (opcional)" type="number" step="0.01" />
+          </template>
+
+          <!-- Campos GENERAL -->
+          <template v-if="packageType === 'generalpackage'">
+            <q-badge color="blue-5" text-color="white">GENERAL</q-badge>
+            <q-input v-model="genTitle" dark filled label="Titulo" />
+            <q-input v-model="genDesc1" dark filled autogrow label="Descripcion 1" />
+            <q-input v-model="genDesc2" dark filled autogrow label="Descripcion 2 (opcional)" />
+            <q-input v-model="genDesc3" dark filled autogrow label="Descripcion 3 (opcional)" />
+          </template>
+        </section>
+
+        <!-- P3: PREVIEW (placeholder - botones en siguiente iteracion) -->
         <section v-else class="publicar-vasir-view__panel">
           <h2>Vista previa</h2>
           <article class="publicar-vasir-view__preview">
-            <q-badge :color="selectedTypeMeta.color" :text-color="selectedTypeMeta.color === 'primary' ? 'dark' : 'white'">
-              {{ selectedTypeMeta.label }}
-            </q-badge>
-            <strong>Tu negocio</strong>
-            <p>{{ caption || 'Publicacion de ejemplo para Vas Ir.' }}</p>
+            <q-badge :color="badgeColor" text-color="white">{{ badgeLabel }}</q-badge>
+            <strong>{{ previewTitle }}</strong>
+            <p>{{ previewDesc || 'Publicacion lista para publicar.' }}</p>
+            <small v-if="packageType === 'publicitypackage'">Template: full-frame | Look: retro | Filter: none</small>
+            <small v-else>Package general - sin personalizacion</small>
+            <div v-if="mediaItems.length" class="publicar-vasir-view__preview-media">
+              <img
+                v-for="(item, i) in mediaItems.slice(0, 3)"
+                :key="i"
+                :src="item.preview"
+                class="publicar-vasir-view__preview-thumb"
+              />
+              <span v-if="mediaItems.length > 3" class="publicar-vasir-view__preview-more">+{{ mediaItems.length - 3 }}</span>
+            </div>
           </article>
+
+          <!-- Botones P3 (placeholder, se implementaran en siguiente iteracion) -->
+          <div class="publicar-vasir-view__p3-buttons">
+            <q-btn outline no-caps color="primary" label="Template" disable class="publicar-vasir-view__p3-btn" />
+            <q-btn outline no-caps color="primary" label="Look" disable class="publicar-vasir-view__p3-btn" />
+            <q-btn outline no-caps color="primary" label="Filter" disable class="publicar-vasir-view__p3-btn" />
+          </div>
         </section>
       </template>
 
@@ -111,7 +180,7 @@
           no-caps
           color="primary"
           text-color="dark"
-          :disable="activeStep === 'tipo' && !selectedType"
+          :disable="!canGoNext"
           :label="activeIndex === steps.length - 2 ? 'Previsualizar' : 'Siguiente'"
           @click="nextStep"
         />
@@ -127,13 +196,14 @@
         />
       </template>
     </feed-flow-orchestrator-base>
+
     <q-dialog v-model="publishing" persistent>
       <q-card class="publish-processing-card bg-grey-10 text-white">
         <q-card-section class="row items-center q-gutter-sm">
           <q-spinner-dots color="primary" size="34px" />
           <div>
             <div class="text-subtitle2">{{ publishingStageLabel }}</div>
-            <div class="text-caption text-grey-5">{{ publishingStageDetail || 'No cierres esta pantalla mientras termina el intake.' }}</div>
+            <div class="text-caption text-grey-5">{{ publishingStageDetail }}</div>
           </div>
         </q-card-section>
         <q-card-section>
@@ -141,7 +211,6 @@
         </q-card-section>
       </q-card>
     </q-dialog>
-
   </section>
 </template>
 
@@ -150,44 +219,29 @@ import { computed, ref } from 'vue'
 import { useQuasar } from 'quasar'
 import { useRouter } from 'vue-router'
 import FeedFlowOrchestratorBase from '@antojados/ui/base/FeedFlowOrchestratorBase.vue'
-import { VAS_IR_POST_TYPES } from '@antojados/ui/mocks/uiFeeds'
 import { publishService } from '@antojados/api/services'
-import { resolveMediaUploadStageLabel, uploadPublishMediaFlow } from '@antojados/api/services/media/media-publish-flow.service'
-import { usePublishMedia } from '@antojados/api/composables/usePublishMedia'
+import { readPublishMediaFile } from '@antojados/api/composables/usePublishMedia'
 import { getSharedSession } from '@antojados/api/storage/session.storage'
 
 const $q = useQuasar()
 const router = useRouter()
+
+// ─── Steps ──────────────────────────────────────────────────────────────
 const steps = [
   { key: 'tipo', label: 'Tipo' },
   { key: 'media', label: 'Media' },
+  { key: 'tipo-package', label: 'Package' },
   { key: 'preview', label: 'Preview' },
 ]
 const activeStep = ref('tipo')
+
+// ─── P1: Type ──────────────────────────────────────────────────────────
 const selectedType = ref('promo')
-const selectedMediaSource = ref('photo')
-const caption = ref('Promo nueva para que la banda se anime a venir.')
-const publishing = ref(false)
-const publishingStageLabel = ref('Preparando video...')
-const publishingStageDetail = ref('')
-const {
-  photoInputRef,
-  videoInputRef,
-  deviceInputRef,
-  mediaBase64,
-  mediaType,
-  mediaError,
-  selectedSource,
-  hasMedia,
-  triggerFilePicker,
-  onFileChange,
-  clearMedia,
-} = usePublishMedia()
-const vasIrTypes = VAS_IR_POST_TYPES.filter((type) => type.value)
-const mediaSources = [
-  { key: 'photo', label: 'Foto', icon: 'photo_camera', help: 'Tomar foto para el negocio.' },
-  { key: 'video', label: 'Video', icon: 'videocam', help: 'Grabar video corto.' },
-  { key: 'device', label: 'Dispositivo', icon: 'perm_media', help: 'Agregar desde galeria.' },
+const vasIrTypes = [
+  { value: 'promo', label: 'Promo', color: 'orange-5' },
+  { value: 'new_dish', label: 'Platillo', color: 'amber-4' },
+  { value: 'discount', label: 'Descuento', color: 'green-5' },
+  { value: 'general', label: 'General', color: 'blue-5' },
 ]
 const typeHelp = {
   promo: 'Oferta temporal del negocio.',
@@ -195,9 +249,95 @@ const typeHelp = {
   discount: 'Descuento directo o paquete.',
   general: 'Aviso o publicacion informativa.',
 }
-const activeIndex = computed(() => steps.findIndex((step) => step.key === activeStep.value))
-const selectedTypeMeta = computed(() => vasIrTypes.find((type) => type.value === selectedType.value) || vasIrTypes[0])
 
+// ─── P1: Multi Media ───────────────────────────────────────────────────
+const multiInputRef = ref(null)
+const mediaFiles = ref([])       // File[]
+const mediaItems = ref([])       // { preview, base64, mediaType, fileName }
+const mediaError = ref(null)
+const caption = ref('')
+
+function triggerMultiFilePicker() {
+  mediaError.value = null
+  multiInputRef.value?.click()
+}
+
+async function onMultiFileChange(event) {
+  const input = event.target
+  const files = Array.from(input.files || [])
+  if (!files.length) return
+
+  for (const file of files) {
+    try {
+      const selected = await readPublishMediaFile(file)
+      mediaItems.value.push(selected)
+      mediaFiles.value.push(file)
+    } catch (err) {
+      mediaError.value = err.message || 'Error al leer archivo'
+    }
+  }
+
+  // Reset input para poder seleccionar los mismos archivos de nuevo
+  input.value = ''
+}
+
+function removeMedia(index) {
+  mediaItems.value.splice(index, 1)
+  mediaFiles.value.splice(index, 1)
+}
+
+// ─── P2: Package type ──────────────────────────────────────────────────
+const packageType = ref('publicitypackage')
+const selectedBadge = ref('promo')
+const pubTitle = ref('')
+const pubDesc = ref('')
+const pubPrice = ref('')
+const genTitle = ref('')
+const genDesc1 = ref('')
+const genDesc2 = ref('')
+const genDesc3 = ref('')
+
+const publicityBadges = [
+  { value: 'new_dish', label: 'Platillo', color: 'amber-4' },
+  { value: 'promo', label: 'Promo', color: 'orange-5' },
+  { value: 'discount', label: 'Descuento', color: 'green-5' },
+]
+
+// ─── Computed ──────────────────────────────────────────────────────────
+const activeIndex = computed(() => steps.findIndex((s) => s.key === activeStep.value))
+
+const canGoNext = computed(() => {
+  if (activeStep.value === 'tipo') return !!selectedType.value
+  if (activeStep.value === 'media') return mediaItems.value.length > 0
+  if (activeStep.value === 'tipo-package') {
+    if (packageType.value === 'publicitypackage') return !!pubTitle.value || !!selectedBadge.value
+    return !!genTitle.value
+  }
+  return true
+})
+
+const badgeLabel = computed(() => {
+  if (packageType.value === 'generalpackage') return 'GENERAL'
+  const b = publicityBadges.find((x) => x.value === selectedBadge.value)
+  return b?.label || 'PROMO'
+})
+
+const badgeColor = computed(() => {
+  if (packageType.value === 'generalpackage') return 'blue-5'
+  return publicityBadges.find((x) => x.value === selectedBadge.value)?.color || 'primary'
+})
+
+const previewTitle = computed(() => {
+  if (packageType.value === 'publicitypackage') return pubTitle.value || 'Sin titulo'
+  return genTitle.value || 'Sin titulo'
+})
+
+const previewDesc = computed(() => {
+  if (packageType.value === 'publicitypackage') return pubDesc.value || ''
+  return [genDesc1.value, genDesc2.value, genDesc3.value].filter(Boolean).join(' | ')
+})
+
+// ─── Navigation ────────────────────────────────────────────────────────
 function nextStep() {
   activeStep.value = steps[Math.min(activeIndex.value + 1, steps.length - 1)].key
 }
@@ -210,46 +350,88 @@ function goBack() {
   router.push('/antojo/vas-ir/gallery')
 }
 
-function selectMediaSource(sourceKey) {
-  selectedMediaSource.value = sourceKey
-  triggerFilePicker(sourceKey)
-}
+// ─── Submit ────────────────────────────────────────────────────────────
+const publishing = ref(false)
+const publishingStageLabel = ref('')
+const publishingStageDetail = ref('')
 
 async function submit() {
   if (publishing.value) return
   publishing.value = true
-  publishingStageLabel.value = resolveMediaUploadStageLabel('preparing_media')
+  publishingStageLabel.value = 'Preparando publicacion...'
   publishingStageDetail.value = ''
+
   try {
     const session = await getSharedSession()
     if (!session?.userId || !session?.placeId) {
       throw new Error('Necesitas una sesion sponsor con negocio asignado para publicar.')
     }
-    if (!mediaBase64.value) throw new Error('Selecciona una foto o video para publicar en Vas Ir.')
 
-    const { mediaUrl } = await uploadPublishMediaFlow({
-      base64: mediaBase64.value,
-      mediaType: mediaType.value,
-      channel: 'biz_post',
-      entityId: session.placeId,
-      entityContext: `antojo.vas_ir.${selectedSource.value}`,
-      context: 'vas_ir',
-      onStage: (stage, detail = '') => {
-        publishingStageLabel.value = resolveMediaUploadStageLabel(stage)
-        publishingStageDetail.value = detail
-      },
-    })
+    // Subir media al Engine (1 o N archivos)
+    const mediaUrls = []
+    const mediaItemsPayload = []
+    let uploadedCount = 0
 
+    for (const [i, item] of mediaItems.value.entries()) {
+      publishingStageLabel.value = `Subiendo media ${i + 1} de ${mediaItems.value.length}...`
+      const file = mediaFiles.value[i]
+      if (!file) continue
+
+      // Usar el engine service via media-publish-flow
+      const { mediaService } = await import('@antojados/api/services')
+      const uploaded = await mediaService.uploadMedia({
+        base64: item.base64,
+        mediaType: item.mediaType,
+        channel: 'biz_post',
+        entityId: session.placeId,
+        entityContext: `antojo.vas_ir.${item.mediaType}`,
+      })
+
+      mediaUrls.push(uploaded.media_url || '')
+      mediaItemsPayload.push({
+        mediaAssetId: uploaded.media_asset_id || null,
+        mediaType: item.mediaType,
+        thumbUrl: uploaded.thumbnail_url || null,
+        feedUrl: uploaded.media_url || null,
+        fullUrl: uploaded.full_url || null,
+      })
+      uploadedCount++
+    }
+
+    if (!uploadedCount) throw new Error('No se pudo subir ningun archivo de media.')
+
+    // Construir payload del content para Explorer
+    const feedType = packageType.value === 'publicitypackage' ? 'publicity' : 'general'
+    const contentPayload = {
+      tipoContent: packageType.value === 'publicitypackage' ? selectedBadge.value : 'general',
+      title: previewTitle.value,
+      body: previewDesc.value,
+      price: packageType.value === 'publicitypackage' ? pubPrice.value || null : null,
+      badge: badgeLabel.value,
+      media_url: mediaUrls[0],
+      media_type: mediaItems.value[0]?.mediaType || 'photo',
+      mediaItems: mediaItemsPayload,
+      // Template/look/filter se asignaran en P3 (siguiente iteracion)
+      template_code: 'full-frame',
+      body_style_code: 'retro',
+      effects: [],
+    }
+
+    // Publicar en Antojados DB + Explorer DB
     const result = await publishService.createBizPost({
       place_id: session.placeId,
       publisher_user_id: session.userId,
       channel: 'vas_ir',
       post_type: selectedType.value,
       publication_type: selectedType.value,
-      title: selectedTypeMeta.value.label,
-      body: caption.value.trim() || null,
-      media_url: mediaUrl,
-      media_type: mediaType.value,
+      title: previewTitle.value,
+      body: previewDesc.value || null,
+      media_url: mediaUrls[0],
+      media_type: mediaItems.value[0]?.mediaType || 'photo',
+      // Datos para Explorer
+      content_payload: contentPayload,
+      feed_type: feedType,
+      package_type: packageType.value,
     })
 
     $q.notify({ type: 'positive', message: 'Publicacion creada.' })
@@ -258,8 +440,6 @@ async function submit() {
     $q.notify({ type: 'negative', message: error?.message || 'No se pudo publicar.' })
   } finally {
     publishing.value = false
-    publishingStageLabel.value = resolveMediaUploadStageLabel('preparing_media')
-    publishingStageDetail.value = ''
   }
 }
 </script>
@@ -280,117 +460,66 @@ async function submit() {
   margin-bottom: 14px;
 }
 
-.publicar-vasir-view__header h1 {
-  margin: 0;
-  font-size: 22px;
-  line-height: 1.1;
-}
+.publicar-vasir-view__header h1 { margin: 0; font-size: 22px; line-height: 1.1; }
+.publicar-vasir-view__header p { margin: 4px 0 0; color: rgba(255,255,255,0.64); font-size: 12px; }
+.publicar-vasir-view__panel { display: grid; gap: 12px; }
+.publicar-vasir-view__panel h2 { margin: 0; font-size: 18px; }
 
-.publicar-vasir-view__header p {
-  margin: 4px 0 0;
-  color: rgba(255, 255, 255, 0.64);
-  font-size: 12px;
-}
-
-.publicar-vasir-view__panel {
-  display: grid;
-  gap: 12px;
-}
-
-.publicar-vasir-view__panel h2 {
-  margin: 0;
-  font-size: 18px;
-}
-
-.publicar-vasir-view__types {
-  display: grid;
-  gap: 9px;
-}
-
+.publicar-vasir-view__types { display: grid; gap: 9px; }
 .publicar-vasir-view__type {
-  display: grid;
-  gap: 7px;
-  padding: 13px;
-  border: 1px solid rgba(255, 255, 255, 0.09);
-  border-radius: 8px;
-  color: #fff;
-  background: #111722;
-  text-align: left;
+  display: grid; gap: 7px; padding: 13px;
+  border: 1px solid rgba(255,255,255,0.09); border-radius: 8px;
+  color: #fff; background: #111722; text-align: left;
 }
+.publicar-vasir-view__type--active { border-color: var(--app-primary); }
+.publicar-vasir-view__type span { color: rgba(255,255,255,0.68); }
+.publicar-vasir-view__file { display: none; }
 
-.publicar-vasir-view__type--active {
-  border-color: var(--app-primary);
-}
-
-.publicar-vasir-view__type span,
-.publicar-vasir-view__preview p {
-  color: rgba(255, 255, 255, 0.68);
-}
-
-.publicar-vasir-view__media-actions {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 8px;
-}
-
+.publicar-vasir-view__media-actions { display: grid; grid-template-columns: 1fr; gap: 8px; }
 .publicar-vasir-view__media-action {
-  min-height: 126px;
-  display: grid;
-  align-content: center;
-  justify-items: center;
-  gap: 7px;
+  min-height: 100px;
+  display: grid; align-content: center; justify-items: center; gap: 7px;
   padding: 12px 8px;
-  border: 1px dashed rgba(245, 158, 11, 0.28);
-  border-radius: 8px;
-  color: #fff;
-  background: #101620;
-  text-align: center;
+  border: 1px dashed rgba(245,158,11,0.28); border-radius: 8px;
+  color: #fff; background: #101620; text-align: center;
 }
+.publicar-vasir-view__media-action strong { font-size: 13px; }
+.publicar-vasir-view__media-action span { color: rgba(255,255,255,0.62); font-size: 11px; }
 
-.publicar-vasir-view__media-action--active {
-  border-style: solid;
-  border-color: var(--app-primary);
+.publicar-vasir-view__media-list { display: grid; gap: 8px; max-height: 200px; overflow-y: auto; }
+.publicar-vasir-view__media-item {
+  display: flex; align-items: center; gap: 10px;
+  padding: 6px; border-radius: 8px; background: #111722;
 }
+.publicar-vasir-view__thumb { width: 48px; height: 48px; border-radius: 6px; object-fit: cover; }
+.publicar-vasir-view__media-label { flex: 1; font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.publicar-vasir-view__media-ready { color: rgba(255,255,255,0.72); font-size: 12px; }
+.publicar-vasir-view__media-error { color: #fca5a5; font-size: 12px; }
 
-.publicar-vasir-view__media-action strong {
-  font-size: 13px;
+.publicar-vasir-view__package-types { display: grid; gap: 9px; }
+.publicar-vasir-view__package-btn {
+  display: grid; gap: 6px; padding: 16px;
+  border: 2px solid rgba(255,255,255,0.1); border-radius: 12px;
+  color: #fff; background: #111722; text-align: left;
 }
+.publicar-vasir-view__package-btn--active { border-color: var(--app-primary); background: #1a1f3a; }
+.publicar-vasir-view__package-btn strong { font-size: 16px; }
+.publicar-vasir-view__package-btn span { color: rgba(255,255,255,0.6); font-size: 12px; }
 
-.publicar-vasir-view__media-action span {
-  color: rgba(255, 255, 255, 0.62);
-  font-size: 11px;
-  line-height: 1.2;
-}
+.publicar-vasir-view__badge-row { display: flex; gap: 6px; flex-wrap: wrap; }
 
 .publicar-vasir-view__preview {
-  display: grid;
-  gap: 8px;
-  padding: 18px;
-  border: 1px dashed rgba(245, 158, 11, 0.36);
-  border-radius: 8px;
-  background: #101620;
+  display: grid; gap: 8px; padding: 18px;
+  border: 1px dashed rgba(245,158,11,0.36); border-radius: 8px; background: #101620;
 }
+.publicar-vasir-view__preview p { color: rgba(255,255,255,0.68); }
+.publicar-vasir-view__preview small { color: rgba(255,255,255,0.5); font-size: 11px; }
+.publicar-vasir-view__preview-media { display: flex; gap: 6px; align-items: center; }
+.publicar-vasir-view__preview-thumb { width: 56px; height: 56px; border-radius: 6px; object-fit: cover; }
+.publicar-vasir-view__preview-more { font-size: 12px; color: rgba(255,255,255,0.5); }
 
-.publicar-vasir-view__file {
-  display: none;
-}
+.publicar-vasir-view__p3-buttons { display: flex; gap: 8px; justify-content: center; }
+.publicar-vasir-view__p3-btn { flex: 1; }
 
-.publicar-vasir-view__media-ready {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  color: rgba(255, 255, 255, 0.72);
-  font-size: 12px;
-}
-
-.publicar-vasir-view__media-error {
-  color: #fca5a5;
-  font-size: 12px;
-}
-
-.publish-processing-card {
-  min-width: min(92vw, 360px);
-  border-radius: 16px;
-}
+.publish-processing-card { min-width: min(92vw, 360px); border-radius: 16px; }
 </style>

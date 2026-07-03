@@ -1,6 +1,7 @@
 {
   "extends": "./.quasar/tsconfig.json",
   "compilerOptions": {
+    "ignoreDeprecations": "6.0",
     "baseUrl": ".",
     "paths": {
       "src/shared/http/*": ["../../shared/http/*"],

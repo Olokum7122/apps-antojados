@@ -37,12 +37,12 @@
         <video
           v-if="post.mediaType === 'video'"
           :ref="(element) => setVideoRef(post.id, element)"
-          :src="post.mediaUrl"
+          :src="getPostVideoSrc(post) || getPostMediaSrc(post)"
           class="desma-feed-component__media"
           loop
           playsinline
         />
-        <img v-else :src="post.mediaUrl" class="desma-feed-component__media" loading="lazy" />
+        <img v-else :src="getPostMediaSrc(post) || getPostThumbSrc(post)" class="desma-feed-component__media" loading="lazy" />
         <div class="desma-feed-component__scrim" />
 
         <div class="desma-feed-component__top">
@@ -270,11 +270,12 @@
 </template>
 
 <script setup>
-import { nextTick, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
 import { useQuasar } from 'quasar'
 import { useRoute } from 'vue-router'
 import FeedFilterBarBase from '@antojados/ui/base/FeedFilterBarBase.vue'
 import PostActionRailBase from '@antojados/ui/base/PostActionRailBase.vue'
+import { usePostMedia } from '@antojados/ui/services/useNormalizedMedia'
 import { useAntojadosFeed } from '@antojados/api/composables/useAntojadosFeed'
 import { useLocationScope } from '@antojados/api/composables/useLocationScope'
 import { readPublishMediaFile } from '@antojados/api/composables/usePublishMedia'
@@ -325,6 +326,18 @@ const publishActions = [
   { key: 'device', label: 'Agregar video', icon: 'video_library', help: 'Elegir desde el dispositivo.' },
   { key: 'personal', label: 'Guardar personal', icon: 'lock', help: 'Solo visible para ti.' },
 ]
+
+function getPostMediaSrc(post) {
+  return usePostMedia(() => post).mediaSrc.value || ''
+}
+
+function getPostThumbSrc(post) {
+  return usePostMedia(() => post).thumbSrc.value || ''
+}
+
+function getPostVideoSrc(post) {
+  return usePostMedia(() => post).videoSrc.value || ''
+}
 
 function isOverlayVisible(post) {
   return activePostId.value === post?.id
@@ -496,8 +509,12 @@ function syncAction(eventType, post, payload) {
 function onRailAction(action, post) {
   activePostId.value = post.id
   if (action === 'like') {
-    post.likesCount = Number(post.likesCount || 0) + 1
-    void syncAction('post_like', post)
+    // DEBT-042: estado optimista con reversa si la API falla
+    const originalCount = Number(post.likesCount || 0)
+    post.likesCount = originalCount + 1
+    syncAction('post_like', post).catch(() => {
+      post.likesCount = originalCount
+    })
     return
   }
   if (action === 'comentar') {
@@ -602,27 +619,25 @@ async function uploadSelectedDesmaVideo(result) {
         ? `antojados.desma.personal.${selectedVideoSource.value}`
         : `antojados.desma.${selectedVideoSource.value}`,
   })
-  const mediaUrl = await mediaService.waitForUploadedMediaUrl(uploaded, 'desma')
 
   if (result === 'published') {
     const created = await publishService.createSocialPost({
       post_id: postId,
       user_id: session.userId,
       feed_scope: 'desma',
-      venue_name: 'En el Desma',
+      venue_name: selectedVideoName.value || null,
       caption: selectedVideoName.value,
       description: selectedVideoName.value,
       city_code: cityCode.value || session.cityCode || null,
       scope_level: scopeLevel.value || null,
       scope_code: scopeCode.value || null,
-      media_url: mediaUrl,
-      media_type: 'video',
       media_intake_id: uploaded.intake_id || null,
+      media_type: 'video',
     })
-    return { session, uploaded, mediaUrl, postId: created.post_id || null }
+    return { session, uploaded, postId: created.post_id || null }
   }
 
-  return { session, uploaded, mediaUrl, postId: null }
+  return { session, uploaded, postId: null }
 }
 
 async function finishPublish(result) {

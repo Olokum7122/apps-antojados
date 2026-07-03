@@ -206,7 +206,7 @@ async function submit() {
     if (!mediaBase64.value) throw new Error('Selecciona una foto o video para publicar en Barrio.')
 
     const postId = `barrio-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`
-    const { uploaded, mediaUrl } = await uploadPublishMediaFlow({
+    const { uploaded } = await uploadPublishMediaFlow({
       base64: mediaBase64.value,
       mediaType: mediaType.value,
       channel: 'feed_post',
@@ -223,15 +223,14 @@ async function submit() {
       post_id: postId,
       user_id: session.userId,
       feed_scope: 'barrio',
-      venue_name: venueName.value.trim() || 'Sin ubicacion',
+      venue_name: venueName.value.trim() || null,
       caption: caption.value.trim() || null,
       description: caption.value.trim() || null,
       city_code: cityCode.value || session.cityCode || null,
       scope_level: scopeLevel.value || null,
       scope_code: scopeCode.value || null,
-      media_url: mediaUrl,
-      media_type: mediaType.value,
       media_intake_id: uploaded.intake_id || null,
+      media_type: mediaType.value,
     })
 
     $q.notify({ type: 'positive', message: 'Post publicado.' })

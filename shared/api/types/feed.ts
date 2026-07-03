@@ -27,6 +27,10 @@ export interface FeedItem {
   venue?: string | null
   mediaUrl: string | null
   mediaThumbUrl?: string | null
+  // DEBT-038: Variantes de media según Client Consumption Spec §5
+  mediaFullUrl?: string | null    // 1920px para fullscreen
+  videoUrl?: string | null        // 720p para reproducción en feed
+  video1080Url?: string | null    // 1080p para fullscreen
   mediaGallery?: string[]
   mediaType: string | null
   likesCount: number
@@ -87,3 +91,4 @@ export interface SocialSyncEvent {
   channel?: string | null
   payload?: Record<string, unknown>
 }
+

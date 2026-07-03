@@ -9,5 +9,11 @@
     "./interceptors": "./interceptors.ts",
     "./endpoints": "./endpoints.ts",
     "./config/*": "./config/*"
+  },
+  "dependencies": {
+    "axios": "^1.12.2"
+  },
+  "peerDependencies": {
+    "axios": "^1.12.2"
   }
 }

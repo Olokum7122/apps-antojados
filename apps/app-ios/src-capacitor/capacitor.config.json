@@ -1,5 +1,14 @@
 {
-  "appId": "mx.antojados.ios",
-  "appName": "AntojadosMX iOS",
-  "webDir": "www"
+  "appId": "com.atlx.antojadosmx",
+  "appName": "AntojadosMx Social",
+  "webDir": "www",
+  "server": {
+    "iosScheme": "https",
+    "allowNavigation": [
+      "api.antojadosmx.mx",
+      "antojadosmx.mx",
+      "localhost",
+      "127.0.0.1"
+    ]
+  }
 }

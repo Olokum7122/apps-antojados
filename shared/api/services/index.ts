@@ -13,6 +13,7 @@ import { SocialActionsService } from '@antojados/api/services/feed/social-action
 import { SocialFeedService } from '@antojados/api/services/feed/social-feed.service'
 import { SystemService } from '@antojados/api/services/system/system.service'
 import { TenantsService } from '@antojados/api/services/tenants/tenants.service'
+import { DocumentPackageService } from '@antojados/api/services/explorer/document-package.service'
 import * as mediaService from '@antojados/api/services/media/media.service'
 import * as publishService from '@antojados/api/services/publish/publish.service'
 import * as rankingsService from '@antojados/api/services/rankings/rankings.service'
@@ -34,10 +35,12 @@ const socialActionsService = new SocialActionsService(httpClient)
 const socialFeedService = new SocialFeedService(httpClient)
 const systemService = new SystemService(httpClient)
 const tenantsService = new TenantsService(httpClient)
+const documentPackageService = new DocumentPackageService(httpClient)
 
 export {
   authService,
   bizFeedService,
+  documentPackageService,
   efirmaService,
   equipoService,
   explorersService,

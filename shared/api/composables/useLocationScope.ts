@@ -494,7 +494,12 @@ export function useLocationScope(feedKey: LocationFeedKey, allowedScopes?: Scope
     return uniqueScopeLevels(allowedScopes || DEFAULT_ALLOWED_SCOPES[feedKey])
   })
 
-  void initialize(feedKey).then(() => requestDeviceLocationForFeed(feedKey, null, false, true))
+  // DEBT-045: initialize debe completarse antes de requestDeviceLocationForFeed
+  // para evitar race condition donde el feed carga antes del scope geográfico.
+  const initTask = initialize(feedKey).then(() =>
+    requestDeviceLocationForFeed(feedKey, null, false, true)
+  )
+
   ensureVisibilityReset(feedKey)
 
   watch(searchValue, async (value) => {

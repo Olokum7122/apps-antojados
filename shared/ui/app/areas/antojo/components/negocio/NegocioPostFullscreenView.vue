@@ -45,7 +45,7 @@
           <video
             v-if="isVideoPost(item)"
             ref="videoRef"
-            :src="item.mediaUrl"
+            :src="getPostVideoSrc(item) || getPostMediaSrc(item)"
             class="negocio-post-fullscreen-view__media"
             :muted="isMuted"
             playsinline
@@ -53,8 +53,8 @@
             autoplay
           />
           <img
-            v-else-if="item.mediaUrl"
-            :src="item.mediaUrl"
+            v-else-if="getPostMediaSrc(item)"
+            :src="getPostMediaSrc(item)"
             class="negocio-post-fullscreen-view__media"
           />
           <div v-else class="negocio-post-fullscreen-view__media negocio-post-fullscreen-view__media--empty" />
@@ -97,6 +97,7 @@
 import { computed, nextTick, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import FeedFullscreenBase from '@antojados/ui/base/FeedFullscreenBase.vue'
+import { usePostMedia } from '@antojados/ui/services/useNormalizedMedia'
 import { bizFeedService } from '@antojados/api/services'
 
 const route = useRoute()
@@ -110,6 +111,14 @@ const isMuted = ref(false)
 const isPaused = ref(false)
 const heroPost = computed(() => post.value || {})
 const comments = computed(() => [...(post.value?.comments || []), ...localComments.value])
+function getPostMediaSrc(item) {
+  return usePostMedia(() => item).mediaSrc.value || ''
+}
+
+function getPostVideoSrc(item) {
+  return usePostMedia(() => item).videoSrc.value || ''
+}
+
 const postActions = computed(() => [
   { key: 'chocalas', label: 'Chocalas', icon: 'front_hand', count: post.value?.likesCount || 0 },
   { key: 'pasala', label: 'Pasala', icon: 'reply', count: post.value?.commentsCount || 0 },

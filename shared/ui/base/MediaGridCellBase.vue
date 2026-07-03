@@ -63,6 +63,7 @@
 
 <script setup>
 import { computed } from 'vue'
+import { usePostMedia } from '@antojados/ui/services/useNormalizedMedia'
 
 const props = defineProps({
   post: { type: Object, required: true },
@@ -91,12 +92,11 @@ const props = defineProps({
 
 defineEmits(['action'])
 
+const { thumbSrc, mediaSrc, videoSrc, videoPreviewSrc } = usePostMedia(() => props.post)
 const isVideo = computed(() => String(props.post?.mediaType || '').toLowerCase() === 'video')
-const mediaSource = computed(
-  () => props.post?.mediaThumbUrl || props.post?.thumbnailUrl || props.post?.mediaUrl || '',
-)
-const videoSource = computed(() => props.post?.mediaUrl || '')
-const videoPoster = computed(() => props.post?.mediaThumbUrl || props.post?.thumbnailUrl || '')
+const mediaSource = computed(() => thumbSrc.value || mediaSrc.value || '')
+const videoSource = computed(() => videoSrc.value || mediaSrc.value || '')
+const videoPoster = computed(() => videoPreviewSrc.value || thumbSrc.value || mediaSrc.value || '')
 const hasMedia = computed(() => !!mediaSource.value)
 const normalizedActions = computed(() =>
   props.actions

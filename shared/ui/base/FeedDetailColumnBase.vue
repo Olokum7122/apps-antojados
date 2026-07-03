@@ -9,8 +9,8 @@
   >
     <div class="feed-detail-column-base__hero" @click="$emit('open-post', heroPost)">
       <img
-        v-if="heroPost?.mediaUrl"
-        :src="heroPost.mediaUrl"
+        v-if="heroMediaSrc"
+        :src="heroMediaSrc"
         class="feed-detail-column-base__hero-img"
         loading="eager"
       />
@@ -82,8 +82,8 @@
           @click="$emit('select-post', post)"
         >
           <img
-            v-if="post.mediaUrl"
-            :src="post.mediaUrl"
+            v-if="getPostSrc(post)"
+            :src="getPostSrc(post)"
             class="feed-detail-column-base__row-img"
             loading="lazy"
           />
@@ -114,6 +114,7 @@
 
 <script setup>
 import { computed } from 'vue'
+import { usePostMedia } from '@antojados/ui/services/useNormalizedMedia'
 
 const props = defineProps({
   heroPost: { type: Object, default: null },
@@ -138,6 +139,12 @@ const props = defineProps({
 })
 
 defineEmits(['back', 'select-post', 'open-post', 'action'])
+
+const { thumbSrc: heroMediaSrc, mediaSrc: heroMediaFallback } = usePostMedia(() => props.heroPost)
+
+function getPostSrc(post) {
+  return usePostMedia(() => post).thumbSrc.value || usePostMedia(() => post).mediaSrc.value || ''
+}
 
 const accentColor = computed(() => (props.variant === 'arre' ? 'deep-purple-6' : 'primary'))
 const accentTextColor = computed(() => (props.variant === 'arre' ? 'white' : 'dark'))

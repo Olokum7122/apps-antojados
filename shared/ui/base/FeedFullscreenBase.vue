@@ -158,6 +158,7 @@
 <script setup>
 import { computed, nextTick, ref, watch } from 'vue'
 import { resolveBaseComponentClasses } from '@antojados/ui/services/base/baseComponentsResolver'
+import { usePostMedia } from '@antojados/ui/services/useNormalizedMedia'
 import CommentsInputBase from '@antojados/ui/base/CommentsInputBase.vue'
 import FeedGalleryBase from '@antojados/ui/base/FeedGalleryBase.vue'
 import FullscreenVideoControlsBase from '@antojados/ui/base/FullscreenVideoControlsBase.vue'
@@ -282,12 +283,13 @@ const classes = resolveBaseComponentClasses('feedFullscreen', {
   presentation: props.presentation,
 })
 const safePost = computed(() => props.post || {})
+const { mediaSrc, thumbSrc, fullSrc, videoSrc, videoPreviewSrc } = usePostMedia(() => safePost.value)
 const isVideo = computed(() => String(safePost.value?.mediaType || '').toLowerCase() === 'video')
 const fullscreenMediaUrl = computed(
-  () => safePost.value?.mediaUrl || safePost.value?.mediaThumbUrl || safePost.value?.thumbnailUrl || '',
+  () => fullSrc.value || mediaSrc.value || thumbSrc.value || '',
 )
-const videoSource = computed(() => safePost.value?.mediaUrl || '')
-const videoPoster = computed(() => safePost.value?.mediaThumbUrl || safePost.value?.thumbnailUrl || '')
+const videoSource = computed(() => videoSrc.value || mediaSrc.value || '')
+const videoPoster = computed(() => videoPreviewSrc.value || thumbSrc.value || mediaSrc.value || '')
 const hasPlayableVideo = computed(() => isVideo.value && Boolean(videoSource.value))
 const titleLabel = computed(() => safePost.value?.title || safePost.value?.venue || safePost.value?.venueName || '')
 const subtitleLabel = computed(() => safePost.value?.subtitle || safePost.value?.author || safePost.value?.authorHandle || '')

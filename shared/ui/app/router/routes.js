@@ -17,7 +17,8 @@ const routes = [
             component: () => import('@antojados/ui/app/areas/antojo/components/VasIrPanel.vue'),
             children: [
               { path: '', redirect: 'gallery' },
-              { path: 'gallery', component: () => import('@antojados/ui/app/areas/antojo/components/vas-ir/GalleryVasIr.vue') },
+              // S1 nuevo - SponsorS1Page sin sponsorId
+              { path: 'gallery', component: () => import('@antojados/ui/app/components/antojo/SponsorS1Page.vue') },
               { path: 'catalogo', component: () => import('@antojados/ui/app/areas/antojo/components/vas-ir/CartaVasIr.vue') },
               { path: 'fullscreen', component: () => import('@antojados/ui/app/areas/antojo/components/vas-ir/FullVasIr.vue') },
               { path: 'registro', redirect: '/antojo/mi-chamba/registro' },
@@ -36,10 +37,12 @@ const routes = [
             component: () => import('@antojados/ui/app/areas/antojo/components/ArrePanel.vue'),
             children: [
               { path: '', redirect: 'agenda' },
-              { path: 'agenda', component: () => import('@antojados/ui/app/areas/antojo/components/arre/AgendaArreView.vue') },
+              // S1 nuevo - SponsorS1Page con channel='arre'
+              { path: 'agenda', component: () => import('@antojados/ui/app/components/antojo/SponsorS1Page.vue') },
+              // S2 nuevo - SponsorS1Page con sponsorId (filtrado)
               {
                 path: 'negocio/:publisher_id',
-                component: () => import('@antojados/ui/app/areas/antojo/components/arre/ArreNegocioMockView.vue'),
+                component: () => import('@antojados/ui/app/components/antojo/SponsorS1Page.vue'),
               },
               {
                 path: 'negocio/:publisher_id/post/:post_id',
@@ -131,20 +134,12 @@ const routes = [
                 component: () => import('@antojados/ui/app/areas/antojados/components/pa-ti/PublicarPachangaView.vue'),
               },
               {
-                path: 'la-neta',
-                component: () => import('@antojados/ui/app/areas/antojados/components/pa-ti/LaNetaView.vue'),
+                path: 'que-pex',
+                component: () => import('@antojados/ui/app/components/antojo/UserS1Page.vue'),
               },
               {
-                path: 'la-neta/usuario/:user_id',
-                component: () => import('@antojados/ui/app/areas/antojados/components/pa-ti/LaNetaUsuarioView.vue'),
-              },
-              {
-                path: 'la-neta/post/:post_id',
-                component: () => import('@antojados/ui/app/areas/antojados/components/pa-ti/LaNetaPostFullscreenView.vue'),
-              },
-              {
-                path: 'la-neta/publicar',
-                component: () => import('@antojados/ui/app/areas/antojados/components/pa-ti/PublicarLaNetaView.vue'),
+                path: 'que-pex/post/:post_id',
+                component: () => import('@antojados/ui/base/FeedDetailColumnBase.vue'),
               },
             ],
           },
@@ -165,10 +160,12 @@ const routes = [
         ],
       },
       { path: 'yo', component: () => import('pages/YoPage.vue') },
+      // S2 nuevo - SponsorS1Page con sponsorId (toma publisher_id de la ruta)
       {
         path: 'negocio/:publisher_id',
-        component: () => import('@antojados/ui/app/areas/antojo/components/negocio/NegocioMockView.vue'),
+        component: () => import('@antojados/ui/app/components/antojo/SponsorS1Page.vue'),
       },
+      // S3 old - se mantiene igual
       {
         path: 'negocio/:publisher_id/post/:post_id',
         component: () => import('@antojados/ui/app/areas/antojo/components/negocio/NegocioPostFullscreenView.vue'),

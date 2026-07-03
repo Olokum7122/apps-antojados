@@ -1,11 +1,12 @@
-import { httpClient } from '@antojados/http/client'
-import { API_ENDPOINTS } from '@antojados/http/endpoints'
+import { httpClient } from '../../../http/client'
+import { API_ENDPOINTS } from '../../../http/endpoints'
+import { uploadMedia } from '../media/media.service'
 import type {
   Sponsor,
   SponsorDocumentUploadInput,
   SponsorInstanceStatus,
   SponsorListQuery,
-} from '@antojados/api/types/sponsor'
+} from '../../types/sponsor'
 
 interface RawSponsor extends Record<string, unknown> {
   sponsor_id?: string
@@ -137,15 +138,12 @@ export async function uploadSponsorDocument(
   input: SponsorDocumentUploadInput,
 ): Promise<Record<string, unknown>> {
   const mediaBase64 = await fileToBase64(input.file)
-  const uploadResponse = await httpClient.post<Record<string, unknown>>(API_ENDPOINTS.media.upload, {
-    user_id: input.userId,
-    media_data_base64: mediaBase64,
-    media_type: input.file.type || 'application/octet-stream',
+  await uploadMedia({
+    base64: mediaBase64,
+    mediaType: input.file.type?.startsWith('video') ? 'video' : 'photo',
+    channel: 'feed_post',
+    entityId: input.userId,
   })
-
-  const mediaUrl = uploadResponse.data.url || uploadResponse.data.media_url
-  const storageUrl = resolveMediaUrl(httpClient.defaults.baseURL, mediaUrl)
-  if (!storageUrl) throw new Error('El upload no devolvio URL.')
 
   const { data } = await httpClient.post<Record<string, unknown>>(
     API_ENDPOINTS.sponsors.expedienteUpload(input.instanceId),
@@ -154,7 +152,6 @@ export async function uploadSponsorDocument(
       uploaded_by_tenant_user_id: input.uploadedByTenantUserId,
       doc_type: input.docType,
       file_name: input.file.name || 'documento',
-      storage_url: storageUrl,
       mime_type: input.file.type || 'application/octet-stream',
       size_bytes: Number(input.file.size || 0),
     },

@@ -8,5 +8,8 @@
     "./composables/*": "./composables/*",
     "./types/*": "./types/*",
     "./storage/*": "./storage/*"
+  },
+  "dependencies": {
+    "@antojadosmx/http": "workspace:*"
   }
 }

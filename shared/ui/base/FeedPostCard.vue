@@ -68,6 +68,7 @@
 <script setup>
 import { computed } from 'vue'
 import { resolveBaseComponentClasses } from '@antojados/ui/services/base/baseComponentsResolver'
+import { usePostMedia } from '@antojados/ui/services/useNormalizedMedia'
 
 const props = defineProps({
   post: { type: Object, required: true },
@@ -84,13 +85,15 @@ defineEmits(['open', 'author', 'venue'])
 
 const classes = resolveBaseComponentClasses('feedPostCard')
 
+const { thumbSrc, mediaSrc } = usePostMedia(() => props.post)
+
 const authorLabel = computed(() => props.post.author || props.post.authorHandle || 'usuario')
 const avatarLetter = computed(() => authorLabel.value.charAt(0).toUpperCase() || '?')
 const venueLabel = computed(() => props.post.venue || props.post.venueName || '')
 const dishLabel = computed(() => props.post.dish || props.post.dishName || '')
 const momentLabel = computed(() => props.post.momentTag || '')
 const captionLabel = computed(() => props.post.caption || '')
-const mediaUrl = computed(() => props.post.mediaThumbUrl || props.post.mediaUrl || '')
+const mediaUrl = computed(() => thumbSrc.value || mediaSrc.value || '')
 const averageRating = computed(() => Number(props.post.averageRating || 0))
 const ratingVerdicts = computed(() => props.post.ratingVerdicts || [])
 
