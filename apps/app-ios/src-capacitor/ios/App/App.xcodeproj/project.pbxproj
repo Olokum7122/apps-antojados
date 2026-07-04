@@ -296,13 +296,8 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_STYLE = Automatic;
-<<<<<<< Updated upstream
 				DEVELOPMENT_TEAM = L8Z3CX2J63;
 				CURRENT_PROJECT_VERSION = 2;
-=======
-				CURRENT_PROJECT_VERSION = 2;
-				DEVELOPMENT_TEAM = L8Z3CX2J63;
->>>>>>> Stashed changes
 				INFOPLIST_FILE = App/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
 				LD_RUNPATH_SEARCH_PATHS = (
