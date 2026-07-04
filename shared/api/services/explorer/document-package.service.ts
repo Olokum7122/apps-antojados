@@ -114,6 +114,7 @@ export class DocumentPackageService {
   constructor(private readonly http = httpClient) {}
 
   async getByChannel(params: GetFeedParams): Promise<SponsorPost[]> {
+    console.log(`[TRACE:getByChannel] channel=${params.channel}, feedType=${params.feedType}, page=${params.page}, limit=${params.limit}`)
     const response = await this.http.get<GetFeedResponse>(
       `${EXPLORER_API_BASE}/contents/by-channel/${params.channel}`,
       {
@@ -125,7 +126,23 @@ export class DocumentPackageService {
       },
     )
 
-    return this._extractAndMap(response.data)
+    console.log(`[TRACE:getByChannel] raw response data type=${typeof response.data}, isArray=${Array.isArray(response.data)}`, response.data ? `keys=${Object.keys(response.data as object).join(',')}` : 'null')
+    
+    const result = this._extractAndMap(response.data)
+    console.log(`[TRACE:getByChannel] mapped ${result.length} posts`)
+    if (result.length > 0) {
+      console.log(`[TRACE:getByChannel] first post:`, JSON.stringify({
+        id: result[0].id,
+        channel: result[0].channel,
+        hasDocPackage: !!result[0].documentPackage,
+        mediaUrls: result[0].documentPackage?.mediaUrls,
+        mediaItems: result[0].documentPackage?.mediaItems?.length,
+        mediaAssetId: result[0].documentPackage?.mediaAssetId,
+        templateCode: result[0].documentPackage?.templateCode,
+        authorHandle: result[0].documentPackage?.authorHandle,
+      }))
+    }
+    return result
   }
 
   async getBySponsor(params: GetFeedParams): Promise<SponsorPost[]> {

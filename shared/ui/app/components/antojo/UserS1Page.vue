@@ -113,14 +113,17 @@ const filteredPosts = computed(() => posts.value)
 async function loadFeed() {
   loading.value = true
   error.value = ''
+  console.log(`[TRACE:UserS1Page] loadFeed() channel=${props.channel}`)
 
   try {
     // Obtener contenido del canal sin filtrar por feed_type
     // (la BD almacena todo con feed_type 'default')
+    console.log(`[TRACE:UserS1Page] calling getByChannel...`)
     const result = await documentPackageService.getByChannel({
       channel: props.channel as Channel,
       limit: 30,
     })
+    console.log(`[TRACE:UserS1Page] getByChannel returned ${result.length} posts`)
 
     const merged = [...result]
     merged.sort((a, b) => {
