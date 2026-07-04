@@ -115,28 +115,14 @@ async function loadFeed() {
   error.value = ''
 
   try {
-    // Qué Pex: solo contenido explorer (editorial = feed_type 'explorer')
-    // Barrio/Pachanga: contenido editorial + contenido de usuarios (feed_type 'default')
-    const promises = [documentPackageService.getByChannel({
+    // Obtener contenido del canal sin filtrar por feed_type
+    // (la BD almacena todo con feed_type 'default')
+    const result = await documentPackageService.getByChannel({
       channel: props.channel as Channel,
-      feedType: 'explorer',
       limit: 30,
-    })]
+    })
 
-    if (hasUserContent.value) {
-      promises.push(documentPackageService.getByChannel({
-        channel: props.channel as Channel,
-        feedType: 'default',
-        limit: 30,
-      }))
-    }
-
-    const results = await Promise.all(promises)
-    const explorerPosts = results[0]
-    const defaultPosts = results[1] || []
-
-    // Fusionar y ordenar por fecha
-    const merged = [...explorerPosts, ...defaultPosts]
+    const merged = [...result]
     merged.sort((a, b) => {
       const dateA = a.createdAt ? new Date(a.createdAt).getTime() : 0
       const dateB = b.createdAt ? new Date(b.createdAt).getTime() : 0
