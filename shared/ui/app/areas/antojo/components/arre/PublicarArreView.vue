@@ -98,25 +98,95 @@
           </div>
         </section>
 
-        <!-- P3: PREVIEW -->
+        <!-- P3: PREVIEW + ESTILOS -->
         <section v-else class="publicar-arre-view__panel">
           <h2>Vista previa</h2>
           <article class="publicar-arre-view__preview">
             <q-badge color="deep-purple-6" text-color="white">EVENTO</q-badge>
             <strong>{{ eventTitle || 'Evento Arre' }}</strong>
             <p>{{ previewDesc || 'Evento listo para publicar.' }}</p>
-            <small v-if="packageType === 'publicitypackage'">Template: full-frame | Look: retro | Filter: none</small>
-            <small v-else>Package general - sin personalizacion</small>
+            <small v-if="selectedDraft">
+              Estilo: {{ selectedDraft.styleName || selectedDraft.id_post }}
+              · Template: {{ selectedDraft.templateCode || '—' }}
+              · Look: {{ selectedDraft.lookCode || '—' }}
+              · Filter: {{ selectedDraft.filterCode || '—' }}
+            </small>
+            <small v-else>
+              Sin estilo seleccionado — usa el boton "Estilos" para elegir uno
+            </small>
             <div v-if="mediaItems.length" class="publicar-arre-view__preview-media">
               <img v-for="(item, i) in mediaItems.slice(0, 3)" :key="i" :src="item.preview" class="publicar-arre-view__preview-thumb" />
               <span v-if="mediaItems.length > 3" class="publicar-arre-view__preview-more">+{{ mediaItems.length - 3 }}</span>
             </div>
           </article>
+          <!-- Botón Estilos -->
           <div class="publicar-arre-view__p3-buttons">
-            <q-btn outline no-caps color="deep-purple-6" label="Template" disable class="publicar-arre-view__p3-btn" />
-            <q-btn outline no-caps color="deep-purple-6" label="Look" disable class="publicar-arre-view__p3-btn" />
-            <q-btn outline no-caps color="deep-purple-6" label="Filter" disable class="publicar-arre-view__p3-btn" />
+            <q-btn
+              outline
+              no-caps
+              color="deep-purple-6"
+              icon="palette"
+              :label="selectedDraft ? 'Cambiar estilo' : 'Estilos'"
+              class="publicar-arre-view__p3-btn"
+              @click="loadDrafts(); styleDialogOpen = true"
+            />
           </div>
+
+          <!-- Dialog selector de estilos -->
+          <q-dialog v-model="styleDialogOpen" persistent>
+            <q-card class="style-selector-card bg-grey-10 text-white" style="min-width: min(92vw, 400px); max-height: 80vh;">
+              <q-card-section>
+                <div class="text-h6">🎨 Elige un estilo</div>
+                <p class="text-caption text-grey-5">
+                  Selecciona el template, look y filtro para tu evento
+                </p>
+              </q-card-section>
+              <q-card-section class="style-selector-list" style="overflow-y: auto; max-height: 50vh;">
+                <div v-if="draftsLoading" style="padding: 20px; text-align: center;">
+                  <q-spinner-dots color="deep-purple-6" size="24px" />
+                  <p class="text-caption text-grey-5">Cargando estilos...</p>
+                </div>
+                <q-item
+                  v-for="draft in availableDrafts"
+                  :key="draft.id_post"
+                  clickable
+                  :active="selectedDraft?.id_post === draft.id_post"
+                  active-class="bg-deep-purple text-white"
+                  @click="selectDraft(draft)"
+                >
+                  <q-item-section avatar>
+                    <q-icon name="palette" color="deep-purple-4" />
+                  </q-item-section>
+                  <q-item-section>
+                    <q-item-label>{{ draft.styleName || draft.id_post }}</q-item-label>
+                    <q-item-label caption class="text-grey-5">
+                      Template: {{ draft.templateCode || '—' }}
+                      · Look: {{ draft.lookCode || '—' }}
+                      · Filter: {{ draft.filterCode || '—' }}
+                    </q-item-label>
+                  </q-item-section>
+                  <q-item-section side>
+                    <q-icon v-if="selectedDraft?.id_post === draft.id_post" name="check_circle" color="positive" />
+                  </q-item-section>
+                </q-item>
+                <div v-if="!draftsLoading && !availableDrafts.length" style="padding: 20px; text-align: center; color: rgba(255,255,255,0.4);">
+                  No hay estilos disponibles para eventos
+                </div>
+              </q-card-section>
+              <q-card-actions align="right">
+                <q-btn flat no-caps label="Cancelar" color="grey-5" v-close-popup />
+                <q-btn
+                  unelevated
+                  no-caps
+                  color="deep-purple-6"
+                  text-color="white"
+                  label="Aceptar"
+                  :disable="!selectedDraft"
+                  v-close-popup
+                />
+              </q-card-actions>
+            </q-card>
+          </q-dialog>
         </section>
       </template>
 
@@ -140,6 +210,7 @@
           text-color="white"
           label="Publicar evento"
           :loading="publishing"
+          :disable="!selectedDraft"
           @click="submit"
         />
       </template>
@@ -167,12 +238,46 @@ import { computed, ref } from 'vue'
 import { useQuasar } from 'quasar'
 import { useRouter } from 'vue-router'
 import FeedFlowOrchestratorBase from '@antojados/ui/base/FeedFlowOrchestratorBase.vue'
-import { publishService } from '@antojados/api/services'
+import { httpClient, publishService } from '@antojados/api/services'
 import { readPublishMediaFile } from '@antojados/api/composables/usePublishMedia'
 import { getSharedSession } from '@antojados/api/storage/session.storage'
 
 const $q = useQuasar()
 const router = useRouter()
+
+// ─── P3: Estilos (Drafts) ──────────────────────────────────────────
+const styleDialogOpen = ref(false)
+const availableDrafts = ref([])
+const selectedDraft = ref(null)
+const draftsLoading = ref(false)
+
+async function loadDrafts() {
+  draftsLoading.value = true
+  try {
+    const pkgType = packageType.value === 'publicitypackage' ? 'publicitypackage' : 'generalpackage'
+    const { data } = await httpClient.get('/api/v1/explorer/packages/drafts', {
+      params: { package_type: pkgType },
+    })
+    if (Array.isArray(data?.drafts)) {
+      availableDrafts.value = data.drafts
+    } else if (Array.isArray(data)) {
+      availableDrafts.value = data
+    } else {
+      availableDrafts.value = []
+    }
+  } catch (err) {
+    console.error('Error loading drafts:', err)
+    availableDrafts.value = []
+    $q.notify({ type: 'negative', message: 'Error al cargar estilos' })
+  } finally {
+    draftsLoading.value = false
+  }
+}
+
+function selectDraft(draft) {
+  selectedDraft.value = draft
+  $q.notify({ type: 'positive', message: 'Estilo "' + (draft.styleName || draft.id_post) + '" seleccionado', timeout: 1500 })
+}
 
 const steps = [
   { key: 'evento', label: 'Evento' },
@@ -311,6 +416,8 @@ async function submit() {
       effects: [],
     }
 
+    const draftId = selectedDraft.value?.id_post || null
+
     const result = await publishService.createBizPost({
       place_id: session.placeId,
       publisher_user_id: session.userId,
@@ -321,9 +428,10 @@ async function submit() {
       body: bodyText || null,
       media_url: mediaUrls[0],
       media_type: mediaItems.value[0]?.mediaType || 'photo',
-      content_payload: contentPayload,
+      content_payload: { ...contentPayload, draft_id: draftId },
       feed_type: feedType,
       package_type: packageType.value,
+      draft_id: draftId,
     })
 
     $q.notify({ type: 'positive', message: 'Evento publicado.' })

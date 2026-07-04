@@ -18,7 +18,7 @@
           :src="currentSlide.url"
           class="user-s1-base__media"
           loading="lazy"
-          @click.stop="$emit('open-s3', idPost, carruselIndex)"
+          @click.stop="$emit('open-s3', idPost, carruselIndex, props.channel)"
         />
         <video
           v-else
@@ -29,7 +29,7 @@
           playsinline
           autoplay
           loop
-          @click.stop="$emit('open-s3', idPost, carruselIndex)"
+          @click.stop="$emit('open-s3', idPost, carruselIndex, props.channel)"
         />
 
         <!-- Dots -->
@@ -83,6 +83,7 @@ const props = defineProps({
   idPost: { type: String, default: '' },
   idUser: { type: String, default: '' },
   authorHandle: { type: String, default: '' },
+  channel: { type: String, default: '' },
   /** URLs media del post */
   mediaUrls: { type: Array as () => string[], default: () => [] },
   /** Primer url como fallback */
@@ -95,7 +96,7 @@ const props = defineProps({
 
 const emit = defineEmits<{
   (e: 'open-chat', postId: string, userId: string): void
-  (e: 'open-s3', postId: string, mediaIndex: number): void
+  (e: 'open-s3', postId: string, mediaIndex: number, channel?: string): void
 }>()
 
 const carruselIndex = ref(0)

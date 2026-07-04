@@ -18,11 +18,11 @@
 
 // ── Tipos base ──
 
-export type PackageType = 'publicitypackage' | 'generalpackage' | 'userpackage'
+export type PackageType = 'publicitypackage' | 'generalpackage' | 'defaultpackage'
 
 export type ContentType = 'sponsor' | 'social'
 
-export type FeedType = 'publicity' | 'general' | 'user'
+export type FeedType = 'publicity' | 'general' | 'default'
 
 export type Channel = 'vas_ir' | 'arre' | 'barrio' | 'pachanga' | 'que_pex'
 

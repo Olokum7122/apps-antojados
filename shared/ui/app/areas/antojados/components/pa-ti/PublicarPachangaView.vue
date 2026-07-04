@@ -55,6 +55,31 @@
           <div v-if="mediaError" class="publicar-pachanga-view__media-error">{{ mediaError }}</div>
         </section>
 
+        <!-- P1.5: TIPO (Default vs La Neta) -->
+        <section v-else-if="activeStep === 'tipo'" class="publicar-pachanga-view__panel">
+          <h2>Tipo de publicacion</h2>
+          <div class="publicar-pachanga-view__tipo-actions">
+            <button
+              type="button"
+              :class="['publicar-pachanga-view__tipo-btn', postType === 'default' && 'publicar-pachanga-view__tipo-btn--active']"
+              @click="postType = 'default'"
+            >
+              <q-icon name="celebration" color="primary" size="32px" />
+              <strong>Pachanga</strong>
+              <span>Publicacion general para compartir con la comunidad</span>
+            </button>
+            <button
+              type="button"
+              :class="['publicar-pachanga-view__tipo-btn', postType === 'neta' && 'publicar-pachanga-view__tipo-btn--active']"
+              @click="postType = 'neta'"
+            >
+              <q-icon name="rate_review" color="amber-4" size="32px" />
+              <strong>La Neta</strong>
+              <span>Resena y calificacion de un lugar o platillo</span>
+            </button>
+          </div>
+        </section>
+
         <!-- P2: CONTENIDO -->
         <section v-else-if="activeStep === 'contenido'" class="publicar-pachanga-view__panel">
           <h2>Describe tu publicacion</h2>
@@ -62,7 +87,7 @@
           <q-input v-model="description" dark filled autogrow label="Descripcion (expand-text en S1)" maxlength="200" counter />
         </section>
 
-        <!-- P3: PREVIEW + PUBLICAR -->
+        <!-- P3: PREVIEW + ESTILOS -->
         <section v-else class="publicar-pachanga-view__panel">
           <h2>Vista previa</h2>
           <div class="publicar-pachanga-view__preview-card">
@@ -83,9 +108,82 @@
               <div class="publicar-pachanga-view__preview-info">
                 <strong>{{ title || 'Sin titulo' }}</strong>
                 <p>{{ description || 'Sin descripcion' }}</p>
+                <small v-if="selectedDraft" class="text-grey-5">
+                  Estilo: {{ selectedDraft.styleName || selectedDraft.id_post }}
+                </small>
+                <small v-else class="text-grey-5">
+                  Sin estilo — usa "Estilos" para elegir uno
+                </small>
               </div>
             </div>
           </div>
+
+          <!-- Botón Estilos -->
+          <q-btn
+            outline
+            no-caps
+            color="primary"
+            icon="palette"
+            :label="selectedDraft ? 'Cambiar estilo' : 'Estilos'"
+            @click="loadDrafts(); styleDialogOpen = true"
+          />
+
+          <!-- Dialog selector de estilos -->
+          <q-dialog v-model="styleDialogOpen" persistent>
+            <q-card class="style-selector-card bg-grey-10 text-white" style="min-width: min(92vw, 400px); max-height: 80vh;">
+              <q-card-section>
+                <div class="text-h6">🎨 Elige un estilo</div>
+                <p class="text-caption text-grey-5">
+                  Selecciona template, look y filtro para tu publicacion
+                </p>
+              </q-card-section>
+              <q-card-section class="style-selector-list" style="overflow-y: auto; max-height: 50vh;">
+                <div v-if="draftsLoading" style="padding: 20px; text-align: center;">
+                  <q-spinner-dots color="primary" size="24px" />
+                  <p class="text-caption text-grey-5">Cargando estilos...</p>
+                </div>
+                <q-item
+                  v-for="draft in availableDrafts"
+                  :key="draft.id_post"
+                  clickable
+                  :active="selectedDraft?.id_post === draft.id_post"
+                  active-class="bg-primary text-dark"
+                  @click="selectDraft(draft)"
+                >
+                  <q-item-section avatar>
+                    <q-icon name="palette" color="primary" />
+                  </q-item-section>
+                  <q-item-section>
+                    <q-item-label>{{ draft.styleName || draft.id_post }}</q-item-label>
+                    <q-item-label caption class="text-grey-5">
+                      Template: {{ draft.templateCode || '—' }}
+                      · Look: {{ draft.lookCode || '—' }}
+                      · Filter: {{ draft.filterCode || '—' }}
+                    </q-item-label>
+                  </q-item-section>
+                  <q-item-section side>
+                    <q-icon v-if="selectedDraft?.id_post === draft.id_post" name="check_circle" color="positive" />
+                  </q-item-section>
+                </q-item>
+                <div v-if="!draftsLoading && !availableDrafts.length" style="padding: 20px; text-align: center; color: rgba(255,255,255,0.4);">
+                  No hay estilos disponibles
+                </div>
+              </q-card-section>
+              <q-card-actions align="right">
+                <q-btn flat no-caps label="Cancelar" color="grey-5" v-close-popup />
+                <q-btn
+                  unelevated
+                  no-caps
+                  color="primary"
+                  text-color="dark"
+                  label="Aceptar"
+                  :disable="!selectedDraft"
+                  v-close-popup
+                />
+              </q-card-actions>
+            </q-card>
+          </q-dialog>
+
           <q-btn
             unelevated
             no-caps
@@ -93,6 +191,7 @@
             text-color="dark"
             label="Publicar en Pachanga"
             :loading="publishing"
+            :disable="!selectedDraft"
             @click="submit"
           />
         </section>
@@ -114,12 +213,47 @@ import { getSharedSession } from '@antojados/api/storage/session.storage'
 const $q = useQuasar()
 const router = useRouter()
 
+// ─── P3: Estilos (Drafts) ──────────────────────────────────────────
+const styleDialogOpen = ref(false)
+const availableDrafts = ref([])
+const selectedDraft = ref(null)
+const draftsLoading = ref(false)
+
+async function loadDrafts() {
+  draftsLoading.value = true
+  try {
+    const { data } = await httpClient.get('/api/v1/explorer/packages/drafts', {
+      params: { package_type: 'defaultpackage' },
+    })
+    if (Array.isArray(data?.drafts)) {
+      availableDrafts.value = data.drafts
+    } else if (Array.isArray(data)) {
+      availableDrafts.value = data
+    } else {
+      availableDrafts.value = []
+    }
+  } catch (err) {
+    console.error('Error loading drafts:', err)
+    availableDrafts.value = []
+    $q.notify({ type: 'negative', message: 'Error al cargar estilos' })
+  } finally {
+    draftsLoading.value = false
+  }
+}
+
+function selectDraft(draft) {
+  selectedDraft.value = draft
+  $q.notify({ type: 'positive', message: 'Estilo "' + (draft.styleName || draft.id_post) + '" seleccionado', timeout: 1500 })
+}
+
 const steps = [
   { key: 'media', label: 'Media' },
+  { key: 'tipo', label: 'Tipo' },
   { key: 'contenido', label: 'Contenido' },
   { key: 'preview', label: 'Preview' },
 ]
 const activeStep = ref('media')
+const postType = ref('default') // 'default' | 'neta'
 
 // P1: Media
 const fileInputRef = ref(null)
@@ -197,16 +331,20 @@ async function submit() {
       entityContext: 'antojados.pachanga.user',
     })
 
-    // Publicar en Explorer DB via Gateway usando httpClient (normaliza URLs automáticamente)
+    const draftId = selectedDraft.value?.id_post || null
+    const channel = postType.value === 'neta' ? 'la_neta' : 'pachanga'
+
+    // Publicar en Explorer DB via Gateway usando httpClient
     await httpClient.post(API_ENDPOINTS.publications.create, {
-      id_post: 'pachanga-' + Date.now() + '-' + Math.random().toString(36).slice(2, 8),
+      id_post: channel + '-' + Date.now() + '-' + Math.random().toString(36).slice(2, 8),
       content_type: 'social',
       id_user: session.userId,
       feed_type: 'default',
-      channel: 'pachanga',
+      channel: channel,
       package_type: 'defaultpackage',
-      template_code: 'user-s1',
+      template_code: selectedDraft.value?.templateCode || 'user-s1',
       user_id: session.userId,
+      draft_id: draftId,
       payload_json: {
         title: title.value || null,
         body: description.value || null,
@@ -219,10 +357,11 @@ async function submit() {
           feedUrl: uploaded.media_url || null,
           fullUrl: uploaded.full_url || null,
         }],
-        template_code: 'user-s1',
+        template_code: selectedDraft.value?.templateCode || 'user-s1',
         body_style_code: 'retro',
         effects: [],
         author_handle: session.displayName || session.userId,
+        draft_id: draftId,
       },
     })
 
@@ -266,6 +405,30 @@ async function submit() {
 .publicar-pachanga-view__media-btn span { color: rgba(255,255,255,0.6); font-size: 12px; }
 .publicar-pachanga-view__preview-media { display: flex; align-items: center; gap: 10px; }
 .publicar-pachanga-view__thumb { width: 80px; height: 80px; border-radius: 8px; object-fit: cover; }
+.publicar-pachanga-view__tipo-actions {
+  display: grid;
+  gap: 10px;
+}
+.publicar-pachanga-view__tipo-btn {
+  display: grid;
+  align-content: center;
+  justify-items: center;
+  gap: 7px;
+  padding: 18px 12px;
+  border: 2px solid rgba(255,255,255,0.1);
+  border-radius: 12px;
+  color: #fff;
+  background: #101620;
+  text-align: center;
+  min-height: 110px;
+}
+.publicar-pachanga-view__tipo-btn--active {
+  border-color: var(--app-primary, #7c3aed);
+  background: #1a1f3a;
+}
+.publicar-pachanga-view__tipo-btn strong { font-size: 15px; }
+.publicar-pachanga-view__tipo-btn span { color: rgba(255,255,255,0.6); font-size: 12px; margin-top: 2px; }
+
 .publicar-pachanga-view__media-error { color: #fca5a5; font-size: 12px; }
 .publicar-pachanga-view__preview-card {
   border-radius: 12px; overflow: hidden;

@@ -31,6 +31,7 @@
         :media-urls="post.documentPackage?.mediaItems?.map(m => m.feedUrl || '').filter(Boolean) || []"
         :media-type="post.documentPackage?.mediaItems?.[0]?.mediaType === 'video' ? 'video' : 'photo'"
         :show-chat="hasChat"
+        :channel="post.channel || post.documentPackage?.channel || props.channel"
         class="user-s1-page__post"
         @open-chat="onOpenChat"
         @open-s3="onOpenS3"
@@ -159,11 +160,23 @@ function onOpenChat(postId: string, userId: string) {
   })
 }
 
-function onOpenS3(postId: string, mediaIndex: number) {
-  router.push({
-    path: `/${props.channel}/post/${postId}`,
-    query: { mediaIndex: String(mediaIndex), source: 'user_feed' },
-  })
+function onOpenS3(postId: string, mediaIndex: number, postChannel?: string) {
+  // Si el post tiene channel 'la_neta', navegar al S3 legacy de La Neta
+  const actualChannel = postChannel || props.channel
+  if (actualChannel === 'la_neta') {
+    // Buscar el post en la lista para obtener el userId
+    const post = posts.value.find(p => p.id === postId)
+    const userId = post?.publisherUserId || post?.documentPackage?.sponsorId || ''
+    router.push({
+      path: `/red/pa-ti/la-neta/usuario/${userId}`,
+      query: { post_id: postId, source: 'user_feed' },
+    })
+  } else {
+    router.push({
+      path: `/${props.channel}/post/${postId}`,
+      query: { mediaIndex: String(mediaIndex), source: 'user_feed' },
+    })
+  }
 }
 
 function onSelectScope(level: string) {
