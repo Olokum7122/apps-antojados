@@ -53,6 +53,7 @@
 		<false/>
 		<key>NSExceptionDomains</key>
 		<dict>
+<<<<<<< Updated upstream
 			<key>antojadosmx.mx</key>
 			<dict>
 				<key>NSExceptionAllowsInsecureHTTPLoads</key>
@@ -61,6 +62,14 @@
 				<true/>
 				<key>NSRequiresCertificateTransparency</key>
 				<false/>
+=======
+			<key>185.187.235.253</key>
+			<dict>
+				<key>NSExceptionAllowsInsecureHTTPLoads</key>
+				<true/>
+				<key>NSIncludesSubdomains</key>
+				<true/>
+>>>>>>> Stashed changes
 			</dict>
 			<key>api.antojadosmx.mx</key>
 			<dict>
@@ -68,8 +77,11 @@
 				<false/>
 				<key>NSIncludesSubdomains</key>
 				<true/>
+<<<<<<< Updated upstream
 				<key>NSRequiresCertificateTransparency</key>
 				<false/>
+=======
+>>>>>>> Stashed changes
 			</dict>
 		</dict>
 	</dict>
