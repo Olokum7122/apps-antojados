@@ -1,17 +1,12 @@
-import { httpClient } from '@antojados/http/client'
-import { API_ENDPOINTS } from '@antojados/http/endpoints'
-import {
-  createMediaRequest,
-  registerRightsOrigin,
-  uploadOriginal,
-  waitForReadyPayload,
-} from '@antojados/api/services/media-engine/mediaEngineClient'
+import { httpClient } from '../../../http/client'
+import { API_ENDPOINTS } from '../../../http/endpoints'
+import { uploadMedia } from '../media/media.service'
 import type {
   Sponsor,
   SponsorDocumentUploadInput,
   SponsorInstanceStatus,
   SponsorListQuery,
-} from '@antojados/api/types/sponsor'
+} from '../../types/sponsor'
 
 interface RawSponsor extends Record<string, unknown> {
   sponsor_id?: string
@@ -41,6 +36,31 @@ function mapSponsor(raw: RawSponsor): Sponsor {
     cityCode: stringOrNull(raw.city_code),
     status: stringOrNull(raw.status),
   }
+}
+
+function resolveMediaUrl(apiBaseUrl: string | undefined, value: unknown): string {
+  const url = String(value || '').trim()
+  if (!url) return ''
+  if (url.startsWith('http://') || url.startsWith('https://')) return url
+  if (url.startsWith('/') && apiBaseUrl) return `${apiBaseUrl.replace(/\/$/, '')}${url}`
+  return url
+}
+
+function fileToBase64(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = () => {
+      const result = String(reader.result || '')
+      const base64 = result.includes(',') ? result.split(',')[1] : result
+      if (!base64) {
+        reject(new Error('Archivo vacio o formato invalido.'))
+        return
+      }
+      resolve(base64)
+    }
+    reader.onerror = () => reject(new Error('No se pudo leer el archivo.'))
+    reader.readAsDataURL(file)
+  })
 }
 
 export async function listSponsors(
@@ -114,64 +134,16 @@ export async function setupSponsorRepresentative(
   return data
 }
 
-/**
- * Sube un documento de expediente al Media Engine V3.
- * DEBT-004: Migrado desde endpoint media.upload legacy.
- *
- * Flujo:
- *   1. createMediaRequest — declara metadata con targetContext 'sponsor'
- *   2. registerRightsOrigin — registra derechos como documento de negocio
- *   3. uploadOriginal — sube el archivo (multipart), acepta PDFs e imágenes
- *   4. waitForReadyPayload — polling hasta que el engine tenga el media listo
- *   5. Guarda en expediente con el mediaId del engine
- */
 export async function uploadSponsorDocument(
   input: SponsorDocumentUploadInput,
 ): Promise<Record<string, unknown>> {
-  const mimeType = input.file.type || 'application/octet-stream'
-  const mediaType: 'image' | 'video' = mimeType === 'video/mp4' ? 'video' : 'image'
-
-  const request = await createMediaRequest({
-    sourceApp: 'ios',
-    sourceActorType: 'sponsor',
-    sourceActorId: input.userId,
-    targetContext: 'sponsor',
-    mediaType,
-    clientReferenceId: `expediente-${input.instanceId}-${Date.now()}`,
+  const mediaBase64 = await fileToBase64(input.file)
+  await uploadMedia({
+    base64: mediaBase64,
+    mediaType: input.file.type?.startsWith('video') ? 'video' : 'photo',
+    channel: 'feed_post',
+    entityId: input.userId,
   })
-
-  const mediaId = request.mediaId
-
-  await registerRightsOrigin(mediaId, {
-    originType: 'business_owned',
-    ownershipType: 'business_owned',
-    rightsDeclaration: 'business_authorized',
-    rightsStatus: 'declared',
-    licenseType: 'business_provided',
-    licenseScope: 'internal_only',
-    allowPublicDisplay: false,
-    allowDownload: true,
-    allowShare: false,
-    allowEngineWatermark: false,
-    isDemoContent: false,
-  })
-
-  await uploadOriginal(mediaId, input.file, input.file.name || 'documento')
-
-  const payload = await waitForReadyPayload(mediaId, {
-    onStatus: (p, meta) => {
-      console.log(`[sponsors] expediente ${mediaId} intento ${meta.attempt}/${meta.attempts}: ${p.status}`)
-    },
-  })
-
-  const storageUrl = payload.payload?.feedUrl
-    || payload.payload?.thumbUrl
-    || payload.payload?.fullUrl
-    || ''
-
-  if (!storageUrl) {
-    throw new Error('El Media Engine no devolvio URL para el documento.')
-  }
 
   const { data } = await httpClient.post<Record<string, unknown>>(
     API_ENDPOINTS.sponsors.expedienteUpload(input.instanceId),
@@ -180,12 +152,9 @@ export async function uploadSponsorDocument(
       uploaded_by_tenant_user_id: input.uploadedByTenantUserId,
       doc_type: input.docType,
       file_name: input.file.name || 'documento',
-      storage_url: storageUrl,
-      mime_type: mimeType,
+      mime_type: input.file.type || 'application/octet-stream',
       size_bytes: Number(input.file.size || 0),
-      media_engine_id: mediaId,
     },
   )
   return data
 }
-

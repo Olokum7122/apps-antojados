@@ -17,7 +17,8 @@ const routes = [
             component: () => import('@antojados/ui/app/areas/antojo/components/VasIrPanel.vue'),
             children: [
               { path: '', redirect: 'gallery' },
-              { path: 'gallery', component: () => import('@antojados/ui/app/areas/antojo/components/vas-ir/GalleryVasIr.vue') },
+              // S1 nuevo - SponsorS1Page con channel='vas_ir'
+              { path: 'gallery', component: () => import('@antojados/ui/app/components/antojo/SponsorS1Page.vue'), props: { channel: 'vas_ir' } },
               { path: 'catalogo', component: () => import('@antojados/ui/app/areas/antojo/components/vas-ir/CartaVasIr.vue') },
               { path: 'fullscreen', component: () => import('@antojados/ui/app/areas/antojo/components/vas-ir/FullVasIr.vue') },
               { path: 'registro', redirect: '/antojo/mi-chamba/registro' },
@@ -36,10 +37,13 @@ const routes = [
             component: () => import('@antojados/ui/app/areas/antojo/components/ArrePanel.vue'),
             children: [
               { path: '', redirect: 'agenda' },
-              { path: 'agenda', component: () => import('@antojados/ui/app/areas/antojo/components/arre/AgendaArreView.vue') },
+              // S1 nuevo - SponsorS1Page con channel='arre'
+              { path: 'agenda', component: () => import('@antojados/ui/app/components/antojo/SponsorS1Page.vue'), props: { channel: 'arre' } },
+              // S2 nuevo - SponsorS1Page con sponsorId (filtrado) y channel='arre'
               {
                 path: 'negocio/:publisher_id',
-                component: () => import('@antojados/ui/app/areas/antojo/components/arre/ArreNegocioMockView.vue'),
+                component: () => import('@antojados/ui/app/components/antojo/SponsorS1Page.vue'),
+                props: { channel: 'arre' },
               },
               {
                 path: 'negocio/:publisher_id/post/:post_id',
@@ -131,45 +135,17 @@ const routes = [
                 component: () => import('@antojados/ui/app/areas/antojados/components/pa-ti/PublicarPachangaView.vue'),
               },
               {
-                path: 'pachanga/publicar-resena',
-                component: () => import('@antojados/ui/app/areas/antojados/components/pa-ti/PublicarResenaView.vue'),
-              },
-              {
                 path: 'que-pex',
-                component: () => import('@antojados/ui/app/areas/antojados/components/pa-ti/QuePexView.vue'),
-              },
-              {
-                path: 'que-pex/usuario/:user_id',
-                component: () => import('@antojados/ui/app/areas/antojados/components/pa-ti/QuePexUsuarioView.vue'),
+                component: () => import('@antojados/ui/app/components/antojo/UserS1Page.vue'),
+                props: { channel: 'que_pex' },
               },
               {
                 path: 'que-pex/post/:post_id',
-                component: () => import('@antojados/ui/app/areas/antojados/components/pa-ti/QuePexPostFullscreenView.vue'),
-              },
-              // Legacy redirect — La Neta ahora es Que Pex
-              {
-                path: 'la-neta',
-                redirect: '/red/pa-ti/que-pex',
-              },
-              {
-                path: 'la-neta/usuario/:user_id',
-                redirect: (to) => `/red/pa-ti/que-pex/usuario/${to.params.user_id}${to.query.post_id ? `?post_id=${to.query.post_id}` : ''}`,
-              },
-              {
-                path: 'la-neta/post/:post_id',
-                redirect: (to) => `/red/pa-ti/que-pex/post/${to.params.post_id}${to.query.user_id ? `?user_id=${to.query.user_id}` : ''}`,
-              },
-              {
-                path: 'la-neta/publicar',
-                redirect: '/red/pa-ti/pachanga',
+                component: () => import('@antojados/ui/base/FeedDetailColumnBase.vue'),
               },
             ],
           },
           { path: 'en-el-desma', component: () => import('@antojados/ui/app/areas/antojados/components/EnElDesmaPanel.vue') },
-          {
-            path: 'que-pex',
-            redirect: '/red/pa-ti/que-pex',
-          },
           {
             path: 'la-banda',
             component: () => import('@antojados/ui/app/areas/antojados/components/LaBandaPanel.vue'),
@@ -186,10 +162,12 @@ const routes = [
         ],
       },
       { path: 'yo', component: () => import('pages/YoPage.vue') },
+      // S2 nuevo - SponsorS1Page con sponsorId (toma publisher_id de la ruta)
       {
         path: 'negocio/:publisher_id',
-        component: () => import('@antojados/ui/app/areas/antojo/components/negocio/NegocioMockView.vue'),
+        component: () => import('@antojados/ui/app/components/antojo/SponsorS1Page.vue'),
       },
+      // S3 old - se mantiene igual
       {
         path: 'negocio/:publisher_id/post/:post_id',
         component: () => import('@antojados/ui/app/areas/antojo/components/negocio/NegocioPostFullscreenView.vue'),
@@ -202,7 +180,6 @@ const routes = [
   // but you can also remove it
   {
     path: '/:catchAll(.*)*',
-    name: 'catchAll',
     component: () => import('pages/ErrorNotFound.vue'),
   },
 ]

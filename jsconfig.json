@@ -1,0 +1,37 @@
+{
+  "compilerOptions": {
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "target": "ESNext",
+    "checkJs": false,
+    "ignoreDeprecations": "6.0",
+    "baseUrl": ".",
+    "paths": {
+      "@antojados/http": ["./shared/http/index.ts"],
+      "@antojados/http/*": ["./shared/http/*"],
+      "@antojados/api/services": ["./shared/api/services/index.ts"],
+      "@antojados/api/services/*": ["./shared/api/services/*"],
+      "@antojados/api/composables/*": ["./shared/api/composables/*"],
+      "@antojados/api/types/*": ["./shared/api/types/*"],
+      "@antojados/api/storage/*": ["./shared/api/storage/*"],
+      "@antojados/ui/base/*": ["./shared/ui/base/*"],
+      "@antojados/ui/app/components/*": ["./shared/ui/app/components/*"],
+      "@antojados/ui/app/pages/*": ["./shared/ui/app/pages/*"],
+      "@antojados/ui/app/layouts/*": ["./shared/ui/app/layouts/*"],
+      "@antojados/ui/app/router/*": ["./shared/ui/app/router/*"],
+      "@antojados/ui/app/areas/*": ["./shared/ui/app/areas/*"],
+      "@antojados/ui/assets/*": ["./shared/ui/assets/*"],
+      "@antojados/ui/mocks/*": ["./shared/ui/mocks/*"],
+      "@antojados/ui/dimensions/*": ["./shared/ui/dimensions/*"],
+      "@antojados/ui/theme/*": ["./shared/ui/theme/*"],
+      "@antojados/ui/services/base/*": ["./shared/ui/services/base/*"]
+    }
+  },
+  "include": [
+    "./shared/http/**/*.ts",
+    "./shared/api/**/*.ts",
+    "./shared/ui/**/*.ts",
+    "./shared/ui/**/*.vue"
+  ]
+}
+

@@ -22,16 +22,35 @@ export interface MediaUploadInput {
 }
 
 export interface MediaUploadResult {
+  // ── Identity ──
   intake_id?: string | null
   status?: string | null
-  thumb_url?: string | null
-  feed_url?: string | null
-  full_url?: string | null
+  error_msg?: string | null
+
+  // ── Legacy fields (backward compat) ──
   media_url?: string | null
   media_thumbnail_url?: string | null
+
+  // ── Image Variants ──
+  thumb_url?: string | null
+  grid_url?: string | null
+  feed_url?: string | null
+  full_url?: string | null
+  story_url?: string | null
+  cover_url?: string | null
+  avatar_url?: string | null
+
+  // ── Video Variants ──
   video_720_url?: string | null
   video_1080_url?: string | null
-  error_msg?: string | null
+  short_url?: string | null
+  feed_video_url?: string | null
+  story_video_url?: string | null
+  video_preview_url?: string | null
+
+  // ── Metadata ──
+  media_type?: MediaType | null
+  duration_ms?: number | null
 }
 
 export interface BizPostCreateInput {

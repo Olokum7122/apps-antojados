@@ -1,7 +1,12 @@
 # 05 — Guardrails for Codex
 
+<<<<<<< HEAD
 Version: 1.0.0
 Status: baseline
+=======
+Version: 1.1.0
+Status: updated
+>>>>>>> staging-20260307
 
 ## 1. Proposito
 
@@ -37,6 +42,12 @@ que modifique el codigo. Violar estas reglas es violar la arquitectura.
 - Las apps nunca procesan media localmente (solo el engine)
 - El post no se crea hasta que la media esta processada (status: ready)
 - No exponer estados internos del engine al usuario
+<<<<<<< HEAD
+=======
+- **El registro de derechos y origen (rights-origin) SIEMPRE debe ejecutarse antes de uploadOriginal** (contrato 02g §5.2)
+- **Las apps deben usar las variantes especificas del ready-payload segun contexto: thumb (S1/grid), feed (S2/tarjetas), full (S3/fullscreen), videoUrl (video feed)**
+- **Las apps nunca pasan `media_url` directo al crear posts. Usar `media_intake_id` para que el Gateway resuelva la URL final** (Contrato API Central §9.4)
+>>>>>>> staging-20260307
 
 ### 2.5 Sesion y Auth
 - La sesion siempre se persiste en secureStorage (nunca localStorage)

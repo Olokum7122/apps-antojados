@@ -1,6 +1,10 @@
 # 03c — Publish System
 
+<<<<<<< HEAD
 Version: 1.1.0
+=======
+Version: 1.2.0
+>>>>>>> staging-20260307
 Status: updated
 Applies to: shared/api/services/publish/, shared/api/services/media/, shared/api/composables/usePublishMedia.ts
 
@@ -23,6 +27,7 @@ usePublishMedia (captura)
     │
     ▼
 mediaService.uploadMedia()
+<<<<<<< HEAD
     │  - Crea media request (engine)
     │  - Registra derechos/origen
     │  - Sube binario
@@ -31,11 +36,32 @@ mediaService.uploadMedia()
     ▼
 publishService.createSocialPost() / createBizPost()
     │  - Crea el post con URLs de media
+=======
+    │  - Crea media request (engine) — sourceApp debe ser "ios"
+    │  - [DEBE] Registra derechos/origen (registerRightsOrigin)
+    │  - Sube binario (uploadOriginal)
+    │  - Polling hasta ready → obtiene media_intake_id
+    │
+    ▼
+publishService.createSocialPost() / createBizPost()
+    │  - Pasa media_intake_id (NO media_url directo)
+    │  - Gateway resuelve URL final via resolvePostMediaFromIntake()
+>>>>>>> staging-20260307
     │
     ▼
 Feed actualizado
 ```
 
+<<<<<<< HEAD
+=======
+**⚠️ Estado actual (DEBT-035)**: El paso "Registra derechos/origen" (registerRightsOrigin)
+NO se ejecuta en el flujo real de `media.service.ts`. Ver `08_TECHNICAL_DEBT.md` DEBT-035.
+
+**⚠️ Estado actual (DEBT-039 ✅ Resuelto)**: Ahora se pasa `media_intake_id` en lugar de `media_url` directo.
+El Gateway resuelve la URL via `resolvePostMediaFromIntake()`.
+Ver `08_TECHNICAL_DEBT.md` DEBT-039.`
+
+>>>>>>> staging-20260307
 ## 3. Captura de Media (usePublishMedia)
 
 ```typescript

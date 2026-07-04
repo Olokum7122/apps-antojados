@@ -1,7 +1,12 @@
 # 02b — API Services Contract
 
+<<<<<<< HEAD
 Version: 1.0.0
 Status: baseline
+=======
+Version: 1.1.0
+Status: updated
+>>>>>>> staging-20260307
 Applies to: shared/api/services/
 
 ## 1. Proposito
@@ -192,9 +197,25 @@ Ver contrato `02g_MEDIA_ENGINE_INTEGRATION_CONTRACT.md` para el flujo completo.
 
 Resumen:
 1. Usuario selecciona media (camara/galeria)
+<<<<<<< HEAD
 2. `usePublishMedia` composable captura el archivo como base64
 3. `mediaService.uploadMedia()` ejecuta flujo Media Engine V3
 4. `publishService.createSocialPost()` o `createBizPost()` crea el post con las URLs
+=======
+2. `usePublishMedia` composable captura el archivo como base64 o File
+3. `mediaService.uploadMedia()` ejecuta flujo Media Engine V3:
+   - createRequest (con `sourceApp` correcto: `"ios"` o `"android"`)
+   - **registerRightsOrigin** (DEBE ejecutarse, ver DEBT-035)
+   - uploadOriginal (multipart)
+   - waitForReadyPayload (polling hasta ready)
+4. `publishService.createSocialPost()` o `createBizPost()` crea el post
+   - **Debe pasar `media_intake_id`** (NO `media_url` directo)
+   - El API Gateway resuelve la URL final via `resolvePostMediaFromIntake()`
+
+**⚠️ Estado actual**: El paso 3 (registerRightsOrigin) ya se implementó (DEBT-035 ✅).
+El paso 4 (media_intake_id) ya se implementó (DEBT-039 ✅).
+Ver DEBT-035 y DEBT-039 en `08_TECHNICAL_DEBT.md` seccion 3.11.
+>>>>>>> staging-20260307
 
 ## 10. Flujo de Media
 

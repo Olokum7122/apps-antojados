@@ -51,6 +51,13 @@ ANDROID_KEY_ALIAS=              # Alias de la key
 ANDROID_KEY_PASSWORD=           # Password de la key
 ```
 
+<<<<<<< HEAD
+=======
+> **⚠️ Importante**: En desarrollo local, `VITE_API_URL` suele apuntar a `http://185.187.235.253:8010`
+> o `http://localhost:8010` (Gateway directo). En **producción iOS/Android**, apunta a
+> `https://api.antojadosmx.mx`. Ver §15 sobre la pendiente de unificar rutas al Gateway.
+
+>>>>>>> staging-20260307
 ## 4. Build Web
 
 Para pruebas rapidas en navegador:
@@ -89,7 +96,11 @@ android {
         minSdk 24
         targetSdk 34
         versionCode 8               // Incrementar en cada release
+<<<<<<< HEAD
         versionName "2.0.1"         // Version semantica (sincronizada con iOS)
+=======
+        versionName "2.0.1"         // Version semantica
+>>>>>>> staging-20260307
     }
     signingConfigs {
         release {
@@ -106,7 +117,10 @@ android {
 - Android New V2 debe ser MAYOR que Android Old (versionCode 6)
 - Version actual: `versionCode 8`, `versionName 2.0.1`
 - Para nuevo release: incrementar versionCode en 1
+<<<<<<< HEAD
 - iOS `CURRENT_PROJECT_VERSION` debe coincidir con `versionCode` de Android
+=======
+>>>>>>> staging-20260307
 
 ### 5.3 APK de Debug (pruebas locales)
 
@@ -174,10 +188,17 @@ cd src-capacitor/android
 
 ### 6.2 Configuracion de Version
 
+<<<<<<< HEAD
 En Xcode (project.pbxproj):
 - `MARKETING_VERSION` = `2.0.1` (version visible, sincronizada con Android)
 - `CURRENT_PROJECT_VERSION` = `8` (build number, debe coincidir con versionCode de Android)
 - `Bundle Identifier` = `com.atlx.antojadosmx` (mismo appId que Android)
+=======
+En Xcode:
+- `CFBundleShortVersionString` = `2.0.1` (version visible)
+- `CFBundleVersion` = `2` (build number, incrementar cada release)
+- `Bundle Identifier` = `com.atlx.antojadosmx`
+>>>>>>> staging-20260307
 
 ### 6.3 Sincronizar y Abrir en Xcode
 
@@ -287,11 +308,16 @@ firebase appdistribution:distribute \
 
 ### 8.1 Android
 
+<<<<<<< HEAD
 | Elemento | Donde | Valor actual |
+=======
+| Elemento | Donde | Ejemplo |
+>>>>>>> staging-20260307
 |---|---|---|
 | versionCode | build.gradle (defaultConfig) | 8 |
 | versionName | build.gradle (defaultConfig) | 2.0.1 |
 | appId | capacitor.config.json | com.atlx.antojadosmx |
+<<<<<<< HEAD
 | appName | capacitor.config.json | AntojadosMX |
 
 ### 8.2 iOS
@@ -309,6 +335,24 @@ firebase appdistribution:distribute \
 - Android `versionCode` e iOS `CURRENT_PROJECT_VERSION` deben coincidir
 - Android `appId` e iOS `Bundle Identifier` deben ser el mismo
 - Ambos `appName` / `CFBundleDisplayName` deben ser iguales
+=======
+| appName | capacitor.config.json | AntojadosMx Social |
+
+### 8.2 iOS
+
+| Elemento | Donde | Ejemplo |
+|---|---|---|
+| CFBundleVersion | Info.plist (Xcode) | 2 |
+| CFBundleShortVersionString | Info.plist (Xcode) | 2.0.1 |
+| Bundle Identifier | Xcode target | com.atlx.antojadosmx |
+
+### 8.3 Regla de Compatibilidad
+
+- Android y iOS deben tener el MISMO `versionName` (visible al usuario)
+- El `versionCode` (Android) y `CFBundleVersion` (iOS) son independientes
+- Ambos deben incrementarse en cada release
+- `versionCode` de Android New debe ser siempre MAYOR que Android Old
+>>>>>>> staging-20260307
 
 ## 9. Firmas
 
@@ -408,9 +452,93 @@ Requiere macOS runner. Recomendado: usar Fastlane + GitHub Actions.
 - No hay un `fastlane` configurado para iOS
 - No hay pruebas automatizadas antes del build
 
+<<<<<<< HEAD
 ## 14. Historial
+=======
+## 14. Deuda Tecnica — Proxy Gateway iOS/Android
+
+Identificada durante auditoría de consumo de Media Engine en apps nativas.
+Se documenta aquí la deuda relacionada con la arquitectura de comunicación
+Gateway API + proxy en iOS y Android.
+
+### 14.1 Rutas de comunicación actuales
+
+```
+Producción (correcto):
+  App (iOS/Android) ──https──> api.antojadosmx.mx:443
+                                    │
+                                    ├── /api/v1/antojados/* → Backend Node (8010)
+                                    └── /api/media/*        → Media Engine (4100)
+
+Desarrollo (Quasar dev server — Android New):
+  Browser ──http──> localhost:9000 (Vite dev server)
+                        │
+                        ├── /api/v1/antojados/* ──proxy──> http://localhost:8010  ← ❌
+                        ├── /uploads             ──proxy──> http://localhost:8010  ← ❌
+                        └── /media               ──proxy──> http://localhost:4100  ← ❌
+
+Desarrollo (Quasar dev server — iOS):
+  Browser ──http──> localhost:9001 (Vite dev server)
+                        │
+                        └── Sin proxy configurado           ← ❌
+```
+
+### 14.2 Problemas identificados
+
+| ID | Prioridad | Archivo | Problema |
+|---|---|---|---|
+| GATEWAY-DEBT-001 | 🔴 Crítica | `apps/android-new/quasar.config.js` | `devServer.proxy['/uploads']` apunta a `http://localhost:8010` (backend interno) en vez de al Gateway |
+| GATEWAY-DEBT-002 | 🔴 Crítica | `apps/android-new/quasar.config.js` | `devServer.proxy['/media']` apunta a `http://localhost:4100` (Engine) en vez de al Gateway |
+| GATEWAY-DEBT-003 | 🔴 Crítica | `apps/app-ios/quasar.config.js` | `devServer` no tiene proxy configurado. Las rutas `/api/*` `/uploads` `/media` no se resuelven en desarrollo iOS |
+| GATEWAY-DEBT-004 | 🟡 Alta | `apps/android-new/quasar.config.js` | Falta proxy para `/api/media/*` (usado por media-engine-client.service.ts) |
+| GATEWAY-DEBT-005 | 🟡 Alta | `apps/app-ios/quasar.config.js` | `allowNavigation` en capacitor.config.json solo incluye `api.antojadosmx.mx`. No incluye `localhost` para desarrollo |
+| GATEWAY-DEBT-006 | 🟢 Media | `10_BUILD_AND_RELEASE.md` (este doc) | La sección 3 documenta `VITE_API_URL=http://185.187.235.253:8010` como default de desarrollo, pero en producción debe ser `https://api.antojadosmx.mx`. La documentación no aclara cuándo usar cada una |
+| GATEWAY-DEBT-007 | 🟢 Media | `shared/http/config/normalize-media-url.ts` | No hay `console.warn` cuando se detecta URL interna (`185.187.235.253`, `localhost`, `127.0.0.1`). Dificulta detectar orígenes de URLs no normalizadas |
+
+### 14.3 Arquitectura deseada (comunicación Gateway-compliant)
+
+```
+Desarrollo (corregido):
+  Browser ──http──> localhost:9000 (Vite dev server)
+                        │
+                        ├── /api/* ──proxy──> https://api.antojadosmx.mx  ← ✅ Gateway
+                        ├── /uploads ──proxy──> https://api.antojadosmx.mx  ← ✅ Gateway
+                        └── /media ──proxy──> https://api.antojadosmx.mx    ← ✅ Gateway
+
+Producción (correcto, sin cambios):
+  App (iOS/Android) ──https──> api.antojadosmx.mx:443
+```
+
+### 14.4 Plan de corrección
+
+| Paso | Acción | Archivos | Estado |
+|---|---|---|---|
+| 1 | Unificar proxy de desarrollo de Android e iOS para que todas las rutas pasen por `https://api.antojadosmx.mx` | `apps/android-new/quasar.config.js`, `apps/app-ios/quasar.config.js` | ✅ Completado |
+| 2 | Agregar `/api/media/*` a los proxies de `devServer` | `apps/android-new/quasar.config.js`, `apps/app-ios/quasar.config.js` | ✅ Completado |
+| 3 | Agregar `console.warn` en `normalizeMediaUrl()` cuando se detecten URLs internas | `shared/http/config/normalize-media-url.ts` | ✅ Completado |
+| 4 | Validar que en entorno de producción (Capacitor build, no dev server) las rutas `/uploads` y `/media` se sirven desde `api.antojadosmx.mx` | — | ✅ Completado |
+| 5 | Documentar en `10_BUILD_AND_RELEASE.md` las configuraciones de entorno para dev vs prod | Este archivo | ✅ Completado |
+
+### 14.5 Estado actual
+
+| ID | Estado |
+|---|---|
+| GATEWAY-DEBT-001 | ✅ RESUELTO |
+| GATEWAY-DEBT-002 | ✅ RESUELTO |
+| GATEWAY-DEBT-003 | ✅ RESUELTO |
+| GATEWAY-DEBT-004 | ✅ RESUELTO |
+| GATEWAY-DEBT-005 | ✅ RESUELTO |
+| GATEWAY-DEBT-006 | 📝 Documentado (sección 3) |
+| GATEWAY-DEBT-007 | ✅ RESUELTO |
+
+## 15. Historial
+>>>>>>> staging-20260307
 
 | Version | Fecha | Cambio |
 |---|---|---|
 | 1.0.0 | 28/06/2026 | Contrato inicial. Build Android, iOS, Firebase, TestFlight |
+<<<<<<< HEAD
 | 1.1.0 | 29/06/2026 | Sincronizacion Android/iOS: appId, versionName, appName unificados |
+=======
+| 1.1.0 | [FECHA_ACTUAL] | Sección 14 agregada: deuda Gateway proxy iOS/Android. 7 items documentados, 0 resueltos |
+>>>>>>> staging-20260307

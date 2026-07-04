@@ -111,11 +111,13 @@
 
 <script setup>
 import { computed, ref } from 'vue'
+import { useQuasar } from 'quasar'
 import { useRouter } from 'vue-router'
 import FeedFlowOrchestratorBase from '@antojados/ui/base/FeedFlowOrchestratorBase.vue'
 import { useLocationScope } from '@antojados/api/composables/useLocationScope'
+import { mediaService, publishService } from '@antojados/api/services'
 import { usePublishMedia } from '@antojados/api/composables/usePublishMedia'
-import { usePublish } from '@antojados/api/composables/usePublish'
+import { getSharedSession } from '@antojados/api/storage/session.storage'
 
 const $q = useQuasar()
 const router = useRouter()
@@ -130,7 +132,6 @@ const selectedMediaSource = ref('photo')
 const venueName = ref('La Campeona')
 const caption = ref('La neta, buen lugar para caer con compas.')
 const publishing = ref(false)
-const { publish } = usePublish()
 const {
   photoInputRef,
   deviceInputRef,
@@ -139,7 +140,6 @@ const {
   mediaError,
   selectedSource,
   hasMedia,
-  selectedFile,
   triggerFilePicker,
   onFileChange,
   clearMedia,
@@ -168,29 +168,43 @@ function selectMediaSource(sourceKey) {
 }
 
 async function submit() {
-  const { postId } = await publish(
-    {
+  if (publishing.value) return
+  publishing.value = true
+  try {
+    const session = await getSharedSession()
+    if (!session?.userId) throw new Error('Necesitas iniciar sesion para publicar.')
+    if (!mediaBase64.value) throw new Error('Selecciona una foto para publicar en La Neta.')
+
+    const postId = `neta-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`
+    const uploaded = await mediaService.uploadMedia({
       base64: mediaBase64.value,
-      file: selectedFile.value,
       mediaType: mediaType.value,
       channel: 'feed_post',
-      entityId: `neta-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`,
+      entityId: postId,
       entityContext: `antojados.la_neta.${selectedSource.value}`,
-    },
-    {
-      target: 'social',
-      feedScope: 'la-neta',
-      venueName: venueName.value,
-      caption: caption.value,
-      description: caption.value,
-      cityCode: cityCode.value,
-      scopeLevel: scopeLevel.value,
-      scopeCode: scopeCode.value,
-      redirectSuccess: (id) => id ? `/red/pa-ti/la-neta/post/${id}` : '/red/pa-ti/la-neta',
-    },
-    { context: 'la_neta' },
-  )
-  if (postId) router.replace(`/red/pa-ti/la-neta/post/${postId}`)
+    })
+
+    const result = await publishService.createSocialPost({
+      post_id: postId,
+      user_id: session.userId,
+      feed_scope: 'la-neta',
+      venue_name: venueName.value.trim() || null,
+      caption: caption.value.trim() || null,
+      description: caption.value.trim() || null,
+      city_code: cityCode.value || session.cityCode || null,
+      scope_level: scopeLevel.value || null,
+      scope_code: scopeCode.value || null,
+      media_intake_id: uploaded.intake_id || null,
+      media_type: mediaType.value,
+    })
+
+    $q.notify({ type: 'positive', message: 'Resena publicada.' })
+    router.replace(result.post_id ? `/red/pa-ti/la-neta/post/${result.post_id}` : '/red/pa-ti/la-neta')
+  } catch (error) {
+    $q.notify({ type: 'negative', message: error?.message || 'No se pudo publicar.' })
+  } finally {
+    publishing.value = false
+  }
 }
 </script>
 

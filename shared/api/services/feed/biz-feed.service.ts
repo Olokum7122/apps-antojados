@@ -1,8 +1,8 @@
-import type { AxiosInstance } from 'axios'
-import { API_ENDPOINTS } from '@antojados/http/endpoints'
-import { apiConfig } from '@antojados/http/config/api'
-import type { ApiResponse } from '@antojados/api/types/api'
-import type { BizFeedParams, BizFeedScope, BizPostType, FeedComment, FeedItem, FeedRatingVerdict } from '@antojados/api/types/feed'
+import { httpClient } from '../../../http/client'
+import { API_ENDPOINTS } from '../../../http/endpoints'
+import { normalizeMediaUrl } from '../../../http/config/normalize-media-url'
+import type { ApiResponse } from '../../types/api'
+import type { BizFeedParams, BizFeedScope, BizPostType, FeedComment, FeedItem, FeedRatingVerdict } from '../../types/feed'
 
 interface RawBizPost extends Record<string, unknown> {
   biz_post_id?: string
@@ -15,8 +15,7 @@ interface RawBizPost extends Record<string, unknown> {
   place_name?: string
   media_url?: string
   media_type?: string
-  media_full_url?: unknown
-  video_1080_url?: unknown
+  media_urls?: unknown
   likes_count?: number | string
   comments_count?: number | string
   created_at?: string
@@ -28,16 +27,6 @@ interface RawBizPost extends Record<string, unknown> {
 function toNumber(value: unknown, fallback = 0): number {
   const parsed = Number(value)
   return Number.isFinite(parsed) ? parsed : fallback
-}
-
-function resolveMediaUrl(url: unknown): string | null {
-  if (typeof url !== 'string' || !url) return null
-  if (url.startsWith('http://') || url.startsWith('https://')) return url
-  if (url.startsWith('/')) {
-    const baseUrl = apiConfig.apiUrl
-    return baseUrl ? `${baseUrl}${url}` : url
-  }
-  return url
 }
 
 function mapComments(rawComments: unknown): FeedComment[] {
@@ -73,6 +62,36 @@ function mapComments(rawComments: unknown): FeedComment[] {
     .filter((comment): comment is FeedComment => Boolean(comment))
 }
 
+function mapMediaGallery(rawGallery: unknown, fallbackMediaUrl: string | null): string[] {
+  if (Array.isArray(rawGallery)) {
+    const mediaItems = rawGallery
+      .map((item) => {
+        if (typeof item === 'string') {
+          return normalizeMediaUrl(item)
+        }
+
+        if (item && typeof item === 'object') {
+          const candidate = item as Record<string, unknown>
+          if (typeof candidate.media_url === 'string') {
+            return normalizeMediaUrl(candidate.media_url)
+          }
+          if (typeof candidate.url === 'string') {
+            return normalizeMediaUrl(candidate.url)
+          }
+        }
+
+        return null
+      })
+      .filter((item): item is string => Boolean(item))
+
+    if (mediaItems.length > 0) {
+      return mediaItems
+    }
+  }
+
+  return fallbackMediaUrl ? [fallbackMediaUrl] : []
+}
+
 function toPostTypeLabel(postType: string | null): string | null {
   switch (postType) {
     case 'promo':
@@ -96,9 +115,7 @@ function mapBizPost(raw: RawBizPost): FeedItem {
     throw new Error('biz_post_missing_id')
   }
 
-  const mediaUrl = resolveMediaUrl(raw.media_url)
-  const mediaFullUrl = resolveMediaUrl(raw.media_full_url)
-  const video1080Url = resolveMediaUrl(raw.video_1080_url)
+  const mediaUrl = normalizeMediaUrl(raw.media_url)
   const postType = typeof raw.post_type === 'string' ? raw.post_type : null
   const caption =
     typeof raw.caption === 'string'
@@ -131,8 +148,7 @@ function mapBizPost(raw: RawBizPost): FeedItem {
           ? raw.place_name
           : null,
     mediaUrl,
-    mediaFullUrl,
-    video1080Url,
+    mediaGallery: mapMediaGallery(raw.media_urls, mediaUrl),
     mediaType: typeof raw.media_type === 'string' ? raw.media_type : null,
     likesCount: toNumber(raw.likes_count, 0),
     commentsCount: toNumber(raw.comments_count, 0),
@@ -148,9 +164,11 @@ function mapBizPost(raw: RawBizPost): FeedItem {
 }
 
 export class BizFeedService {
-  constructor(private readonly http: AxiosInstance) {}
+  constructor(private readonly http = httpClient) {}
 
   async list(params: BizFeedParams): Promise<FeedItem[]> {
+    console.log('[TRACE biz-feed] list() LLAMADO params:', JSON.stringify(params))
+    console.log('[TRACE biz-feed] URL endpoint:', API_ENDPOINTS.bizPosts.feed)
     const response = await this.http.get<ApiResponse<RawBizPost[]>>(API_ENDPOINTS.bizPosts.feed, {
       params: {
         city_code: params.cityCode,
@@ -169,6 +187,7 @@ export class BizFeedService {
       },
     })
 
+    console.log('[TRACE biz-feed] RESPUESTA status:', response.status)
     return Array.isArray(response.data.data) ? response.data.data.map(mapBizPost) : []
   }
 

@@ -2,4 +2,8 @@ packages:
   - "apps/*"
   - "shared/*"
 allowBuilds:
+<<<<<<< HEAD
+=======
+  '@parcel/watcher': set this to true or false
+>>>>>>> staging-20260307
   esbuild: set this to true or false

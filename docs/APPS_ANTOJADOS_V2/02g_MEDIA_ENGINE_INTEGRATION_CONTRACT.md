@@ -1,7 +1,12 @@
 # 02g — Media Engine Integration Contract
 
+<<<<<<< HEAD
 Version: 1.0.0
 Status: baseline
+=======
+Version: 2.0.0
+Status: updated
+>>>>>>> staging-20260307
 Applies to: Android New, iOS
 Consumes: ATLX Media Engine V3 (media-engine)
 
@@ -86,6 +91,7 @@ Sube el archivo binario. Las apps convierten base64 a Blob/File antes de enviar.
 
 ### Variantes que genera el engine
 
+<<<<<<< HEAD
 | Variante | Resolucion | Formato | Calidad | Uso en apps |
 |---|---|---|---|---|
 | **thumb** | 400px width | WebP q80 | Conservadora | Thumbnails, avatares, pre-listeners |
@@ -99,6 +105,42 @@ Sube el archivo binario. Las apps convierten base64 a Blob/File antes de enviar.
 > Fuente: `media-engine/src/services/media/mediaProcessor.js` — constantes `IMAGE_VARIANTS` y `VIDEO_VARIANTS`.
 
 Las apps **nunca** usan la URL del archivo original como media final. Siempre deben usar las URLs del `ready-payload` (seccion 5.4).
+=======
+Basado en `media-engine/src/services/media/mediaProcessor.js` — constantes `IMAGE_VARIANTS` y `VIDEO_VARIANTS`:
+
+| Variante | Resolución | Formato | Calidad | Uso en apps | Campo MediaPackage |
+|---|---|---|---|---|---|
+| **thumb** | 320×320 center crop | WebP q80 | Conservadora | Thumbnails, avatares, pre-listeners, S1 grid | `thumbUrl` |
+| **grid** | 600×600 center crop | WebP q80 | Normal | Grid layouts, masonry cells | `gridUrl` |
+| **feed** | 1080×1350 crop safe | WebP q82 | Normal | Feed principal (S1: tarjetas, S2: scroll) | `feedUrl` |
+| **full** | Max 1440 long side | WebP q85 | Alta | Fullscreen, detalle (S3) | `fullUrl` |
+| **story** | 1080×1920 crop safe | WebP q82 | Normal | Story/highlight format | `storyUrl` |
+| **cover** | 1080×608 crop safe | WebP q82 | Normal | Business cover, tile background | `coverUrl` |
+| **avatar** | 512×512 center crop | WebP q80 | Normal | User/explorer avatar | `avatarUrl` |
+| **video** | 720p MP4 H.264/AAC | MP4 | Normal | Feed de videos (Desma, Pachanga) | `videoUrl` |
+| **video_1080** | 1080p MP4 H.264/AAC | MP4 | Alta | Fullscreen video | `video1080Url` |
+| **short** | 1080×1920 portrait MP4 | MP4 | Normal | Short-form vertical video | `shortUrl` |
+| **feed_video** | 1080×1350 or 1080×1920 MP4 | MP4 | Normal | Flexible feed video | `feedVideoUrl` |
+| **story_video** | 1080×1920 portrait MP4 | MP4 | Normal | Story format video | `storyVideoUrl` |
+| **video_preview** | 720×1280 image preview | WebP q80 | Baja | Video thumbnail before playback | `videoPreviewUrl` |
+
+> **Regla fundamental**: Las apps **nunca** usan la URL del archivo original como media final. Siempre deben usar las URLs del `ready-payload` (sección 5.4). Ver `MEDIA_PACKAGE_CONTRACT.md` para el formato de entrega completo.
+
+### Mapeo de variantes por contexto de render
+
+| Contexto de UI | Campo primario | Fallback |
+|---|---|---|
+| Gallery grid (S1) | `gridUrl` | `thumbUrl` |
+| Feed card (S2) | `feedUrl` | `gridUrl` → `thumbUrl` |
+| Fullscreen image (S3) | `fullUrl` | `feedUrl` |
+| Story / highlight | `storyUrl` | `fullUrl` |
+| Avatar | `avatarUrl` | `thumbUrl` |
+| Cover / tile | `coverUrl` | `feedUrl` |
+| Video feed playback | `videoUrl` | — |
+| Video fullscreen | `video1080Url` | `videoUrl` |
+| Video preview (thumbnail) | `videoPreviewUrl` | `thumbUrl` |
+| Short / Reels | `shortUrl` | `videoUrl` |
+>>>>>>> staging-20260307
 
 ### Limites de tamaño recomendados en apps
 
@@ -121,6 +163,7 @@ Respuesta cuando esta ready:
   "status": "ready",
   "ready": true,
   "payload": {
+<<<<<<< HEAD
     "thumbUrl": "https://...",
     "gridUrl": "https://...",
     "feedUrl": "https://...",
@@ -131,10 +174,45 @@ Respuesta cuando esta ready:
     "originType": "created_in_antojados",
     "rightsStatus": "approved",
     "isDemoContent": false
+=======
+    "productCode": "antojados-biz-001",
+    "mediaType": "image",
+    "orientation": "landscape",
+    "width": 4032,
+    "height": 3024,
+    "mimeType": "image/jpeg",
+    "thumbUrl": "https://.../thumb.jpg",
+    "gridUrl": "https://.../grid.jpg",
+    "feedUrl": "https://.../feed.jpg",
+    "fullUrl": "https://.../full.jpg",
+    "storyUrl": null,
+    "coverUrl": null,
+    "avatarUrl": null,
+    "originalUrl": "https://.../original.jpg",
+    "videoUrl": null,
+    "video1080Url": null,
+    "shortUrl": null,
+    "feedVideoUrl": null,
+    "storyVideoUrl": null,
+    "videoPreviewUrl": null,
+    "durationMs": null,
+    "aspectRatio": "4:3",
+    "originType": "created_in_antojados",
+    "rightsStatus": "approved",
+    "isDemoContent": false,
+    "payloadVersion": "1.0",
+    "readyAt": "2026-07-15T14:30:00.000Z"
+>>>>>>> staging-20260307
   }
 }
 ```
 
+<<<<<<< HEAD
+=======
+> **Nota**: El `originalUrl` NUNCA debe usarse como media final de display. Es solo para diagnóstico.
+> Ver `MEDIA_PACKAGE_CONTRACT.md` para especificación completa del formato de entrega.
+
+>>>>>>> staging-20260307
 ### 5.5 Endpoints adicionales (disponibles pero no usados desde apps)
 
 - `GET /api/media/{mediaId}` — diagnostico
@@ -155,12 +233,32 @@ Respuesta cuando esta ready:
 
 ### De payload del engine a MediaUploadResult
 
+<<<<<<< HEAD
 | Campo engine | Campo MediaUploadResult |
 |---|---|
 | `payload.thumbUrl` | `thumb_url` |
 | `payload.feedUrl` | `feed_url` |
 | `payload.fullUrl` | `full_url` |
 | `payload.videoUrl` | `video_720_url` |
+=======
+| Campo engine (MediaPayload) | Campo MediaUploadResult |
+|---|---|
+| `payload.thumbUrl` | `thumb_url` |
+| `payload.gridUrl` | `grid_url` |
+| `payload.feedUrl` | `feed_url` |
+| `payload.fullUrl` | `full_url` |
+| `payload.storyUrl` | `story_url` |
+| `payload.coverUrl` | `cover_url` |
+| `payload.avatarUrl` | `avatar_url` |
+| `payload.videoUrl` | `video_720_url` |
+| `payload.video1080Url` | `video_1080_url` |
+| `payload.shortUrl` | `short_url` |
+| `payload.feedVideoUrl` | `feed_video_url` |
+| `payload.storyVideoUrl` | `story_video_url` |
+| `payload.videoPreviewUrl` | `video_preview_url` |
+| `payload.mediaType` | `media_type` |
+| `payload.durationMs` | `duration_ms` |
+>>>>>>> staging-20260307
 | `mediaId` | `intake_id` |
 | `status` | `status` |
 
@@ -195,8 +293,58 @@ VITE_MEDIA_ENGINE_URL=http://localhost:4100
 
 En produccion esta variable debe apuntar a la URL publica del Media Engine.
 
+<<<<<<< HEAD
 ## 11. Historial
+=======
+## 11. Interaccion con el API Gateway
+
+El API Gateway (`Api_getaway_antojadosmx`) es el unico punto de entrada para
+todo el ecosistema. **Desde V3.1.0**, el Gateway expone un proxy para el Media Engine:
+
+```
+/api/media/* → http://localhost:4100 (Media Engine V3)
+/api/v1/antojados/* → Gateway business logic (Express + SQL Server)
+```
+
+Las apps se comunican con el Media Engine **a través del Gateway**, no directamente:
+
+### Flujo completo
+
+```
+App (iOS/Android)
+  │
+  ├── 1. POST /api/media/requests → Gateway (proxy) → Media Engine
+  │     { sourceApp, sourceActorType, sourceActorId, targetContext, mediaType }
+  │
+  ├── 2. POST /api/media/{mediaId}/rights-origin → Gateway (proxy) → Media Engine
+  │     { originType: "created_in_antojados", ... }
+  │
+  ├── 3. POST /api/media/{mediaId}/original → Gateway (proxy) → Media Engine (multipart)
+  │
+  ├── 4. GET /api/media/{mediaId}/ready-payload (polling hasta "ready")
+  │     → Gateway (proxy) → Media Engine
+  │     → Obtiene media_intake_id + payload con URLs
+  │
+  └── 5. POST /api/v1/antojados/posts → API Gateway (directo)
+        { media_intake_id, post_id, user_id, ... }
+        → Gateway: resolvePostMediaFromIntake() busca URLs en DB
+        → Gateway: crea el post con todas las variantes resueltas
+```
+
+**Importante**: El paso 5 debe enviar `media_intake_id` (no `media_url` directo).
+El Gateway resuelve automaticamente la URL final mediante la funcion
+`resolvePostMediaFromIntake()` en `postsResolver.js`.
+
+Ver `API_CENTRAL_CONTRACT.md` para detalle de la interaccion entre los 3 servicios.
+
+## 12. Historial
+>>>>>>> staging-20260307
 
 | Version | Fecha | Cambio |
 |---|---|---|
 | 1.0.0 | 28/06/2026 | Contrato inicial. Migracion de intake legacy a Media Engine V3 |
+<<<<<<< HEAD
+=======
+| 1.1.0 | [FECHA_ACTUAL] | Agregada seccion 11 sobre interaccion con API Gateway. Reglas actualizadas sobre rights-origin y media_intake_id |
+| 2.0.0 | [FECHA_ACTUAL] | Ampliada tabla de variantes (13 variantes). Agregado mapeo por contexto de render. Ready-payload actualizado con formato completo. Seccion 11 actualizada con proxy Gateway. Referencia a MEDIA_PACKAGE_CONTRACT.md y API_CENTRAL_CONTRACT.md |
+>>>>>>> staging-20260307

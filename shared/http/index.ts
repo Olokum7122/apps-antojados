@@ -1,7 +1,8 @@
-export { httpClient } from '@antojados/http/client'
-export { API_ENDPOINTS } from '@antojados/http/endpoints'
+export { httpClient } from '@antojadosmx/http/client'
+export { API_ENDPOINTS } from '@antojadosmx/http/endpoints'
 export {
   normalizeApiError,
   setHttpLogoutHandler,
   setupHttpInterceptors,
-} from '@antojados/http/interceptors'
+} from '@antojadosmx/http/interceptors'
+export type { AxiosInstance } from 'axios'

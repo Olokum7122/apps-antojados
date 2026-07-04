@@ -10,6 +10,6 @@
     "./storage/*": "./storage/*"
   },
   "dependencies": {
-    "axios": "^1.12.2"
+    "@antojadosmx/http": "workspace:*"
   }
 }

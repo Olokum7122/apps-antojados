@@ -142,6 +142,7 @@ export default defineConfig((/* ctx */) => {
           { find: /^src\/services\/dimensions\/(.*)$/, replacement: `${resolve(uiSharedRoot, 'dimensions')}/$1` }
           , { find: /^src\/services\/theme\/(.*)$/, replacement: `${resolve(uiSharedRoot, 'theme')}/$1` }
           , { find: /^src\/services\/base\/(.*)$/, replacement: `${resolve(uiSharedRoot, 'services/base')}/$1` }
+          , { find: /^@antojados\/ui\/services\/(.*)$/, replacement: `${resolve(uiSharedRoot, 'services')}/$1` }
         ]
       }
     },
@@ -149,7 +150,21 @@ export default defineConfig((/* ctx */) => {
     // Full list of options: https://v2.quasar.dev/quasar-cli-vite/quasar-config-file#devserver
     devServer: {
       // https: true,
-      open: false
+      open: false,
+      proxy: {
+        '/api/media': {
+          target: 'https://api.antojadosmx.mx',
+          changeOrigin: true,
+        },
+        '/uploads': {
+          target: 'https://api.antojadosmx.mx',
+          changeOrigin: true,
+        },
+        '/media': {
+          target: 'https://api.antojadosmx.mx',
+          changeOrigin: true,
+        },
+      },
     },
 
     // https://v2.quasar.dev/quasar-cli-vite/quasar-config-file#framework

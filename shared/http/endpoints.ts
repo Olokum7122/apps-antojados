@@ -70,6 +70,15 @@ export const API_ENDPOINTS = {
     sponsorMetrics: '/api/v1/antojados/analytics/sponsor-metrics',
     userSummary: '/api/v1/antojados/analytics/user-summary',
   },
+  media: {
+    // Media Engine V3 endpoints (proxy Nginx: /api/media/* → localhost:4100)
+    v3: {
+      requests: '/api/media/requests',
+      rightsOrigin: (mediaId: string) => `/api/media/${encodeURIComponent(mediaId)}/rights-origin`,
+      original: (mediaId: string) => `/api/media/${encodeURIComponent(mediaId)}/original`,
+      readyPayload: (mediaId: string) => `/api/media/${encodeURIComponent(mediaId)}/ready-payload`,
+    },
+  },
   efirma: {
     create: '/api/v1/antojados/gt/efirma/create',
     sendActivation: '/api/v1/antojados/gt/efirma/send-activation',
@@ -110,5 +119,12 @@ export const API_ENDPOINTS = {
     eligibility: '/api/v1/antojados/rewards/eligibility',
     redeem: '/api/v1/antojados/rewards/redeem',
     redemptions: (userId: string) => `/api/v1/antojados/rewards/redemptions/${encodeURIComponent(userId)}`,
+  },
+  // Publications (DocumentPackage vía API Gateway → Explorer)
+  publications: {
+    byChannel: (channel: string) => `/api/v1/antojados/publications/by-channel/${encodeURIComponent(channel)}`,
+    bySponsor: (sponsorId: string) => `/api/v1/antojados/publications/by-sponsor/${encodeURIComponent(sponsorId)}`,
+    byPost: (externalPostId: string) => `/api/v1/antojados/publications/by-post/${encodeURIComponent(externalPostId)}`,
+    create: '/api/v1/antojados/publications',
   },
 } as const

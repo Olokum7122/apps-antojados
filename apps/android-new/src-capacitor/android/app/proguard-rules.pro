@@ -19,3 +19,19 @@
 # If you keep the line number information, uncomment this to
 # hide the original source file name.
 #-renamesourcefileattribute SourceFile
+
+# ── AntojadosMX: proteger WebView y assets JS ──────────────────────────
+# No ofuscar clases de Capacitor usadas desde JS
+-keep class com.getcapacitor.** { *; }
+-keep class com.atlx.antojadosmx.** { *; }
+
+# Preservar la interface JS → Native (bridge de Capacitor)
+-keepclassmembers class * {
+    @android.webkit.JavascriptInterface <methods>;
+}
+
+# No ofuscar assets web (Vue/Quasar)
+-keep class **.R$* { *; }
+-keepattributes JavascriptInterface
+-keepattributes *Annotation*
+

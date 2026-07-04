@@ -282,9 +282,50 @@ Ocupa el espacio de navegación que antes era La Neta.
   de presentacion con logica de negocio (llamadas a servicios en el template).
 - No hay skeleton loaders. La UX de carga es "nada → de repente contenido".
 
+<<<<<<< HEAD
 ## 16. Historial
+=======
+## 16. Parametro `feed_type` vs `feed_scope`
+
+El API Gateway (`Api_getaway_antojadosmx`) acepta `feed_scope` como parametro
+en `GET /api/v1/antojados/feed`, pero internamente el `feedResolver.js` lo
+usa como parte de la query. Sin embargo, el contrato oficial (seccion 4)
+define `feed_type` como el nombre del parametro.
+
+El `social-feed.service.ts` envia `feed_scope` como nombre de parametro:
+
+```typescript
+// social-feed.service.ts — actual
+const response = await this.http.get(API_ENDPOINTS.socialPosts.feed, {
+  params: {
+    feed_scope: params.scope || undefined,  // ← deberia ser feed_type
+    city_code: params.cityCode,
+    ...
+  }
+})
+```
+
+**Deuda asociada**: DEBT-041 — el nombre del parametro debe estandarizarse
+a `feed_type` tanto en el cliente como en el Gateway.
+
+## 17. ⚠️ Deuda Tecnica Identificada (Post-Liquidacion)
+
+Ver `08_TECHNICAL_DEBT.md` seccion 3.11 para detalle completo.
+
+| ID | Descripcion | Prioridad |
+|---|---|---|
+| DEBT-040 | `venue_name` hardcodeado como "En el Desma" en todos los posts | 🟢 Baja |
+| DEBT-041 | `feed_scope` vs `feed_type` — parametro inconsistente | 🟡 Alta |
+| DEBT-042 | Likes en Desma no revierten estado optimista en fallo | 🟡 Media |
+
+## 18. Historial
+>>>>>>> staging-20260307
 
 | Version | Fecha | Cambio |
 |---|---|---|
 | 1.0.0 | 28/06/2026 | Contrato inicial |
 | 1.1.0 | 28/06/2026 | La Neta → Qué Pex. Reseñas movidas a Pachanga |
+<<<<<<< HEAD
+=======
+| 1.2.0 | [FECHA_ACTUAL] | Agregadas secciones 16 y 17. Documentado DEBT-041, DEBT-040, DEBT-042 |
+>>>>>>> staging-20260307

@@ -1,7 +1,12 @@
 # 06 — Developer Checklist
 
+<<<<<<< HEAD
 Version: 1.0.0
 Status: baseline
+=======
+Version: 1.1.0
+Status: updated
+>>>>>>> staging-20260307
 
 ## 1. Antes de Empezar
 
@@ -46,7 +51,16 @@ Status: baseline
 - [ ] No crear el post antes de que la media este lista
 - [ ] No exponer errores internos del engine al usuario
 - [ ] Verificar que el engine responde antes de crear el post
+<<<<<<< HEAD
 - [ ] Seguir el flujo: createMediaRequest → rightsOrigin → uploadOriginal → waitForReadyPayload → createPost
+=======
+- [ ] Seguir el flujo: createMediaRequest → **rightsOrigin** → uploadOriginal → waitForReadyPayload → createPost
+- [ ] **Verificar que rights-origin se registra antes de uploadOriginal** (DEBT-035, contrato 02g §5.2)
+- [ ] Usar `sourceApp` correcto segun contrato 02g §5.1: `"ios"` | `"android"` | `"explorer"` | `"web"` | `"admin"`
+- [ ] `clientReferenceId` debe ser unico: usar `{channel}-{entityId}-{timestamp}`
+- [ ] Pasar `media_intake_id` al crear el post, NO `media_url` directo (el Gateway resuelve la URL final)
+- [ ] Para video en feed, usar `videoUrl` (720p), no `mediaUrl` generico
+>>>>>>> staging-20260307
 
 ## 6. Al Tocar Autenticacion
 

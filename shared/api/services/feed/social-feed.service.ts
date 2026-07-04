@@ -1,7 +1,7 @@
-import type { AxiosInstance } from 'axios'
-import { API_ENDPOINTS } from '@antojados/http/endpoints'
-import { apiConfig } from '@antojados/http/config/api'
-import type { ApiResponse } from '@antojados/api/types/api'
+import { httpClient } from '../../../http/client'
+import { API_ENDPOINTS } from '../../../http/endpoints'
+import { normalizeMediaUrl } from '../../../http/config/normalize-media-url'
+import type { ApiResponse } from '../../types/api'
 import type {
   AntojoFeedScope,
   AntojadosFeedScope,
@@ -9,7 +9,7 @@ import type {
   FeedComment,
   FeedItem,
   FeedRatingVerdict,
-} from '@antojados/api/types/feed'
+} from '../../types/feed'
 
 interface RawFeedItem extends Record<string, unknown> {
   id?: string
@@ -25,7 +25,10 @@ interface RawFeedItem extends Record<string, unknown> {
   venue?: string
   media_url?: string
   media_thumbnail_url?: string
+  media_full_url?: string
   media_type?: string
+  video_720_url?: string
+  video_1080_url?: string
   likes_count?: number | string
   comments_count?: number | string
   created_at?: string
@@ -37,9 +40,9 @@ interface RawFeedItem extends Record<string, unknown> {
   moment_tag?: string
   feed_type?: string
   event_group_id?: string
+  post_type?: string
   post_type_label?: string
-  media_full_url?: unknown
-  video_1080_url?: unknown
+  media_gallery?: unknown
   comments?: unknown
   rating_verdicts?: unknown
 }
@@ -53,24 +56,6 @@ function normalizeFeedType(value: unknown): string {
 function toNumber(value: unknown, fallback = 0): number {
   const parsed = Number(value)
   return Number.isFinite(parsed) ? parsed : fallback
-}
-
-function resolveMediaUrl(url: unknown): string | null {
-  if (typeof url !== 'string' || !url) {
-    return null
-  }
-
-  if (url.startsWith('http://') || url.startsWith('https://')) {
-    return url
-  }
-
-  if (url.startsWith('/')) {
-    // Shared iOS/TestFlight parity: use normalized API config, not raw env with hash routes.
-    const baseUrl = apiConfig.apiUrl
-    return baseUrl ? `${baseUrl}${url}` : url
-  }
-
-  return url
 }
 
 function buildImageFeedThumb(url: string | null): string | null {
@@ -104,6 +89,36 @@ function normalizeMediaType(rawType: unknown): string | null {
   if (value === 'photo' || value.startsWith('image/')) return 'image'
   if (value === 'video' || value.startsWith('video/')) return 'video'
   return value
+}
+
+function mapMediaGallery(rawGallery: unknown, fallbackMediaUrl: string | null): string[] {
+  if (Array.isArray(rawGallery)) {
+    const mediaItems = rawGallery
+      .map((item) => {
+        if (typeof item === 'string') {
+          return normalizeMediaUrl(item)
+        }
+
+        if (item && typeof item === 'object') {
+          const candidate = item as Record<string, unknown>
+          if (typeof candidate.media_url === 'string') {
+            return normalizeMediaUrl(candidate.media_url)
+          }
+          if (typeof candidate.url === 'string') {
+            return normalizeMediaUrl(candidate.url)
+          }
+        }
+
+        return null
+      })
+      .filter((item): item is string => Boolean(item))
+
+    if (mediaItems.length > 0) {
+      return mediaItems
+    }
+  }
+
+  return fallbackMediaUrl ? [fallbackMediaUrl] : []
 }
 
 function mapComments(rawComments: unknown): FeedComment[] {
@@ -178,13 +193,11 @@ function mapFeedItem(raw: RawFeedItem): FeedItem {
       : typeof raw.description === 'string'
         ? raw.description
         : null
-  const mediaUrl = resolveMediaUrl(raw.media_url)
+  const mediaUrl = normalizeMediaUrl(raw.media_url)
   const mediaType = normalizeMediaType(raw.media_type)
   const mediaThumbUrl =
-    resolveMediaUrl(raw.media_thumbnail_url) ||
+    normalizeMediaUrl(raw.media_thumbnail_url) ||
     (mediaType === 'video' ? mediaUrl : buildImageFeedThumb(mediaUrl))
-  const mediaFullUrl = resolveMediaUrl(raw.media_full_url)
-  const video1080Url = resolveMediaUrl(raw.video_1080_url)
 
   return {
     id,
@@ -204,8 +217,10 @@ function mapFeedItem(raw: RawFeedItem): FeedItem {
     venue: typeof raw.venue === 'string' ? raw.venue : null,
     mediaUrl,
     mediaThumbUrl,
-    mediaFullUrl,
-    video1080Url,
+    mediaFullUrl: normalizeMediaUrl(raw.media_full_url) || null,
+    videoUrl: normalizeMediaUrl(raw.video_720_url) || null,
+    video1080Url: normalizeMediaUrl(raw.video_1080_url) || null,
+    mediaGallery: mapMediaGallery(raw.media_gallery, mediaUrl),
     mediaType,
     likesCount: toNumber(raw.likes_count, 0),
     commentsCount: toNumber(raw.comments_count, 0),
@@ -233,8 +248,8 @@ function matchesScope(item: FeedItem, scope: AntojadosFeedScope | AntojoFeedScop
   const feedType = normalizeFeedType(item.feedType)
   const mediaType = normalizeFeedType(item.mediaType)
 
-  if (scope === 'que-pex' || scope === 'la-neta') {
-    return ['que-pex', 'que_pex', 'neta', 'la-neta', 'la_neta'].includes(feedType) && mediaType !== 'video'
+  if (scope === 'la-neta') {
+    return ['neta', 'la-neta', 'la_neta'].includes(feedType) && mediaType !== 'video'
   }
 
   if (scope === 'pachanga') {
@@ -253,7 +268,7 @@ function matchesScope(item: FeedItem, scope: AntojadosFeedScope | AntojoFeedScop
 }
 
 export class SocialFeedService {
-  constructor(private readonly http: AxiosInstance) {}
+  constructor(private readonly http = httpClient) {}
 
   async list(params: FeedListParams): Promise<FeedItem[]> {
     const response = await this.http.get<ApiResponse<RawFeedItem[]>>(API_ENDPOINTS.socialPosts.feed, {
@@ -266,7 +281,7 @@ export class SocialFeedService {
         user_id: params.userId,
         publisher_user_id: params.publisherUserId,
         post_id: params.postId,
-        feed_scope: params.scope || undefined,
+        feed_type: params.scope || undefined,
       },
     })
 

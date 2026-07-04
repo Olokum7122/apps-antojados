@@ -25,77 +25,168 @@
       @next="nextStep"
     >
       <template #default>
+        <!-- P1: Info del evento (badge fijo) -->
         <section v-if="activeStep === 'evento'" class="publicar-arre-view__panel">
-          <h2>Tipo de publicacion</h2>
-          <article class="publicar-arre-view__event-type">
+          <h2>Informacion del evento</h2>
+          <article class="publicar-arre-view__event-badge">
             <q-badge color="deep-purple-6" text-color="white">EVENTO</q-badge>
-            <span>Arre solo publica eventos. No acepta promo, platillo, descuento ni general.</span>
+            <span>Arre solo publica eventos.</span>
           </article>
-          <q-input v-model="eventTitle" dark filled label="Nombre del evento" />
+          <q-input v-model="eventTitle" dark filled label="Nombre del evento" maxlength="50" counter />
+          <q-input v-model="eventDesc1" dark filled autogrow label="Descripcion 1 (fecha/hora)" />
+          <q-input v-model="eventDesc2" dark filled autogrow label="Descripcion 2 (ubicacion)" />
+          <q-input v-model="eventDesc3" dark filled autogrow label="Descripcion 3 (detalles adicionales)" />
+          <q-input v-model="eventPrice" dark filled label="Precio / Donacion (opcional)" type="number" step="0.01" />
         </section>
 
+        <!-- P1: MEDIA (multi-archivo) -->
         <section v-else-if="activeStep === 'media'" class="publicar-arre-view__panel">
-          <h2>Media y texto</h2>
+          <h2>Agregar media del evento</h2>
           <div class="publicar-arre-view__media-actions">
             <button
-              v-for="source in mediaSources"
-              :key="source.key"
               type="button"
-              :class="['publicar-arre-view__media-action', selectedMediaSource === source.key && 'publicar-arre-view__media-action--active']"
-              @click="selectMediaSource(source.key)"
+              class="publicar-arre-view__media-action"
+              @click="triggerMultiFilePicker"
             >
-              <q-icon :name="source.icon" color="deep-purple-4" size="32px" />
-              <strong>{{ source.label }}</strong>
-              <span>{{ source.help }}</span>
+              <q-icon name="add_photo_alternate" color="deep-purple-4" size="32px" />
+              <strong>Agregar fotos/video</strong>
+              <span>Selecciona 1 o mas archivos</span>
             </button>
           </div>
           <input
-            ref="photoInputRef"
+            ref="multiInputRef"
             type="file"
-            accept="image/*"
-            capture="environment"
-            class="publicar-arre-view__file"
-            @change="onFileChange($event, 'photo')"
-          />
-          <input
-            ref="videoInputRef"
-            type="file"
-            accept="video/*"
-            capture="environment"
-            class="publicar-arre-view__file"
-            @change="onFileChange($event, 'video')"
-          />
-          <input
-            ref="deviceInputRef"
-            type="file"
+            multiple
             accept="image/*,video/*"
             class="publicar-arre-view__file"
-            @change="onFileChange($event, 'device')"
+            @change="onMultiFileChange"
           />
-          <div v-if="hasMedia" class="publicar-arre-view__media-ready">
-            Media lista para subir
-            <q-btn flat dense no-caps color="grey-5" label="Quitar" @click="clearMedia" />
+          <div v-if="mediaItems.length" class="publicar-arre-view__media-list">
+            <div v-for="(item, i) in mediaItems" :key="i" class="publicar-arre-view__media-item">
+              <img v-if="item.mediaType === 'photo'" :src="item.preview" class="publicar-arre-view__thumb" />
+              <video v-else :src="item.preview" class="publicar-arre-view__thumb" muted />
+              <span class="publicar-arre-view__media-label">{{ item.fileName }}</span>
+              <q-btn flat dense round icon="close" color="grey-5" size="sm" @click="removeMedia(i)" />
+            </div>
           </div>
-          <div v-if="mediaError" class="publicar-arre-view__media-error">
-            {{ mediaError }}
+          <div v-if="mediaItems.length" class="publicar-arre-view__media-ready">
+            {{ mediaItems.length }} archivo(s) seleccionado(s)
           </div>
-          <q-input v-model="caption" dark filled autogrow label="Descripcion del evento" />
+          <div v-if="mediaError" class="publicar-arre-view__media-error">{{ mediaError }}</div>
         </section>
 
-        <section v-else-if="activeStep === 'boletos'" class="publicar-arre-view__panel">
-          <h2>Boletos y acceso</h2>
-          <q-input v-model="ticketLabel" dark filled label="CTA boletos / reservacion" />
-          <q-input v-model="eventAccess" dark filled label="Acceso, cover o reservacion" />
+        <!-- P2: PUBLICITY / GENERAL -->
+        <section v-else-if="activeStep === 'tipo-package'" class="publicar-arre-view__panel">
+          <h2>Tipo de package</h2>
+          <div class="publicar-arre-view__package-types">
+            <button
+              type="button"
+              :class="['publicar-arre-view__package-btn', packageType === 'publicitypackage' && 'publicar-arre-view__package-btn--active']"
+              @click="packageType = 'publicitypackage'"
+            >
+              <strong>PUBLICITY</strong>
+              <span>Contenido promocional con template, look y filtro</span>
+            </button>
+            <button
+              type="button"
+              :class="['publicar-arre-view__package-btn', packageType === 'generalpackage' && 'publicar-arre-view__package-btn--active']"
+              @click="packageType = 'generalpackage'"
+            >
+              <strong>GENERAL</strong>
+              <span>Contenido simple sin personalizacion visual</span>
+            </button>
+          </div>
         </section>
 
+        <!-- P3: PREVIEW + ESTILOS -->
         <section v-else class="publicar-arre-view__panel">
           <h2>Vista previa</h2>
           <article class="publicar-arre-view__preview">
             <q-badge color="deep-purple-6" text-color="white">EVENTO</q-badge>
             <strong>{{ eventTitle || 'Evento Arre' }}</strong>
-            <p>{{ caption || 'Evento listo para publicar en Arre.' }}</p>
-            <small>{{ ticketLabel }} / {{ eventAccess }}</small>
+            <p>{{ previewDesc || 'Evento listo para publicar.' }}</p>
+            <small v-if="selectedDraft">
+              Estilo: {{ selectedDraft.styleName || selectedDraft.id_post }}
+              · Template: {{ selectedDraft.templateCode || '—' }}
+              · Look: {{ selectedDraft.lookCode || '—' }}
+              · Filter: {{ selectedDraft.filterCode || '—' }}
+            </small>
+            <small v-else>
+              Sin estilo seleccionado — usa el boton "Estilos" para elegir uno
+            </small>
+            <div v-if="mediaItems.length" class="publicar-arre-view__preview-media">
+              <img v-for="(item, i) in mediaItems.slice(0, 3)" :key="i" :src="item.preview" class="publicar-arre-view__preview-thumb" />
+              <span v-if="mediaItems.length > 3" class="publicar-arre-view__preview-more">+{{ mediaItems.length - 3 }}</span>
+            </div>
           </article>
+          <!-- Botón Estilos -->
+          <div class="publicar-arre-view__p3-buttons">
+            <q-btn
+              outline
+              no-caps
+              color="deep-purple-6"
+              icon="palette"
+              :label="selectedDraft ? 'Cambiar estilo' : 'Estilos'"
+              class="publicar-arre-view__p3-btn"
+              @click="loadDrafts(); styleDialogOpen = true"
+            />
+          </div>
+
+          <!-- Dialog selector de estilos -->
+          <q-dialog v-model="styleDialogOpen" persistent>
+            <q-card class="style-selector-card bg-grey-10 text-white" style="min-width: min(92vw, 400px); max-height: 80vh;">
+              <q-card-section>
+                <div class="text-h6">🎨 Elige un estilo</div>
+                <p class="text-caption text-grey-5">
+                  Selecciona el template, look y filtro para tu evento
+                </p>
+              </q-card-section>
+              <q-card-section class="style-selector-list" style="overflow-y: auto; max-height: 50vh;">
+                <div v-if="draftsLoading" style="padding: 20px; text-align: center;">
+                  <q-spinner-dots color="deep-purple-6" size="24px" />
+                  <p class="text-caption text-grey-5">Cargando estilos...</p>
+                </div>
+                <q-item
+                  v-for="draft in availableDrafts"
+                  :key="draft.id_post"
+                  clickable
+                  :active="selectedDraft?.id_post === draft.id_post"
+                  active-class="bg-deep-purple text-white"
+                  @click="selectDraft(draft)"
+                >
+                  <q-item-section avatar>
+                    <q-icon name="palette" color="deep-purple-4" />
+                  </q-item-section>
+                  <q-item-section>
+                    <q-item-label>{{ draft.styleName || draft.id_post }}</q-item-label>
+                    <q-item-label caption class="text-grey-5">
+                      Template: {{ draft.templateCode || '—' }}
+                      · Look: {{ draft.lookCode || '—' }}
+                      · Filter: {{ draft.filterCode || '—' }}
+                    </q-item-label>
+                  </q-item-section>
+                  <q-item-section side>
+                    <q-icon v-if="selectedDraft?.id_post === draft.id_post" name="check_circle" color="positive" />
+                  </q-item-section>
+                </q-item>
+                <div v-if="!draftsLoading && !availableDrafts.length" style="padding: 20px; text-align: center; color: rgba(255,255,255,0.4);">
+                  No hay estilos disponibles para eventos
+                </div>
+              </q-card-section>
+              <q-card-actions align="right">
+                <q-btn flat no-caps label="Cancelar" color="grey-5" v-close-popup />
+                <q-btn
+                  unelevated
+                  no-caps
+                  color="deep-purple-6"
+                  text-color="white"
+                  label="Aceptar"
+                  :disable="!selectedDraft"
+                  v-close-popup
+                />
+              </q-card-actions>
+            </q-card>
+          </q-dialog>
         </section>
       </template>
 
@@ -107,6 +198,7 @@
           no-caps
           color="deep-purple-6"
           text-color="white"
+          :disable="!canGoNext"
           :label="activeIndex === steps.length - 2 ? 'Previsualizar' : 'Siguiente'"
           @click="nextStep"
         />
@@ -118,17 +210,19 @@
           text-color="white"
           label="Publicar evento"
           :loading="publishing"
+          :disable="!selectedDraft"
           @click="submit"
         />
       </template>
     </feed-flow-orchestrator-base>
+
     <q-dialog v-model="publishing" persistent>
       <q-card class="publish-processing-card bg-grey-10 text-white">
         <q-card-section class="row items-center q-gutter-sm">
           <q-spinner-dots color="deep-purple-6" size="34px" />
           <div>
             <div class="text-subtitle2">{{ publishingStageLabel }}</div>
-            <div class="text-caption text-grey-5">{{ publishingStageDetail || 'No cierres esta pantalla mientras termina el intake.' }}</div>
+            <div class="text-caption text-grey-5">{{ publishingStageDetail }}</div>
           </div>
         </q-card-section>
         <q-card-section>
@@ -136,7 +230,6 @@
         </q-card-section>
       </q-card>
     </q-dialog>
-
   </section>
 </template>
 
@@ -145,49 +238,111 @@ import { computed, ref } from 'vue'
 import { useQuasar } from 'quasar'
 import { useRouter } from 'vue-router'
 import FeedFlowOrchestratorBase from '@antojados/ui/base/FeedFlowOrchestratorBase.vue'
-import { usePublishMedia } from '@antojados/api/composables/usePublishMedia'
-import { resolveMediaUploadStageLabel } from '@antojados/api/services/media/media-publish-flow.service'
-import { usePublish } from '@antojados/api/composables/usePublish'
+import { httpClient, publishService } from '@antojados/api/services'
+import { readPublishMediaFile } from '@antojados/api/composables/usePublishMedia'
+import { getSharedSession } from '@antojados/api/storage/session.storage'
 
 const $q = useQuasar()
 const router = useRouter()
+
+// ─── P3: Estilos (Drafts) ──────────────────────────────────────────
+const styleDialogOpen = ref(false)
+const availableDrafts = ref([])
+const selectedDraft = ref(null)
+const draftsLoading = ref(false)
+
+async function loadDrafts() {
+  draftsLoading.value = true
+  try {
+    const pkgType = packageType.value === 'publicitypackage' ? 'publicitypackage' : 'generalpackage'
+    const { data } = await httpClient.get('/api/v1/explorer/packages/drafts', {
+      params: { package_type: pkgType },
+    })
+    if (Array.isArray(data?.drafts)) {
+      availableDrafts.value = data.drafts
+    } else if (Array.isArray(data)) {
+      availableDrafts.value = data
+    } else {
+      availableDrafts.value = []
+    }
+  } catch (err) {
+    console.error('Error loading drafts:', err)
+    availableDrafts.value = []
+    $q.notify({ type: 'negative', message: 'Error al cargar estilos' })
+  } finally {
+    draftsLoading.value = false
+  }
+}
+
+function selectDraft(draft) {
+  selectedDraft.value = draft
+  $q.notify({ type: 'positive', message: 'Estilo "' + (draft.styleName || draft.id_post) + '" seleccionado', timeout: 1500 })
+}
+
 const steps = [
   { key: 'evento', label: 'Evento' },
   { key: 'media', label: 'Media' },
-  { key: 'boletos', label: 'Boletos' },
+  { key: 'tipo-package', label: 'Package' },
   { key: 'preview', label: 'Preview' },
 ]
 const activeStep = ref('evento')
-const selectedMediaSource = ref('photo')
-const eventTitle = ref('Noche tematica')
-const caption = ref('Musica, ambiente y reservaciones abiertas.')
-const ticketLabel = ref('Reservar boletos')
-const eventAccess = ref('Acceso antes de las 10 PM')
-const publishing = ref(false)
-const publishingStageLabel = ref('Preparando video...')
-const publishingStageDetail = ref('')
-const { publish } = usePublish()
-const {
-  photoInputRef,
-  videoInputRef,
-  deviceInputRef,
-  mediaBase64,
-  mediaType,
-  mediaError,
-  selectedSource,
-  hasMedia,
-  selectedFile,
-  triggerFilePicker,
-  onFileChange,
-  clearMedia,
-} = usePublishMedia()
-const mediaSources = [
-  { key: 'photo', label: 'Foto', icon: 'photo_camera', help: 'Tomar foto del evento.' },
-  { key: 'video', label: 'Video', icon: 'videocam', help: 'Grabar video corto.' },
-  { key: 'device', label: 'Dispositivo', icon: 'perm_media', help: 'Agregar desde galeria.' },
-]
-const activeIndex = computed(() => steps.findIndex((step) => step.key === activeStep.value))
 
+// P1: Evento
+const eventTitle = ref('')
+const eventDesc1 = ref('')
+const eventDesc2 = ref('')
+const eventDesc3 = ref('')
+const eventPrice = ref('')
+
+// P1: Multi Media
+const multiInputRef = ref(null)
+const mediaFiles = ref([])
+const mediaItems = ref([])
+const mediaError = ref(null)
+
+function triggerMultiFilePicker() {
+  mediaError.value = null
+  multiInputRef.value?.click()
+}
+
+async function onMultiFileChange(event) {
+  const input = event.target
+  const files = Array.from(input.files || [])
+  if (!files.length) return
+  for (const file of files) {
+    try {
+      const selected = await readPublishMediaFile(file)
+      mediaItems.value.push(selected)
+      mediaFiles.value.push(file)
+    } catch (err) {
+      mediaError.value = err.message || 'Error al leer archivo'
+    }
+  }
+  input.value = ''
+}
+
+function removeMedia(index) {
+  mediaItems.value.splice(index, 1)
+  mediaFiles.value.splice(index, 1)
+}
+
+// P2: Package type
+const packageType = ref('publicitypackage')
+
+// Computed
+const activeIndex = computed(() => steps.findIndex((s) => s.key === activeStep.value))
+
+const canGoNext = computed(() => {
+  if (activeStep.value === 'evento') return !!eventTitle.value
+  if (activeStep.value === 'media') return mediaItems.value.length > 0
+  return true
+})
+
+const previewDesc = computed(() => {
+  return [eventDesc1.value, eventDesc2.value, eventDesc3.value].filter(Boolean).join(' | ')
+})
+
+// Navigation
 function nextStep() {
   activeStep.value = steps[Math.min(activeIndex.value + 1, steps.length - 1)].key
 }
@@ -200,51 +355,92 @@ function goBack() {
   router.push('/antojo/arre/agenda')
 }
 
-function selectMediaSource(sourceKey) {
-  selectedMediaSource.value = sourceKey
-  triggerFilePicker(sourceKey)
-}
+// Submit
+const publishing = ref(false)
+const publishingStageLabel = ref('')
+const publishingStageDetail = ref('')
 
 async function submit() {
   if (publishing.value) return
   publishing.value = true
-  publishingStageLabel.value = 'Preparando...'
+  publishingStageLabel.value = 'Preparando publicacion...'
   publishingStageDetail.value = ''
 
-  const body = [caption.value.trim(), ticketLabel.value.trim(), eventAccess.value.trim()]
-    .filter(Boolean)
-    .join('\n')
+  try {
+    const session = await getSharedSession()
+    if (!session?.userId || !session?.placeId) {
+      throw new Error('Necesitas una sesion sponsor con negocio asignado para publicar.')
+    }
 
-  const { bizPostId } = await publish(
-    {
-      base64: mediaBase64.value,
-      file: selectedFile.value,
-      mediaType: mediaType.value,
-      channel: 'biz_post',
-      entityContext: `antojo.arre.${selectedSource.value}`,
-    },
-    {
-      target: 'biz',
+    const mediaUrls = []
+    const mediaItemsPayload = []
+    let uploadedCount = 0
+
+    for (const [i, item] of mediaItems.value.entries()) {
+      publishingStageLabel.value = `Subiendo media ${i + 1} de ${mediaItems.value.length}...`
+      const { mediaService } = await import('@antojados/api/services')
+      const uploaded = await mediaService.uploadMedia({
+        base64: item.base64,
+        mediaType: item.mediaType,
+        channel: 'biz_post',
+        entityId: session.placeId,
+        entityContext: `antojo.arre.${item.mediaType}`,
+      })
+      mediaUrls.push(uploaded.media_url || '')
+      mediaItemsPayload.push({
+        mediaAssetId: uploaded.media_asset_id || null,
+        mediaType: item.mediaType,
+        thumbUrl: uploaded.thumbnail_url || null,
+        feedUrl: uploaded.media_url || null,
+        fullUrl: uploaded.full_url || null,
+      })
+      uploadedCount++
+    }
+
+    if (!uploadedCount) throw new Error('No se pudo subir ningun archivo de media.')
+
+    const feedType = packageType.value === 'publicitypackage' ? 'publicity' : 'general'
+    const bodyText = [eventDesc1.value, eventDesc2.value, eventDesc3.value].filter(Boolean).join('\n')
+
+    const contentPayload = {
+      tipoContent: 'event',
+      title: eventTitle.value || 'Evento Arre',
+      body: bodyText || null,
+      price: eventPrice.value || null,
+      badge: 'EVENTO',
+      media_url: mediaUrls[0],
+      media_type: mediaItems.value[0]?.mediaType || 'photo',
+      mediaItems: mediaItemsPayload,
+      template_code: 'full-frame',
+      body_style_code: 'retro',
+      effects: [],
+    }
+
+    const draftId = selectedDraft.value?.id_post || null
+
+    const result = await publishService.createBizPost({
+      place_id: session.placeId,
+      publisher_user_id: session.userId,
       channel: 'arre',
-      postType: 'event',
-      publicationType: 'event',
+      post_type: 'event',
+      publication_type: 'event',
       title: eventTitle.value.trim() || 'Evento Arre',
-      body,
-      ctaLabel: ticketLabel.value.trim() || null,
-      redirectSuccess: (id) => id ? `/antojo/arre/agenda/post/${id}` : '/antojo/arre/agenda',
-    },
-    {
-      context: 'arre',
-      onStage: (stage, detail = '') => {
-        publishingStageLabel.value = resolveMediaUploadStageLabel(stage)
-        publishingStageDetail.value = detail
-      },
-    },
-  )
-  if (bizPostId) router.replace(`/antojo/arre/agenda/post/${bizPostId}`)
-  publishing.value = false
-  publishingStageLabel.value = 'Preparando...'
-  publishingStageDetail.value = ''
+      body: bodyText || null,
+      media_url: mediaUrls[0],
+      media_type: mediaItems.value[0]?.mediaType || 'photo',
+      content_payload: { ...contentPayload, draft_id: draftId },
+      feed_type: feedType,
+      package_type: packageType.value,
+      draft_id: draftId,
+    })
+
+    $q.notify({ type: 'positive', message: 'Evento publicado.' })
+    router.replace(result.biz_post_id ? `/antojo/arre/negocio/${session.userId}/post/${result.biz_post_id}` : '/antojo/arre/agenda')
+  } catch (error) {
+    $q.notify({ type: 'negative', message: error?.message || 'No se pudo publicar el evento.' })
+  } finally {
+    publishing.value = false
+  }
 }
 </script>
 
@@ -255,7 +451,6 @@ async function submit() {
   background: #0a0c12;
   color: #fff;
 }
-
 .publicar-arre-view__header {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr);
@@ -263,100 +458,56 @@ async function submit() {
   align-items: center;
   margin-bottom: 14px;
 }
-
-.publicar-arre-view__header h1 {
-  margin: 0;
-  font-size: 22px;
-  line-height: 1.1;
+.publicar-arre-view__header h1 { margin: 0; font-size: 22px; line-height: 1.1; }
+.publicar-arre-view__header p { margin: 4px 0 0; color: rgba(255,255,255,0.64); font-size: 12px; }
+.publicar-arre-view__panel { display: grid; gap: 12px; }
+.publicar-arre-view__panel h2 { margin: 0; font-size: 18px; }
+.publicar-arre-view__event-badge {
+  display: grid; gap: 6px; padding: 14px;
+  border: 1px solid rgba(124,58,237,0.35); border-radius: 8px; background: #111722;
 }
-
-.publicar-arre-view__header p {
-  margin: 4px 0 0;
-  color: rgba(255, 255, 255, 0.64);
-  font-size: 12px;
-}
-
-.publicar-arre-view__panel {
-  display: grid;
-  gap: 12px;
-}
-
-.publicar-arre-view__panel h2 {
-  margin: 0;
-  font-size: 18px;
-}
-
-.publicar-arre-view__event-type,
-.publicar-arre-view__preview {
-  display: grid;
-  gap: 8px;
-  padding: 14px;
-  border: 1px solid rgba(124, 58, 237, 0.35);
-  border-radius: 8px;
-  background: #111722;
-}
-
-.publicar-arre-view__event-type span,
-.publicar-arre-view__preview p,
-.publicar-arre-view__preview small {
-  color: rgba(255, 255, 255, 0.68);
-}
-
-.publicar-arre-view__media-actions {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 8px;
-}
-
+.publicar-arre-view__event-badge span { color: rgba(255,255,255,0.68); font-size: 13px; }
+.publicar-arre-view__file { display: none; }
+.publicar-arre-view__media-actions { display: grid; grid-template-columns: 1fr; gap: 8px; }
 .publicar-arre-view__media-action {
-  min-height: 126px;
-  display: grid;
-  align-content: center;
-  justify-items: center;
-  gap: 7px;
+  min-height: 100px;
+  display: grid; align-content: center; justify-items: center; gap: 7px;
   padding: 12px 8px;
-  border: 1px dashed rgba(124, 58, 237, 0.32);
-  border-radius: 8px;
-  color: #fff;
-  background: #101620;
-  text-align: center;
+  border: 1px dashed rgba(124,58,237,0.32); border-radius: 8px;
+  color: #fff; background: #101620; text-align: center;
 }
+.publicar-arre-view__media-action strong { font-size: 13px; }
+.publicar-arre-view__media-action span { color: rgba(255,255,255,0.62); font-size: 11px; }
+.publicar-arre-view__media-list { display: grid; gap: 8px; max-height: 200px; overflow-y: auto; }
+.publicar-arre-view__media-item {
+  display: flex; align-items: center; gap: 10px;
+  padding: 6px; border-radius: 8px; background: #111722;
+}
+.publicar-arre-view__thumb { width: 48px; height: 48px; border-radius: 6px; object-fit: cover; }
+.publicar-arre-view__media-label { flex: 1; font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.publicar-arre-view__media-ready { color: rgba(255,255,255,0.72); font-size: 12px; }
+.publicar-arre-view__media-error { color: #fca5a5; font-size: 12px; }
 
-.publicar-arre-view__media-action--active {
-  border-style: solid;
-  border-color: #7c3aed;
+.publicar-arre-view__package-types { display: grid; gap: 9px; }
+.publicar-arre-view__package-btn {
+  display: grid; gap: 6px; padding: 16px;
+  border: 2px solid rgba(255,255,255,0.1); border-radius: 12px;
+  color: #fff; background: #111722; text-align: left;
 }
+.publicar-arre-view__package-btn--active { border-color: #7c3aed; background: #1a1f3a; }
+.publicar-arre-view__package-btn strong { font-size: 16px; }
+.publicar-arre-view__package-btn span { color: rgba(255,255,255,0.6); font-size: 12px; }
 
-.publicar-arre-view__media-action strong {
-  font-size: 13px;
+.publicar-arre-view__preview {
+  display: grid; gap: 8px; padding: 18px;
+  border: 1px solid rgba(124,58,237,0.35); border-radius: 8px; background: #101620;
 }
-
-.publicar-arre-view__media-action span {
-  color: rgba(255, 255, 255, 0.62);
-  font-size: 11px;
-  line-height: 1.2;
-}
-
-.publicar-arre-view__file {
-  display: none;
-}
-
-.publicar-arre-view__media-ready {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  color: rgba(255, 255, 255, 0.72);
-  font-size: 12px;
-}
-
-.publicar-arre-view__media-error {
-  color: #fca5a5;
-  font-size: 12px;
-}
-
-.publish-processing-card {
-  min-width: min(92vw, 360px);
-  border-radius: 16px;
-}
+.publicar-arre-view__preview p { color: rgba(255,255,255,0.68); }
+.publicar-arre-view__preview small { color: rgba(255,255,255,0.5); font-size: 11px; }
+.publicar-arre-view__preview-media { display: flex; gap: 6px; align-items: center; }
+.publicar-arre-view__preview-thumb { width: 56px; height: 56px; border-radius: 6px; object-fit: cover; }
+.publicar-arre-view__preview-more { font-size: 12px; color: rgba(255,255,255,0.5); }
+.publicar-arre-view__p3-buttons { display: flex; gap: 8px; justify-content: center; }
+.publicar-arre-view__p3-btn { flex: 1; }
+.publish-processing-card { min-width: min(92vw, 360px); border-radius: 16px; }
 </style>

@@ -34,8 +34,15 @@ export const apiConfig: ApiConfig = {
   refreshPath: String(import.meta.env.VITE_AUTH_REFRESH_PATH || '').trim(),
 }
 
+// TRACE iOS: verificar que la URL se cargó
+console.log('[TRACE api.ts] VITE_API_URL desde env:', import.meta.env.VITE_API_URL)
+console.log('[TRACE api.ts] apiConfig.apiUrl final:', apiConfig.apiUrl)
+console.log('[TRACE api.ts] apiConfig.appEnv:', apiConfig.appEnv)
+console.log('[TRACE api.ts] apiConfig.apiTimeout:', apiConfig.apiTimeout)
+
 export function assertApiConfigured(): void {
   if (!apiConfig.apiUrl.startsWith('http://') && !apiConfig.apiUrl.startsWith('https://')) {
     throw new Error('VITE_API_URL no configurado o invalido')
   }
 }
+

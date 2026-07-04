@@ -1,7 +1,7 @@
 <template>
-  <barrio-feed-component />
+  <user-s1-page channel="barrio" />
 </template>
 
 <script setup>
-import BarrioFeedComponent from '@antojados/ui/app/components/antojados/BarrioFeedComponent.vue'
+import UserS1Page from '@antojados/ui/app/components/antojo/UserS1Page.vue'
 </script>

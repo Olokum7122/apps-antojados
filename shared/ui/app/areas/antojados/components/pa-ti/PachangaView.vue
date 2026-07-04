@@ -1,7 +1,7 @@
 <template>
-  <pa-ti-pachanga-component />
+  <user-s1-page channel="pachanga" />
 </template>
 
 <script setup>
-import PaTiPachangaComponent from '@antojados/ui/app/components/antojados/PaTiPachangaComponent.vue'
+import UserS1Page from '@antojados/ui/app/components/antojo/UserS1Page.vue'
 </script>
