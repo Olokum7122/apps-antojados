@@ -192,13 +192,23 @@ export class DocumentPackageService {
     // 2. Prohibido que desma contamine otros canales — si feedType es 'desma',
     //    solo pasa si el canal solicitado es 'desma'
     // 3. Debe tener composición con al menos un block image/video
+    function hasRenderableMedia(post: SponsorPost): boolean {
+      const blocks = post.documentPackage?.composicion?.blocks
+      if (!blocks || blocks.length === 0) return false
+      return blocks.some((b) => {
+        if (b.elementType !== 'image' && b.elementType !== 'video') return false
+        // Debe tener una URL real (no texto)
+        const url = b.mediaUrls?.fullUrl || b.mediaUrls?.feedUrl || ''
+        return url.startsWith('http://') || url.startsWith('https://') || url.startsWith('/')
+      })
+    }
+
     const result = raw.filter((post) => {
       if (post.channel !== params.channel) return false
       // Desma tiene su propio flujo — NO debe aparecer en ningún otro canal
       if (post.feedType === 'desma' && params.channel !== 'desma') return false
-      const blocks = post.documentPackage?.composicion?.blocks
-      if (!blocks || blocks.length === 0) return false
-      return blocks.some((b) => b.elementType === 'image' || b.elementType === 'video')
+      // Debe tener al menos un block image/video con URL real
+      return hasRenderableMedia(post)
     })
     console.log(`[TRACE:getByChannel] mapped ${raw.length} raw, ${result.length} after channel+content filter`)
     if (result.length > 0) {
