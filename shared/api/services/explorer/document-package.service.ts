@@ -187,14 +187,17 @@ export class DocumentPackageService {
     console.log(`[TRACE:getByChannel] raw response data type=${typeof response.data}, isArray=${Array.isArray(response.data)}`, response.data ? `keys=${Object.keys(response.data as object).join(',')}` : 'null')
     
     const raw = this._extractAndMap(response.data)
-    // Filtrar por canal y por composición válida:
-    // - Solo posts que coincidan exactamente con el canal solicitado
-    // - Solo posts con composición real (descartar desma/social sin document package)
+    // Filtrar estrictamente:
+    // 1. Canal exacto
+    // 2. Prohibido que desma contamine otros canales — si feedType es 'desma',
+    //    solo pasa si el canal solicitado es 'desma'
+    // 3. Debe tener composición con al menos un block image/video
     const result = raw.filter((post) => {
       if (post.channel !== params.channel) return false
+      // Desma tiene su propio flujo — NO debe aparecer en ningún otro canal
+      if (post.feedType === 'desma' && params.channel !== 'desma') return false
       const blocks = post.documentPackage?.composicion?.blocks
       if (!blocks || blocks.length === 0) return false
-      // Al menos debe haber un block image/video para ser renderizable
       return blocks.some((b) => b.elementType === 'image' || b.elementType === 'video')
     })
     console.log(`[TRACE:getByChannel] mapped ${raw.length} raw, ${result.length} after channel+content filter`)
