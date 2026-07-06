@@ -218,8 +218,20 @@ interface SlideItem {
   mediaType: 'image' | 'video'
 }
 
+const VIDEO_EXTS = ['.mp4', '.mov', '.m3u8', '.webm', '.mkv']
+
 /**
- * Verifica si una string parece una URL válida para <img src>.
+ * Determina si una URL es de video por su extensión.
+ * Previene que <img> renderice src .mp4 → naturalWidth=0.
+ */
+function isVideoUrl(url: string): boolean {
+  if (!url) return false
+  const lower = url.toLowerCase()
+  return VIDEO_EXTS.some((ext) => lower.includes(ext))
+}
+
+/**
+ * Verifica si una string parece una URL válida para <img src> o <video src>.
  */
 function isLikelyUrl(value: string): boolean {
   if (!value) return false
@@ -234,20 +246,24 @@ const slides = computed<SlideItem[]>(() => {
       const rawPoster = b.mediaUrls?.thumbUrl || null
       // Solo usar b.content si es una URL válida
       const resolvedUrl = rawUrl || (isLikelyUrl(b.content) ? b.content : '')
+      const normalizedUrl = normalizeMediaUrl(resolvedUrl) || resolvedUrl
       return {
-        url: normalizeMediaUrl(resolvedUrl) || resolvedUrl,
+        url: normalizedUrl,
         poster: normalizeMediaUrl(rawPoster),
-        mediaType: b.elementType === 'video' ? 'video' : 'image',
+        // Determinar tipo por extensión de URL, no por elementType
+        mediaType: isVideoUrl(normalizedUrl) ? 'video' : 'image',
       }
     })
   }
   // Modo legacy: slides desde props planas
   return legacyMediaUrls.value.map((url) => {
     const normalized = normalizeMediaUrl(url)
+    const finalUrl = normalized || (isLikelyUrl(url) ? url : '')
     return {
-      url: normalized || (isLikelyUrl(url) ? url : ''),
+      url: finalUrl,
       poster: null,
-      mediaType: props.mediaType === 'video' ? 'video' : 'image',
+      // Determinar tipo por extensión de URL, no por prop mediaType
+      mediaType: isVideoUrl(finalUrl) ? 'video' : (props.mediaType === 'video' ? 'video' : 'image'),
     }
   })
 })
