@@ -74,31 +74,19 @@ async function loadFeed() {
   loading.value = true
   error.value = ''
   try {
-    // Barrio consume feed social mixto: pachanga + que_pex (contenido social horizontal)
-    const [pachangaPosts, quePexPosts] = await Promise.all([
-      documentPackageService.getByChannel({
-        channel: 'pachanga',
-        feedType: 'default',
-        scopeLevel: scopeLevel.value,
-        scopeCode: scopeCode.value,
-        limit: 10,
-      }),
-      documentPackageService.getByChannel({
-        channel: 'que_pex',
-        feedType: 'default',
-        scopeLevel: scopeLevel.value,
-        scopeCode: scopeCode.value,
-        limit: 10,
-      }),
-    ])
-
-    const allPosts = [...pachangaPosts, ...quePexPosts]
-    allPosts.sort((a, b) => {
+    const result = await documentPackageService.getByChannel({
+      channel: 'barrio',
+      feedType: 'default',
+      scopeLevel: scopeLevel.value,
+      scopeCode: scopeCode.value,
+      limit: 20,
+    })
+    result.sort((a, b) => {
       const dateA = a.createdAt ? new Date(a.createdAt).getTime() : 0
       const dateB = b.createdAt ? new Date(b.createdAt).getTime() : 0
       return dateB - dateA
     })
-    posts.value = allPosts
+    posts.value = result
   } catch (err) {
     error.value = err instanceof Error ? err.message : 'No se pudo cargar el feed'
     posts.value = []
