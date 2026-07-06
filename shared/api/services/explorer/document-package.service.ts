@@ -118,7 +118,9 @@ function mapContentToSponsorPost(raw: ContentRaw): SponsorPost | null {
 
   const feedType = (raw.feed_type || raw.feedType || null) as FeedType | null
   const contentType = (raw.content_type || raw.contentType || null) as ContentType | null
-  const rawChannel = (raw.channel || 'vas_ir') as Channel
+  // No fallback sponsor — si la API no entrega channel, el post se descarta
+  const rawChannel = raw.channel as Channel | undefined
+  if (!rawChannel) return null
   const isSponsor = feedType === 'general' || feedType === 'publicity'
   const idSponsor = raw.id_sponsor || raw.idSponsor || null
   const idUser = raw.id_user || raw.idUser || null
@@ -184,8 +186,10 @@ export class DocumentPackageService {
 
     console.log(`[TRACE:getByChannel] raw response data type=${typeof response.data}, isArray=${Array.isArray(response.data)}`, response.data ? `keys=${Object.keys(response.data as object).join(',')}` : 'null')
     
-    const result = this._extractAndMap(response.data)
-    console.log(`[TRACE:getByChannel] mapped ${result.length} posts`)
+    const raw = this._extractAndMap(response.data)
+    // Filtrar por canal: solo posts que coincidan exactamente con el canal solicitado
+    const result = raw.filter((post) => post.channel === params.channel)
+    console.log(`[TRACE:getByChannel] mapped ${raw.length} raw, ${result.length} after channel filter`)
     if (result.length > 0) {
       console.log(`[TRACE:getByChannel] first post:`, JSON.stringify({
         id: result[0].id,
@@ -217,7 +221,9 @@ export class DocumentPackageService {
       },
     )
 
-    const items = this._extractAndMap(response.data)
+    let items = this._extractAndMap(response.data)
+    // Filtrar por canal en sponsor también por consistencia
+    items = items.filter((post) => post.channel === params.channel)
     items.sort((a, b) => {
       const dateA = a.createdAt ? new Date(a.createdAt).getTime() : 0
       const dateB = b.createdAt ? new Date(b.createdAt).getTime() : 0
