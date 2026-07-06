@@ -236,6 +236,48 @@ export class DocumentPackageService {
     return items?.[0] || null
   }
 
+  /**
+   * Aplica Opción B a todos los posts: poblar mediaUrls faltantes en blocks
+   * desde mediaItems, incluso cuando los posts ya vienen mapeados de la API.
+   */
+  private _applyMediaFallback(posts: SponsorPost[]): SponsorPost[] {
+    return posts.map((post) => {
+      const doc = post.documentPackage
+      if (!doc?.composicion?.blocks) return post
+      const payloadMediaItems = doc.mediaItems || []
+      const docMediaUrls = doc.mediaUrls || null
+
+      const fixedBlocks = doc.composicion.blocks.map((block, idx) => {
+        if ((block.elementType === 'image' || block.elementType === 'video') && !block.mediaUrls) {
+          const mediaItem = payloadMediaItems[idx]
+          if (mediaItem) {
+            return {
+              ...block,
+              mediaUrls: {
+                thumbUrl: mediaItem.thumbUrl || null,
+                feedUrl: mediaItem.feedUrl || null,
+                fullUrl: mediaItem.fullUrl || null,
+                mediaAssetId: mediaItem.mediaAssetId || null,
+              },
+            }
+          }
+          if (docMediaUrls) {
+            return { ...block, mediaUrls: docMediaUrls }
+          }
+        }
+        return block
+      })
+
+      return {
+        ...post,
+        documentPackage: {
+          ...doc,
+          composicion: { ...doc.composicion, blocks: fixedBlocks },
+        },
+      }
+    })
+  }
+
   private _extractAndMap(response: unknown): SponsorPost[] {
     if (!response) return []
 
@@ -244,18 +286,20 @@ export class DocumentPackageService {
 
     if (Array.isArray(data.data)) {
       if ((data.data[0] as SponsorPost)?.documentPackage) {
-        return data.data as SponsorPost[]
+        return this._applyMediaFallback(data.data as SponsorPost[])
       }
       raws = data.data as unknown as ContentRaw[]
     } else if (Array.isArray(data.contents)) {
       raws = data.contents
     } else if (Array.isArray(data.items)) {
       if ((data.items[0] as SponsorPost)?.documentPackage) {
-        return data.items as SponsorPost[]
+        return this._applyMediaFallback(data.items as SponsorPost[])
       }
       raws = data.items as unknown as ContentRaw[]
     }
 
-    return raws.map(mapContentToSponsorPost).filter((item): item is SponsorPost => item !== null)
+    return this._applyMediaFallback(
+      raws.map(mapContentToSponsorPost).filter((item): item is SponsorPost => item !== null),
+    )
   }
 }

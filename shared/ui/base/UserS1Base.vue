@@ -138,6 +138,7 @@ import { gridToStyle } from '@antojados/ui/services/document-package/gridPositio
 import { getCanvasStyle, getBlockStyle } from '@antojados/ui/services/document-package/styleApplier'
 import { getTouchAction, canExpand } from '@antojados/ui/services/document-package/touchBehavior'
 import { normalizeMediaUrl } from '@antojados/http/config/normalize-media-url'
+import type { PostLayoutResult } from '@antojados/ui/services/document-package/postLayoutResolver'
 
 // ─── Props ──────────────────────────────────────────────────────────────────
 // Soporta DOS modos:
@@ -157,7 +158,7 @@ const props = defineProps({
   mediaType: { type: String as () => 'photo' | 'video', default: 'photo' },
   showChat: { type: Boolean, default: false },
   /** Layout Result opcional desde el Layout Resolver */
-  layoutResult: { type: Object as () => import('@antojados/ui/services/document-package/postLayoutResolver').PostLayoutResult | null, default: null },
+  layoutResult: { type: Object as () => PostLayoutResult | null, default: null },
   loading: { type: Boolean, default: false },
   error: { type: String, default: '' },
 })
@@ -209,10 +210,6 @@ const contentBlocks = computed<Block[]>(() => {
   return []
 })
 
-const hasAuthorBlock = computed(() =>
-  contentBlocks.value.some((b) => b.elementType === 'author'),
-)
-
 // ─── Slides del carrusel ────────────────────────────────────────────────────
 
 interface SlideItem {
@@ -221,32 +218,43 @@ interface SlideItem {
   mediaType: 'image' | 'video'
 }
 
+/**
+ * Verifica si una string parece una URL válida para <img src>.
+ */
+function isLikelyUrl(value: string): boolean {
+  if (!value) return false
+  return value.startsWith('http://') || value.startsWith('https://') || value.startsWith('/')
+}
+
 const slides = computed<SlideItem[]>(() => {
   if (hasDocBlocks.value) {
     // Modo DocumentPackage: slides desde blocks
     return mediaBlocks.value.map((b) => {
-      const rawUrl = b.mediaUrls?.fullUrl || b.mediaUrls?.feedUrl || b.content || ''
+      const rawUrl = b.mediaUrls?.fullUrl || b.mediaUrls?.feedUrl || ''
       const rawPoster = b.mediaUrls?.thumbUrl || null
+      // Solo usar b.content si es una URL válida
+      const resolvedUrl = rawUrl || (isLikelyUrl(b.content) ? b.content : '')
       return {
-        url: normalizeMediaUrl(rawUrl) || rawUrl,
+        url: normalizeMediaUrl(resolvedUrl) || resolvedUrl,
         poster: normalizeMediaUrl(rawPoster),
         mediaType: b.elementType === 'video' ? 'video' : 'image',
       }
     })
   }
   // Modo legacy: slides desde props planas
-  return legacyMediaUrls.value.map((url) => ({
-    url: normalizeMediaUrl(url) || url,
-    poster: null,
-    mediaType: props.mediaType === 'video' ? 'video' : 'image',
-  }))
+  return legacyMediaUrls.value.map((url) => {
+    const normalized = normalizeMediaUrl(url)
+    return {
+      url: normalized || (isLikelyUrl(url) ? url : ''),
+      poster: null,
+      mediaType: props.mediaType === 'video' ? 'video' : 'image',
+    }
+  })
 })
 
 const currentSlide = computed<SlideItem>(() =>
   slides.value[carruselIndex.value] || slides.value[0] || { url: '', poster: null, mediaType: 'image' },
 )
-
-const authorLetter = computed(() => (props.authorHandle?.charAt(0) || '?').toUpperCase())
 
 // ─── Cell size desde el Layout Resolver ──────────────────────────────────
 // El Layout Resolver (postLayoutResolver.ts) entrega cellWidth/cellHeight.
@@ -366,8 +374,6 @@ function onBlockTouch(block: Block) {
 }
 
 function closeExpanded() { expandedBlockId.value = null }
-
-function onAuthorClick() { emit('open-author', props.idUser) }
 
 // ─── Carrusel ───────────────────────────────────────────────────────────────
 
