@@ -14,6 +14,8 @@ import type {
   DocumentPackage,
   PackageType,
   Channel,
+  FeedType,
+  ContentType,
   PostComposition,
 } from '@antojados/api/types/document-package'
 
@@ -46,6 +48,8 @@ interface GetFeedParams {
   channel: Channel
   sponsorId?: string
   feedType?: string
+  scopeLevel?: string
+  scopeCode?: string
   page?: number
   limit?: number
 }
@@ -72,14 +76,67 @@ function mapContentToSponsorPost(raw: ContentRaw): SponsorPost | null {
     payload = rawPayload as Record<string, unknown>
   }
 
-  const composicion = (payload.composicion || payload.composition) as unknown as PostComposition | undefined
+  let composicion = (payload.composicion || payload.composition) as unknown as PostComposition | undefined
+
+  // ── Opción B: Poblar mediaUrls faltantes en blocks desde mediaItems ──
+  // Cuando un block de tipo image/video no tiene mediaUrls (típico en user posts),
+  // se intenta resolver la URL desde los mediaItems del payload.
+  // Si no hay mediaItems, se cae a mediaUrls del DocumentPackage como fallback.
+  const payloadMediaItems = Array.isArray(payload.mediaItems) ? payload.mediaItems as Array<{ mediaAssetId: string; mediaType: string; thumbUrl?: string; feedUrl?: string; fullUrl?: string }> : []
+  const docMediaUrls = (payload.mediaUrls as DocumentPackage['mediaUrls']) || null
+
+  if (composicion?.blocks && composicion.blocks.length > 0) {
+    composicion = {
+      ...composicion,
+      blocks: composicion.blocks.map((block, idx) => {
+        if ((block.elementType === 'image' || block.elementType === 'video') && !block.mediaUrls) {
+          // Intentar desde mediaItems por índice
+          const mediaItem = payloadMediaItems[idx]
+          if (mediaItem) {
+            return {
+              ...block,
+              mediaUrls: {
+                thumbUrl: mediaItem.thumbUrl || null,
+                feedUrl: mediaItem.feedUrl || null,
+                fullUrl: mediaItem.fullUrl || null,
+                mediaAssetId: mediaItem.mediaAssetId || null,
+              },
+            }
+          }
+          // Fallback: mediaUrls del DocumentPackage
+          if (docMediaUrls) {
+            return {
+              ...block,
+              mediaUrls: docMediaUrls,
+            }
+          }
+        }
+        return block
+      }),
+    }
+  }
+
+  const feedType = (raw.feed_type || raw.feedType || null) as FeedType | null
+  const contentType = (raw.content_type || raw.contentType || null) as ContentType | null
+  // No fallback sponsor — si la API no entrega channel, el post se descarta
+  const rawChannel = raw.channel as Channel | undefined
+  if (!rawChannel) return null
+  const isSponsor = feedType === 'general' || feedType === 'publicity'
+  const idSponsor = raw.id_sponsor || raw.idSponsor || null
+  const idUser = raw.id_user || raw.idUser || null
 
   const docPackage: DocumentPackage = {
     documentCode: String(payload.document_code || `doc-${idPost}`),
     schemaVersion: String(payload.schema_version || '1.0'),
     projectId: String(payload.project_id || '') || null,
     title: String(payload.title || '') || '',
-    packageType: (raw.package_type || raw.packageType || 'userpackage') as PackageType,
+    packageType: (raw.package_type || raw.packageType || 'defaultpackage') as PackageType,
+    contentType: contentType,
+    idPost: idPost,
+    idSponsor: idSponsor,
+    idUser: idUser,
+    channel: rawChannel,
+    feedType: feedType,
     composicion: composicion || { tipoPost: '', tipoContent: '', efectoGlobal: 'retro', blocks: [] },
     mediaAssetId: String(payload.media_asset_id || '') || null,
     mediaUrls: (payload.mediaUrls as DocumentPackage['mediaUrls']) || null,
@@ -90,22 +147,21 @@ function mapContentToSponsorPost(raw: ContentRaw): SponsorPost | null {
     creatorId: String(payload.creator_id || '') || null,
     sourceApp: (payload.source_app === 'antojados' ? 'antojados' : 'explorer'),
     authorHandle: String(payload.author_handle || '') || null,
-    sponsorId: raw.id_sponsor || raw.idSponsor || null,
+    sponsorId: idSponsor,
     createdAt: raw.published_at || raw.publishedAt || String(payload.published_at || '') || null,
     mediaItems: Array.isArray(payload.mediaItems) ? payload.mediaItems as DocumentPackage['mediaItems'] : [],
   }
 
-  const sponsorId = raw.id_sponsor || raw.idSponsor || null
-  const channel = (raw.channel || 'vas_ir') as string
-
   return {
     id: idPost,
     documentPackage: docPackage,
-    publisherUserId: sponsorId || raw.id_user || raw.idUser || '',
+    publisherUserId: isSponsor ? (idSponsor || '') : (idUser || ''),
     placeId: String(payload.place_id || '') || null,
     venueName: String(payload.venue_name || payload.title || '') || null,
     businessName: String(payload.business_name || '') || null,
-    channel: (channel === 'vas_ir' || channel === 'arre' ? channel : 'vas_ir') as 'vas_ir' | 'arre',
+    channel: rawChannel,
+    feedType: feedType,
+    contentType: contentType,
     createdAt: raw.published_at || raw.publishedAt || null,
   }
 }
@@ -114,12 +170,14 @@ export class DocumentPackageService {
   constructor(private readonly http = httpClient) {}
 
   async getByChannel(params: GetFeedParams): Promise<SponsorPost[]> {
-    console.log(`[TRACE:getByChannel] channel=${params.channel}, feedType=${params.feedType}, page=${params.page}, limit=${params.limit}`)
+    console.log(`[TRACE:getByChannel] channel=${params.channel}, feedType=${params.feedType}, scopeLevel=${params.scopeLevel}, scopeCode=${params.scopeCode}, page=${params.page}, limit=${params.limit}`)
     const response = await this.http.get<GetFeedResponse>(
       `${EXPLORER_API_BASE}/contents/by-channel/${params.channel}`,
       {
         params: {
           feed_type: params.feedType || undefined,
+          scope_level: params.scopeLevel || undefined,
+          scope_code: params.scopeCode || undefined,
           page: params.page || 1,
           page_size: params.limit || 20,
         },
@@ -128,12 +186,17 @@ export class DocumentPackageService {
 
     console.log(`[TRACE:getByChannel] raw response data type=${typeof response.data}, isArray=${Array.isArray(response.data)}`, response.data ? `keys=${Object.keys(response.data as object).join(',')}` : 'null')
     
-    const result = this._extractAndMap(response.data)
-    console.log(`[TRACE:getByChannel] mapped ${result.length} posts`)
+    const raw = this._extractAndMap(response.data)
+    // Filtrar por canal: solo posts que coincidan exactamente con el canal solicitado
+    const result = raw.filter((post) => post.channel === params.channel)
+    console.log(`[TRACE:getByChannel] mapped ${raw.length} raw, ${result.length} after channel filter`)
     if (result.length > 0) {
       console.log(`[TRACE:getByChannel] first post:`, JSON.stringify({
         id: result[0].id,
         channel: result[0].channel,
+        feedType: result[0].feedType,
+        contentType: result[0].contentType,
+        publisherUserId: result[0].publisherUserId,
         hasDocPackage: !!result[0].documentPackage,
         mediaUrls: result[0].documentPackage?.mediaUrls,
         mediaItems: result[0].documentPackage?.mediaItems?.length,
@@ -158,7 +221,9 @@ export class DocumentPackageService {
       },
     )
 
-    const items = this._extractAndMap(response.data)
+    let items = this._extractAndMap(response.data)
+    // Filtrar por canal en sponsor también por consistencia
+    items = items.filter((post) => post.channel === params.channel)
     items.sort((a, b) => {
       const dateA = a.createdAt ? new Date(a.createdAt).getTime() : 0
       const dateB = b.createdAt ? new Date(b.createdAt).getTime() : 0
@@ -177,6 +242,48 @@ export class DocumentPackageService {
     return items?.[0] || null
   }
 
+  /**
+   * Aplica Opción B a todos los posts: poblar mediaUrls faltantes en blocks
+   * desde mediaItems, incluso cuando los posts ya vienen mapeados de la API.
+   */
+  private _applyMediaFallback(posts: SponsorPost[]): SponsorPost[] {
+    return posts.map((post) => {
+      const doc = post.documentPackage
+      if (!doc?.composicion?.blocks) return post
+      const payloadMediaItems = doc.mediaItems || []
+      const docMediaUrls = doc.mediaUrls || null
+
+      const fixedBlocks = doc.composicion.blocks.map((block, idx) => {
+        if ((block.elementType === 'image' || block.elementType === 'video') && !block.mediaUrls) {
+          const mediaItem = payloadMediaItems[idx]
+          if (mediaItem) {
+            return {
+              ...block,
+              mediaUrls: {
+                thumbUrl: mediaItem.thumbUrl || null,
+                feedUrl: mediaItem.feedUrl || null,
+                fullUrl: mediaItem.fullUrl || null,
+                mediaAssetId: mediaItem.mediaAssetId || null,
+              },
+            }
+          }
+          if (docMediaUrls) {
+            return { ...block, mediaUrls: docMediaUrls }
+          }
+        }
+        return block
+      })
+
+      return {
+        ...post,
+        documentPackage: {
+          ...doc,
+          composicion: { ...doc.composicion, blocks: fixedBlocks },
+        },
+      }
+    })
+  }
+
   private _extractAndMap(response: unknown): SponsorPost[] {
     if (!response) return []
 
@@ -185,18 +292,20 @@ export class DocumentPackageService {
 
     if (Array.isArray(data.data)) {
       if ((data.data[0] as SponsorPost)?.documentPackage) {
-        return data.data as SponsorPost[]
+        return this._applyMediaFallback(data.data as SponsorPost[])
       }
       raws = data.data as unknown as ContentRaw[]
     } else if (Array.isArray(data.contents)) {
       raws = data.contents
     } else if (Array.isArray(data.items)) {
       if ((data.items[0] as SponsorPost)?.documentPackage) {
-        return data.items as SponsorPost[]
+        return this._applyMediaFallback(data.items as SponsorPost[])
       }
       raws = data.items as unknown as ContentRaw[]
     }
 
-    return raws.map(mapContentToSponsorPost).filter((item): item is SponsorPost => item !== null)
+    return this._applyMediaFallback(
+      raws.map(mapContentToSponsorPost).filter((item): item is SponsorPost => item !== null),
+    )
   }
 }
