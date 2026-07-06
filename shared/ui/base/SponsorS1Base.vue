@@ -138,6 +138,7 @@ import { gridToStyle } from '@antojados/ui/services/document-package/gridPositio
 import { getCanvasStyle, getBlockStyle } from '@antojados/ui/services/document-package/styleApplier'
 import { getTouchAction, canExpand } from '@antojados/ui/services/document-package/touchBehavior'
 import { normalizeMediaUrl } from '@antojados/http/config/normalize-media-url'
+import { resolvePostTemplateLayout } from '@antojados/ui/services/document-package/postLayoutResolver'
 
 // ─── Props ──────────────────────────────────────────────────────────────────
 
@@ -213,27 +214,26 @@ const currentSlide = computed<SlideItem>(() => slides.value[carruselIndex.value]
 
 const gridCols = 24
 const gridRows = 40
-const canvasWidthDefault = 380
-const canvasHeightDefault = 640
+const defaultLayout = resolvePostTemplateLayout(0)
 
 const cellWidth = computed(() => {
   if (props.layoutResult) return props.layoutResult.cellWidth
-  return canvasWidthDefault / gridCols
+  return defaultLayout.cellWidth
 })
 
 const cellHeight = computed(() => {
   if (props.layoutResult) return props.layoutResult.cellHeight
-  return canvasHeightDefault / gridRows
+  return defaultLayout.cellHeight
 })
 
 const canvasWidth = computed(() => {
   if (props.layoutResult) return props.layoutResult.canvasWidth
-  return canvasWidthDefault
+  return defaultLayout.canvasWidth
 })
 
 const canvasHeight = computed(() => {
   if (props.layoutResult) return props.layoutResult.canvasHeight
-  return canvasHeightDefault
+  return defaultLayout.canvasHeight
 })
 
 // ─── Estilos ────────────────────────────────────────────────────────────────

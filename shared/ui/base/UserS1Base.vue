@@ -138,6 +138,7 @@ import { gridToStyle } from '@antojados/ui/services/document-package/gridPositio
 import { getCanvasStyle, getBlockStyle } from '@antojados/ui/services/document-package/styleApplier'
 import { getTouchAction, canExpand } from '@antojados/ui/services/document-package/touchBehavior'
 import { normalizeMediaUrl } from '@antojados/http/config/normalize-media-url'
+import { resolvePostTemplateLayout } from '@antojados/ui/services/document-package/postLayoutResolver'
 import type { PostLayoutResult } from '@antojados/ui/services/document-package/postLayoutResolver'
 
 // ─── Props ──────────────────────────────────────────────────────────────────
@@ -278,29 +279,31 @@ const currentSlide = computed<SlideItem>(() =>
 // Fallback: portrait 380×640 con grid 24×40 para backward compatibility.
 // Esto asegura que los componentes legacy sigan funcionando sin modificar API.
 
+// Layout Resolver: calcula geometría según orientación y variante de media.
+// Por defecto (mediaAspectRatio=0) retorna portrait: cols=24, rows=40, canvas=380×640.
+// Si el padre pasa layoutResult como prop, se usa ese (sobrescribe).
 const gridCols = 24
 const gridRows = 40
-const canvasWidthDefault = 380
-const canvasHeightDefault = 640
+const defaultLayout = resolvePostTemplateLayout(0)
 
 const cellWidth = computed(() => {
   if (props.layoutResult) return props.layoutResult.cellWidth
-  return canvasWidthDefault / gridCols
+  return defaultLayout.cellWidth
 })
 
 const cellHeight = computed(() => {
   if (props.layoutResult) return props.layoutResult.cellHeight
-  return canvasHeightDefault / gridRows
+  return defaultLayout.cellHeight
 })
 
 const canvasWidth = computed(() => {
   if (props.layoutResult) return props.layoutResult.canvasWidth
-  return canvasWidthDefault
+  return defaultLayout.canvasWidth
 })
 
 const canvasHeight = computed(() => {
   if (props.layoutResult) return props.layoutResult.canvasHeight
-  return canvasHeightDefault
+  return defaultLayout.canvasHeight
 })
 
 // ─── Estilos ────────────────────────────────────────────────────────────────
