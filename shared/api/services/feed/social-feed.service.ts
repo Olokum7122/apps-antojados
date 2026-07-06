@@ -264,7 +264,8 @@ function matchesScope(item: FeedItem, scope: AntojadosFeedScope | AntojoFeedScop
     return feedType === 'barrio' && Boolean(item.mediaUrl || item.mediaThumbUrl)
   }
 
-  return true
+  // No permitir posts sin clasificar en ningún scope
+  return false
 }
 
 export class SocialFeedService {
