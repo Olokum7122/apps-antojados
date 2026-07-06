@@ -98,7 +98,7 @@ defineProps({
   variant: {
     type: String,
     default: 'default',
-    validator: (value) => ['default', 'business', 'event', 'barrio', 'socialSearch'].includes(value),
+    validator: (value) => ['default', 'business', 'event', 'barrio', 'social', 'socialSearch'].includes(value),
   },
   cityLabel: { type: String, default: 'Mi ciudad' },
   showCityAction: { type: Boolean, default: false },

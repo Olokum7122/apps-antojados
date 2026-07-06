@@ -240,10 +240,15 @@ const canvasHeight = computed(() => {
 
 const canvasStyle = computed(() => {
   const effectId = composicion.value?.efectoGlobal || 'retro'
+  const canvasPayload = (composicion.value as any)?.canvas || null
+  const payloadBg = canvasPayload?.background || null
   const base = getCanvasStyle(effectId as EfectoGlobalId)
-
+  // Si el payload define canvas.background como transparent, respetarlo
+  const style = payloadBg === 'transparent'
+    ? { ...base, background: 'transparent' }
+    : { ...base }
   return {
-    ...base,
+    ...style,
     width: `${canvasWidth.value}px`,
     height: `${canvasHeight.value}px`,
     position: 'relative' as const,
@@ -263,7 +268,7 @@ const carruselStyle = computed(() => {
 const carruselMediaStyle = computed(() => ({
   width: '100%',
   height: '100%',
-  objectFit: 'cover' as const,
+  objectFit: 'contain' as const,
   borderRadius: '8px',
 }))
 
@@ -385,7 +390,7 @@ function renderStars(v: string | number): string {
 .sponsor-s1-base__carrusel-media {
   width: 100%;
   height: 100%;
-  object-fit: cover;
+  object-fit: contain;
   display: block;
   user-select: none;
   -webkit-user-drag: none;

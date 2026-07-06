@@ -24,7 +24,7 @@ export type ContentType = 'sponsor' | 'social'
 
 export type FeedType = 'publicity' | 'general' | 'default'
 
-export type Channel = 'vas_ir' | 'arre' | 'barrio' | 'pachanga' | 'que_pex'
+export type Channel = 'vas_ir' | 'arre' | 'barrio' | 'pachanga' | 'neta' | 'que_pex'
 
 export type SponsorContentType = 'platillo' | 'promo' | 'descuento' | 'evento' | 'general'
 
@@ -157,7 +157,7 @@ export interface MediaPackageItem {
   videoPreviewUrl: string | null
 }
 
-// ── Sponsor Post (para el feed de Vas Ir / Arre) ──
+// ── Sponsor Post (para feed de Vas Ir / Arre y Social: barrio / pachanga / que_pex) ──
 
 export interface SponsorPost {
   id: string
@@ -166,7 +166,9 @@ export interface SponsorPost {
   placeId: string | null
   venueName: string | null
   businessName: string | null
-  channel: 'vas_ir' | 'arre'
+  channel: Channel
+  feedType: FeedType | null
+  contentType: ContentType | null
   createdAt: string | null
 }
 

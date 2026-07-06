@@ -1,0 +1,27 @@
+{
+  "compilerOptions": {
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "target": "esnext",
+    "allowJs": true,
+    "resolveJsonModule": true,
+    "moduleDetection": "force",
+    "isolatedModules": true,
+    "module": "preserve",
+    "noEmit": true,
+    "strict": false,
+    "ignoreDeprecations": "6.0",
+    "lib": ["esnext", "dom", "dom.iterable"],
+    "baseUrl": ".",
+    "paths": {
+      "@antojados/ui/*": ["./*"],
+      "@antojados/api/*": ["../api/*"],
+      "@antojados/http/*": ["../http/*"],
+      "vue-router": ["../../node_modules/vue-router/dist/vue-router.d.ts"],
+      "vue": ["../../node_modules/vue/dist/vue.d.ts"]
+    },
+    "types": ["vue-router"]
+  },
+  "include": ["./**/*.ts", "./**/*.vue"],
+  "exclude": ["node_modules"]
+}

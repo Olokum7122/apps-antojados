@@ -1,7 +1,9 @@
 <template>
-  <user-s1-page channel="pachanga" />
+  <user-pachanga-neta-page />
 </template>
 
 <script setup>
-import UserS1Page from '@antojados/ui/app/components/antojo/UserS1Page.vue'
+import UserPachangaNetaPage from '@antojados/ui/app/components/antojados/UserPachangaNetaPage.vue'
 </script>
+
+

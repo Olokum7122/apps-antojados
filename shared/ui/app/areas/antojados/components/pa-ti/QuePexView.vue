@@ -1,7 +1,7 @@
 <template>
-  <que-pex-feed-component />
+  <user-que-pex-page />
 </template>
 
 <script setup>
-import QuePexFeedComponent from '@antojados/ui/app/components/antojados/QuePexFeedComponent.vue'
+import UserQuePexPage from '@antojados/ui/app/components/antojados/UserQuePexPage.vue'
 </script>

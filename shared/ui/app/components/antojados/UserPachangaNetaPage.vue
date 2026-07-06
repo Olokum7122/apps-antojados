@@ -23,7 +23,7 @@
         v-for="post in posts"
         :key="post.id"
         :post="post"
-        :show-chat="true"
+        :show-chat="false"
         class="user-pachanga-neta-page__post"
         @open-chat="onOpenChat"
         @open-s3="onOpenS3"
@@ -75,19 +75,28 @@ async function loadFeed() {
   loading.value = true
   error.value = ''
   try {
-    const result = await documentPackageService.getByChannel({
-      channel: 'pachanga',
-      feedType: 'default',
-      scopeLevel: scopeLevel.value,
-      scopeCode: scopeCode.value,
-      limit: 20,
-    })
-    result.sort((a, b) => {
+    const [pachangaPosts, netaPosts] = await Promise.all([
+      documentPackageService.getByChannel({
+        channel: 'pachanga',
+        feedType: 'default',
+        scopeLevel: scopeLevel.value,
+        scopeCode: scopeCode.value,
+        limit: 20,
+      }),
+      documentPackageService.getByChannel({
+        channel: 'neta',
+        scopeLevel: scopeLevel.value,
+        scopeCode: scopeCode.value,
+        limit: 20,
+      }),
+    ])
+    const merged = [...pachangaPosts, ...netaPosts]
+    merged.sort((a, b) => {
       const dateA = a.createdAt ? new Date(a.createdAt).getTime() : 0
       const dateB = b.createdAt ? new Date(b.createdAt).getTime() : 0
       return dateB - dateA
     })
-    posts.value = result
+    posts.value = merged
   } catch (err) {
     error.value = err instanceof Error ? err.message : 'No se pudo cargar el feed'
     posts.value = []
@@ -98,14 +107,14 @@ async function loadFeed() {
 
 function onOpenChat(postId: string, userId: string) {
   router.push({
-    path: `/pachanga/usuario/${userId}`,
+    path: `/red/pa-ti/pachanga/usuario/${userId}`,
     query: { post_id: postId, tab: 'posts', source: 'user_feed' },
   })
 }
 
 function onOpenS3(postId: string) {
   router.push({
-    path: `/pachanga/post/${postId}`,
+    path: `/red/pa-ti/pachanga/fullscreen/${postId}`,
     query: { source: 'user_feed' },
   })
 }

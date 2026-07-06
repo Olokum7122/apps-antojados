@@ -1,7 +1,8 @@
 <template>
-  <user-s1-page channel="barrio" />
+  <user-barrio-page />
 </template>
 
 <script setup>
-import UserS1Page from '@antojados/ui/app/components/antojo/UserS1Page.vue'
+import UserBarrioPage from '@antojados/ui/app/components/antojados/UserBarrioPage.vue'
 </script>
+

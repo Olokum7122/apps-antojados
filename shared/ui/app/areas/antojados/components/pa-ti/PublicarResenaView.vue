@@ -25,8 +25,9 @@
       @next="nextStep"
     >
       <template #default>
+        <!-- P1: MEDIA -->
         <section v-if="activeStep === 'media'" class="publicar-resena-view__panel">
-          <h2>Agregar media</h2>
+          <h2>Agregar foto</h2>
           <div class="publicar-resena-view__media-actions">
             <button
               v-for="source in mediaSources"
@@ -67,12 +68,14 @@
           </div>
         </section>
 
+        <!-- P2: TEXTO -->
         <section v-else-if="activeStep === 'texto'" class="publicar-resena-view__panel">
           <h2>Resena</h2>
           <q-input v-model="venueName" dark filled label="Lugar" />
           <q-input v-model="caption" dark filled autogrow label="Que pex del lugar?" />
         </section>
 
+        <!-- P3: PREVIEW + ESTILOS -->
         <section v-else class="publicar-resena-view__panel">
           <h2>Vista previa</h2>
           <article class="publicar-resena-view__preview">
@@ -80,32 +83,100 @@
             <strong>{{ venueName || 'Lugar' }}</strong>
             <p>{{ caption || 'Resena lista para publicar.' }}</p>
           </article>
+
+          <div class="publicar-resena-view__style-selector">
+            <button
+              type="button"
+              class="publicar-resena-view__style-btn"
+              @click="openStylePicker('template')"
+            >
+              <q-icon name="palette" color="primary" size="24px" />
+              <div>
+                <strong>Plantilla</strong>
+                <span>{{ selectedTemplate?.name || 'Ninguna' }}</span>
+              </div>
+              <q-icon v-if="selectedTemplate" name="check_circle" color="positive" size="20px" />
+            </button>
+
+            <button
+              type="button"
+              class="publicar-resena-view__style-btn"
+              @click="openStylePicker('look')"
+            >
+              <q-icon name="style" color="deep-purple-4" size="24px" />
+              <div>
+                <strong>Look</strong>
+                <span>{{ selectedLook?.name || 'Ninguno' }}</span>
+              </div>
+              <q-icon v-if="selectedLook" name="check_circle" color="positive" size="20px" />
+            </button>
+
+            <button
+              type="button"
+              class="publicar-resena-view__style-btn"
+              @click="openStylePicker('filter')"
+            >
+              <q-icon name="blur_on" color="teal-4" size="24px" />
+              <div>
+                <strong>Filtro</strong>
+                <span>{{ selectedFilter?.name || 'Ninguno' }}</span>
+              </div>
+              <q-icon v-if="selectedFilter" name="check_circle" color="positive" size="20px" />
+            </button>
+          </div>
+
+          <q-btn
+            unelevated
+            no-caps
+            color="primary"
+            text-color="dark"
+            label="Publicar"
+            :loading="publishing"
+            :disable="!hasMedia"
+            @click="submit"
+          />
         </section>
       </template>
-
-      <template #actions>
-        <q-btn v-if="activeIndex > 0" flat no-caps color="grey-5" label="Atras" @click="previousStep" />
-        <q-btn
-          v-if="activeIndex < steps.length - 1"
-          unelevated
-          no-caps
-          color="primary"
-          text-color="dark"
-          :label="activeIndex === steps.length - 2 ? 'Previsualizar' : 'Siguiente'"
-          @click="nextStep"
-        />
-        <q-btn
-          v-else
-          unelevated
-          no-caps
-          color="primary"
-          text-color="dark"
-          label="Publicar"
-          :loading="publishing"
-          @click="submit"
-        />
-      </template>
     </feed-flow-orchestrator-base>
+
+    <!-- Dialog selector de estilos -->
+    <q-dialog v-model="styleDialogOpen" persistent>
+      <q-card class="publicar-resena-view__style-dialog bg-grey-10 text-white">
+        <q-card-section>
+          <div class="text-h6">{{ styleDialogTitle }}</div>
+        </q-card-section>
+        <q-card-section class="publicar-resena-view__style-list">
+          <div v-if="stylesLoading" class="publicar-resena-view__style-loading">
+            <q-spinner-dots color="primary" size="24px" />
+            <p>Cargando...</p>
+          </div>
+          <q-item
+            v-for="item in styleItems"
+            :key="item.code"
+            clickable
+            :active="isStyleSelected(item)"
+            active-class="bg-primary text-dark"
+            @click="selectStyleItem(item)"
+          >
+            <q-item-section avatar>
+              <q-icon :name="item.icon || 'check'" color="primary" />
+            </q-item-section>
+            <q-item-section>
+              <q-item-label>{{ item.name }}</q-item-label>
+              <q-item-label v-if="item.description" caption class="text-grey-5">
+                {{ item.description }}
+              </q-item-label>
+            </q-item-section>
+            <q-item-section side>
+              <q-icon v-if="isStyleSelected(item)" name="check_circle" color="positive" />
+            </q-item-section>
+          </q-item>
+        </q-card-section>
+        <q-card-actions align="right">
+          <q-btn flat no-caps label="Cerrar" color="grey-5" v-close-popup />
+        </q-card-actions>
+      </q-card>
+    </q-dialog>
   </section>
 </template>
 
@@ -114,13 +185,14 @@ import { computed, ref } from 'vue'
 import { useQuasar } from 'quasar'
 import { useRouter } from 'vue-router'
 import FeedFlowOrchestratorBase from '@antojados/ui/base/FeedFlowOrchestratorBase.vue'
-import { useLocationScope } from '@antojados/api/composables/useLocationScope'
+import { httpClient, mediaService } from '@antojados/api/services'
+import { API_ENDPOINTS } from '@antojados/http/endpoints'
 import { usePublishMedia } from '@antojados/api/composables/usePublishMedia'
-import { usePublish } from '@antojados/api/composables/usePublish'
+import { getSharedSession } from '@antojados/api/storage/session.storage'
 
 const $q = useQuasar()
 const router = useRouter()
-const { cityCode, scopeLevel, scopeCode } = useLocationScope('pachanga')
+
 const steps = [
   { key: 'media', label: 'Media' },
   { key: 'texto', label: 'Texto' },
@@ -131,7 +203,8 @@ const selectedMediaSource = ref('photo')
 const venueName = ref('')
 const caption = ref('')
 const publishing = ref(false)
-const { publish } = usePublish()
+
+// P1: Media
 const {
   photoInputRef,
   deviceInputRef,
@@ -145,10 +218,93 @@ const {
   onFileChange,
   clearMedia,
 } = usePublishMedia({ allowedMediaTypes: ['photo'] })
+
 const mediaSources = [
   { key: 'photo', label: 'Foto', icon: 'photo_camera', help: 'Tomar foto ahora.' },
   { key: 'device', label: 'Dispositivo', icon: 'perm_media', help: 'Agregar foto desde galeria.' },
 ]
+
+// P3: Estilos
+const styleDialogOpen = ref(false)
+const styleDialogType = ref('template')
+const stylesLoading = ref(false)
+const templateItems = ref([])
+const lookItems = ref([])
+const filterItems = ref([])
+const selectedTemplate = ref(null)
+const selectedLook = ref(null)
+const selectedFilter = ref(null)
+
+const styleDialogTitle = computed(() => {
+  const titles = { template: 'Elige una plantilla', look: 'Elige un look', filter: 'Elige un filtro' }
+  return titles[styleDialogType.value] || 'Elige estilo'
+})
+
+const styleItems = computed(() => {
+  if (styleDialogType.value === 'template') return templateItems.value
+  if (styleDialogType.value === 'look') return lookItems.value
+  return filterItems.value
+})
+
+function isStyleSelected(item) {
+  if (styleDialogType.value === 'template') return selectedTemplate.value?.code === item.code
+  if (styleDialogType.value === 'look') return selectedLook.value?.code === item.code
+  return selectedFilter.value?.code === item.code
+}
+
+async function openStylePicker(type) {
+  styleDialogType.value = type
+  styleDialogOpen.value = true
+  stylesLoading.value = true
+
+  try {
+    if (type === 'template' && templateItems.value.length === 0) {
+      const { data } = await httpClient.get('/api/v1/explorer/templates', { params: { status: 'active' } })
+      if (data?.templates) templateItems.value = data.templates.map(t => ({
+        code: t.template_code,
+        name: t.template_name,
+        description: t.template_description,
+        icon: t.icon,
+      }))
+    }
+    if (type === 'look' && lookItems.value.length === 0) {
+      const { data } = await httpClient.get('/api/v1/explorer/looks', { params: { status: 'active' } })
+      if (data?.looks) lookItems.value = data.looks.map(l => ({
+        code: l.look_code,
+        name: l.look_name,
+        description: l.look_description,
+        icon: 'style',
+      }))
+    }
+    if (type === 'filter' && filterItems.value.length === 0) {
+      const { data } = await httpClient.get('/api/v1/explorer/filters', { params: { status: 'active' } })
+      if (data?.filters) filterItems.value = data.filters.map(f => ({
+        code: f.filter_code,
+        name: f.filter_name,
+        description: f.filter_description,
+        icon: 'blur_on',
+      }))
+    }
+  } catch (err) {
+    console.error('Error loading styles:', err)
+    $q.notify({ type: 'negative', message: 'Error al cargar estilos' })
+  } finally {
+    stylesLoading.value = false
+  }
+}
+
+function selectStyleItem(item) {
+  if (styleDialogType.value === 'template') {
+    selectedTemplate.value = item
+  } else if (styleDialogType.value === 'look') {
+    selectedLook.value = item
+  } else {
+    selectedFilter.value = item
+  }
+  styleDialogOpen.value = false
+}
+
+// Navigation
 const activeIndex = computed(() => steps.findIndex((step) => step.key === activeStep.value))
 
 function nextStep() {
@@ -168,34 +324,87 @@ function selectMediaSource(sourceKey) {
   triggerFilePicker(sourceKey)
 }
 
+// ─── SUBMIT: Publicar en los 3 dominios ───
 async function submit() {
-  if (publishing.value) return
+  if (publishing.value || !mediaBase64.value) return
   publishing.value = true
 
-  const { postId } = await publish(
-    {
+  try {
+    // Validar sesion
+    const session = await getSharedSession()
+    if (!session?.userId) throw new Error('Necesitas iniciar sesion para publicar.')
+
+    const postId = `neta-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`
+    const channel = 'neta'
+
+    // ─── 1. Media Engine: subir foto ───
+    const uploaded = await mediaService.uploadMedia({
       base64: mediaBase64.value,
-      file: selectedFile.value,
       mediaType: mediaType.value,
       channel: 'feed_post',
-      entityId: `pachanga-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`,
-      entityContext: `antojados.pachanga.resena.${selectedSource.value}`,
-    },
-    {
-      target: 'social',
-      feedScope: 'pachanga',
-      venueName: venueName.value,
-      caption: caption.value,
-      description: caption.value,
-      cityCode: cityCode.value,
-      scopeLevel: scopeLevel.value,
-      scopeCode: scopeCode.value,
-      redirectSuccess: (id) => id ? `/red/pa-ti/pachanga/fullscreen/${id}` : '/red/pa-ti/pachanga',
-    },
-    { context: 'pachanga_resena' },
-  )
-  if (postId) router.replace(`/red/pa-ti/pachanga/fullscreen/${postId}`)
-  publishing.value = false
+      entityId: postId,
+      entityContext: `antojados.${channel}.resena.${selectedSource.value}`,
+    })
+
+    // ─── 2. Explorer DB: crear content con payload y codigos ───
+    const payloadJson = {
+      title: venueName.value?.trim() || 'Resena',
+      body: caption.value?.trim() || null,
+      channel: channel,
+      media_url: uploaded.media_url || null,
+      media_type: mediaType.value,
+      mediaItems: [{
+        mediaAssetId: uploaded.media_asset_id || null,
+        mediaType: mediaType.value,
+        thumbUrl: uploaded.thumbnail_url || null,
+        feedUrl: uploaded.media_url || null,
+        fullUrl: uploaded.full_url || null,
+      }],
+      template_code: selectedTemplate.value?.code || null,
+      look_code: selectedLook.value?.code || null,
+      filter_code: selectedFilter.value?.code || null,
+      body_style_code: 'retro',
+      effects: [],
+      author_handle: session.displayName || session.userId,
+    }
+
+    await httpClient.post(API_ENDPOINTS.publications.create, {
+      id_post: postId,
+      content_type: 'social',
+      id_user: session.userId,
+      feed_type: channel,
+      channel: channel,
+      package_type: 'defaultpackage',
+      template_code: selectedTemplate.value?.code || null,
+      user_id: session.userId,
+      payload_json: payloadJson,
+    })
+
+    // ─── 3. Antojados DB: crear soc_post via Gateway ───
+    await httpClient.post(API_ENDPOINTS.socialPosts.create, {
+      post_id: postId,
+      user_id: session.userId,
+      channel: channel,
+      feed_type: channel,
+      venue_name: venueName.value?.trim() || 'Sin ubicacion',
+      caption: caption.value?.trim() || null,
+      description: caption.value?.trim() || null,
+      media_url: uploaded.media_url || null,
+      media_thumbnail_url: uploaded.thumbnail_url || null,
+      media_type: mediaType.value,
+      media_intake_id: uploaded.intake_id || null,
+      city_code: null,
+      scope_level: null,
+      scope_code: null,
+    })
+
+    $q.notify({ type: 'positive', message: 'Resena publicada!' })
+    router.push(`/red/pa-ti/pachanga/fullscreen/${postId}`)
+  } catch (error) {
+    $q.notify({ type: 'negative', message: error?.message || 'No se pudo publicar.' })
+  } finally {
+    publishing.value = false
+  }
 }
 </script>
 
@@ -280,6 +489,51 @@ async function submit() {
   border: 1px solid rgba(245, 158, 11, 0.34);
   border-radius: 8px;
   background: #111722;
+}
+
+/* Style selector */
+.publicar-resena-view__style-selector {
+  display: grid;
+  gap: 8px;
+}
+
+.publicar-resena-view__style-btn {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: 12px;
+  align-items: center;
+  padding: 14px 12px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 10px;
+  color: #fff;
+  background: #101620;
+  text-align: left;
+}
+
+.publicar-resena-view__style-btn strong {
+  font-size: 14px;
+  display: block;
+}
+
+.publicar-resena-view__style-btn span {
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.publicar-resena-view__style-dialog {
+  border-radius: 14px;
+  min-width: min(92vw, 400px);
+  max-height: 80vh;
+}
+
+.publicar-resena-view__style-list {
+  overflow-y: auto;
+  max-height: 50vh;
+}
+
+.publicar-resena-view__style-loading {
+  padding: 20px;
+  text-align: center;
 }
 
 .publicar-resena-view__file {

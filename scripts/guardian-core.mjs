@@ -58,14 +58,20 @@ const CONFIG = {
     'docs/Contrato_Restrictivo_HTTP_Render_Seguro_v1.md',
   ],
 
-  // Líneas permitidas (console.log dev, comments, etc.)
+  // Líneas permitidas (console.log dev, defaults de servidor, comments)
   ALLOWED_LINES: [
     // Dev console URLs (solo para desarrollador, no consumidas)
     "console.log(`Antojados iOS V2 web: http://localhost:${port}/`)",
     // Config default de servidor backend (no es consumido por frontend)
     "process.env.ME_MEDIA_BASE_URL || 'http://localhost:4100'",
+    "EXPLORER_API_URL || 'http://localhost:4101'",
+    "MEDIA_ENGINE_URL || 'http://localhost:4100'",
     // Comentarios documentando infraestructura
     '// Media Engine V3 endpoints (proxy Nginx: /api/media/* → localhost:4100)',
+    // Dev console log del servidor (no es consumido por frontend)
+    'console.log(`[explorer-api] listening on http://localhost:${config.port}`);',
+    // URL fixer defensivo: reemplaza localhost por HTTPS público (mediaPackage.resolver.js)
+    'return url.replace(/http:\\/\\/localhost:\\d+/i, PUBLIC_MEDIA_BASE);',
   ],
 
   // Rutas de deploy PS1 oficiales
@@ -134,7 +140,6 @@ function generateReport() {
 // ── Escáner de código fuente ───────────────────────────────────
 function isExcluded(filePath) {
   const normalized = filePath.replace(/\\/g, '/');
-  // Excluir directorios completos
   for (const dir of CONFIG.EXCLUDE_DIRS) {
     if (normalized.includes(`/${dir}/`) || normalized.startsWith(`${dir}/`) || normalized.includes(`\\${dir}\\`)) {
       return true;
@@ -158,7 +163,7 @@ function scanDirectory(dirPath, baseDir) {
   try {
     entries = fs.readdirSync(dirPath, { withFileTypes: true });
   } catch {
-    return; // Permiso denegado, skip
+    return;
   }
 
   for (const entry of entries) {
@@ -183,7 +188,7 @@ function scanFile(filePath, relativePath) {
   try {
     content = fs.readFileSync(filePath, 'utf-8');
   } catch {
-    return; // Binario o error de lectura
+    return;
   }
 
   const lines = content.split('\n');
@@ -191,31 +196,27 @@ function scanFile(filePath, relativePath) {
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
 
-    // Saltar líneas permitidas
     if (isAllowedLine(line)) continue;
 
     for (const forbidden of CONFIG.FORBIDDEN_PATTERNS) {
       if (forbidden.pattern.test(line)) {
         addViolation(relativePath, forbidden.label, forbidden.severity, i + 1);
-        break; // Solo una violación por línea
+        break;
       }
     }
   }
 }
 
-// ── Verificador de versión del pipeline ────────────────────────
 function checkPipelineVersion() {
   const versionFile = path.join(__dirname, 'VERSION');
   if (fs.existsSync(versionFile)) {
     const localVersion = fs.readFileSync(versionFile, 'utf-8').trim();
     CONFIG.version = localVersion;
-
     try {
       const remoteResult = execSync(
         'git ls-remote origin HEAD 2>/dev/null || true',
         { encoding: 'utf-8', cwd: path.resolve(__dirname, '..') }
       ).trim();
-
       if (remoteResult) {
         const remoteHash = remoteResult.split('\t')[0];
         if (remoteHash) {
@@ -225,13 +226,10 @@ function checkPipelineVersion() {
           }
         }
       }
-    } catch {
-      // No hay remote, ignorar silenciosamente
-    }
+    } catch {}
   }
 }
 
-// ── Verificador de sesión GUARDIAN_SESSION ─────────────────────
 function validateSession(sessionToken) {
   if (!sessionToken) {
     console.error('');
@@ -311,6 +309,16 @@ function main() {
 
   const sessionToken = process.env.GUARDIAN_SESSION;
 
+  // Todos los proyectos a escanear
+  const ALL_SOURCE_DIRS = [
+    'apps-antojados/shared',
+    'apps-antojados/apps',
+    'explorer-app/src',
+    'media-engine/src',
+    '../Api_getaway_antojadosmx/src',
+    '../atlx-antojados-gt/apps/explorer-api/src',
+  ];
+
   switch (mode) {
     case 'intercept':
       if (!sessionToken) {
@@ -319,16 +327,16 @@ function main() {
       }
       const session = validateSession(sessionToken);
       console.log(` ✅ Sesión ${session.platform} válida.`);
-      runAudit(['apps-antojados/shared', 'apps-antojados/apps', 'explorer-app/src', 'media-engine/src']);
+      runAudit(ALL_SOURCE_DIRS);
       console.log(' ✅ Auditoría superada. Build autorizado.');
       break;
 
     case 'strict':
-      runAudit(['apps-antojados/shared', 'apps-antojados/apps', 'explorer-app/src', 'media-engine/src']);
+      runAudit(ALL_SOURCE_DIRS);
       break;
 
     case 'report':
-      runAudit(['apps-antojados/shared', 'apps-antojados/apps', 'explorer-app/src', 'media-engine/src']);
+      runAudit(ALL_SOURCE_DIRS);
       break;
 
     case 'help':

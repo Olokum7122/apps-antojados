@@ -131,13 +131,16 @@ const routes = [
                 component: () => import('@antojados/ui/app/areas/antojados/components/pa-ti/PachangaFullscreenView.vue'),
               },
               {
+                path: 'pachanga/usuario/:user_id',
+                component: () => import('@antojados/ui/app/areas/antojados/components/pa-ti/LaNetaUsuarioView.vue'),
+              },
+              {
                 path: 'pachanga/publicar',
                 component: () => import('@antojados/ui/app/areas/antojados/components/pa-ti/PublicarPachangaView.vue'),
               },
               {
                 path: 'que-pex',
-                component: () => import('@antojados/ui/app/components/antojo/UserS1Page.vue'),
-                props: { channel: 'que_pex' },
+                component: () => import('@antojados/ui/app/areas/antojados/components/pa-ti/QuePexView.vue'),
               },
               {
                 path: 'que-pex/post/:post_id',
