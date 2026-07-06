@@ -1,15 +1,20 @@
 /**
- * Calcula posiciones CSS absolutas desde gridPos (24×40 → 380×640px).
+ * Calcula posiciones CSS absolutas desde gridPos usando cellWidth/cellHeight
+ * proporcionados por el Layout Resolver.
+ *
+ * El Layout Resolver es el único responsable de calcular cellWidth y cellHeight
+ * según deviceOrientation, mediaAspectRatio y viewport.
+ *
+ * Este módulo solo convierte grid → píxeles, nunca calcula geometría.
  *
  * Fórmula:
- *   left  = (col - 1) * (canvasWidth / COLS)
- *   top   = (row - 1) * (canvasHeight / ROWS)
- *   width = colspan * (canvasWidth / COLS)
- *   height = rowspan * (canvasHeight / ROWS)
+ *   left  = (col - 1) * cellWidth
+ *   top   = (row - 1) * cellHeight
+ *   width = colspan * cellWidth
+ *   height = rowspan * cellHeight
  */
 
 import type { GridPosition } from '@antojados/api/types/document-package'
-import { GRID } from '@antojados/api/types/document-package'
 
 export interface GridPixelResult {
   left: number
@@ -19,25 +24,33 @@ export interface GridPixelResult {
 }
 
 /**
- * Convierte GridPosition a píxeles absolutos en el canvas 380×640.
+ * Convierte GridPosition a píxeles absolutos usando cellWidth/cellHeight dinámicos.
+ * Los valores cellWidth/cellHeight deben venir del Layout Resolver.
  */
-export function gridToPixels(pos: GridPosition): GridPixelResult {
-  const cellW = GRID.CANVAS_WIDTH / GRID.COLS
-  const cellH = GRID.CANVAS_HEIGHT / GRID.ROWS
-
+export function gridToPixels(
+  pos: GridPosition,
+  cellWidth: number = 380 / 24,
+  cellHeight: number = 640 / 40,
+): GridPixelResult {
   return {
-    left: (pos.col - 1) * cellW,
-    top: (pos.row - 1) * cellH,
-    width: pos.colspan * cellW,
-    height: pos.rowspan * cellH,
+    left: (pos.col - 1) * cellWidth,
+    top: (pos.row - 1) * cellHeight,
+    width: pos.colspan * cellWidth,
+    height: pos.rowspan * cellHeight,
   }
 }
 
 /**
  * Retorna un objeto de estilo CSS position:absolute calculado desde gridPos.
+ * Acepta cellWidth/cellHeight opcionales desde el Layout Resolver.
+ * Si no se proveen, usa fallback portrait 380/24 y 640/40.
  */
-export function gridToStyle(pos: GridPosition): Record<string, string> {
-  const px = gridToPixels(pos)
+export function gridToStyle(
+  pos: GridPosition,
+  cellWidth?: number,
+  cellHeight?: number,
+): Record<string, string> {
+  const px = gridToPixels(pos, cellWidth, cellHeight)
   return {
     position: 'absolute',
     left: `${px.left}px`,
