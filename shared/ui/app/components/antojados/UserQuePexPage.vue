@@ -81,11 +81,8 @@ async function loadFeed() {
       scopeCode: scopeCode.value,
       limit: 30,
     })
-    // Qué Pex solo acepta posts sin feedType o feedType distinto de desma
-    const result = raw.filter((post) => {
-      const ft = String(post.feedType || '').toLowerCase()
-      return !ft || ft === 'que_pex'
-    })
+    // Descartar posts de desma que la API etiqueta mal como que_pex
+    const result = raw.filter((post) => String(post.feedType || '') !== 'desma')
     result.sort((a, b) => {
       const dateA = a.createdAt ? new Date(a.createdAt).getTime() : 0
       const dateB = b.createdAt ? new Date(b.createdAt).getTime() : 0
