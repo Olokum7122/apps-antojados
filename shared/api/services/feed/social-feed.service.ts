@@ -272,6 +272,7 @@ export class SocialFeedService {
   constructor(private readonly http = httpClient) {}
 
   async list(params: FeedListParams): Promise<FeedItem[]> {
+    console.log(`[TRACE:socialFeed.list] scope=${params.scope}, userId=${params.userId}, postId=${params.postId}`)
     const response = await this.http.get<ApiResponse<RawFeedItem[]>>(API_ENDPOINTS.socialPosts.feed, {
       params: {
         page: params.page || 1,
@@ -286,7 +287,19 @@ export class SocialFeedService {
       },
     })
 
-    return Array.isArray(response.data.data) ? response.data.data.map(mapFeedItem) : []
+    const rawItems = Array.isArray(response.data.data) ? response.data.data : []
+    // Validar canal: solo posts cuyo channel coincida con el scope solicitado
+    const filtered = rawItems.filter((raw) => {
+      const sourceChannel = raw.channel || raw.feed_type || null
+      const requestedChannel = params.scope || null
+      if (requestedChannel && sourceChannel && sourceChannel !== requestedChannel) {
+        console.warn(`[TRACE:socialFeed.list] channel mismatch: requested=${requestedChannel}, source=${sourceChannel}, postId=${raw.id || raw.post_id}`)
+        return false
+      }
+      return true
+    })
+    console.log(`[TRACE:socialFeed.list] raw=${rawItems.length}, after channel filter=${filtered.length}`)
+    return filtered.map(mapFeedItem)
   }
 
   async getById(postId: string, scope: AntojadosFeedScope | AntojoFeedScope): Promise<FeedItem | null> {
