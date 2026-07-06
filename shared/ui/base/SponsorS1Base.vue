@@ -134,10 +134,10 @@ import type {
   MediaUrls,
   EfectoGlobalId,
 } from '@antojados/api/types/document-package'
-import { GRID } from '@antojados/api/types/document-package'
 import { gridToStyle } from '@antojados/ui/services/document-package/gridPositionCalculator'
 import { getCanvasStyle, getBlockStyle } from '@antojados/ui/services/document-package/styleApplier'
 import { getTouchAction, canExpand } from '@antojados/ui/services/document-package/touchBehavior'
+import { normalizeMediaUrl } from '@antojados/http/config/normalize-media-url'
 
 // ─── Props ──────────────────────────────────────────────────────────────────
 
@@ -147,6 +147,8 @@ const props = defineProps({
     type: Object as () => SponsorPost | null,
     default: null,
   },
+  /** Layout Result opcional desde el Layout Resolver */
+  layoutResult: { type: Object as () => import('@antojados/ui/services/document-package/postLayoutResolver').PostLayoutResult | null, default: null },
   loading: { type: Boolean, default: false },
   error: { type: String, default: '' },
   /** Si tiene sponsorId, muestra botón VER */
@@ -192,17 +194,47 @@ interface SlideItem {
 const slides = computed<SlideItem[]>(() => {
   return mediaBlocks.value.map((b) => {
     // Usar fullUrl si está disponible, sino content como fallback
-    const url = b.mediaUrls?.fullUrl || b.mediaUrls?.feedUrl || b.content || ''
-    const poster = b.mediaUrls?.thumbUrl || null
+    const rawUrl = b.mediaUrls?.fullUrl || b.mediaUrls?.feedUrl || b.content || ''
+    const rawPoster = b.mediaUrls?.thumbUrl || null
     return {
-      url,
-      poster,
+      url: normalizeMediaUrl(rawUrl) || rawUrl,
+      poster: normalizeMediaUrl(rawPoster),
       mediaType: b.elementType === 'video' ? 'video' : 'image',
     }
   })
 })
 
 const currentSlide = computed<SlideItem>(() => slides.value[carruselIndex.value] || slides.value[0] || { url: '', poster: null, mediaType: 'image' })
+
+// ─── Cell size desde el Layout Resolver ──────────────────────────────────
+// El Layout Resolver (postLayoutResolver.ts) entrega cellWidth/cellHeight.
+// Podemos recibir layoutResult como prop opcional.
+// Fallback: portrait 380×640 con grid 24×40 para backward compatibility.
+
+const gridCols = 24
+const gridRows = 40
+const canvasWidthDefault = 380
+const canvasHeightDefault = 640
+
+const cellWidth = computed(() => {
+  if (props.layoutResult) return props.layoutResult.cellWidth
+  return canvasWidthDefault / gridCols
+})
+
+const cellHeight = computed(() => {
+  if (props.layoutResult) return props.layoutResult.cellHeight
+  return canvasHeightDefault / gridRows
+})
+
+const canvasWidth = computed(() => {
+  if (props.layoutResult) return props.layoutResult.canvasWidth
+  return canvasWidthDefault
+})
+
+const canvasHeight = computed(() => {
+  if (props.layoutResult) return props.layoutResult.canvasHeight
+  return canvasHeightDefault
+})
 
 // ─── Estilos ────────────────────────────────────────────────────────────────
 
@@ -212,8 +244,8 @@ const canvasStyle = computed(() => {
 
   return {
     ...base,
-    width: `${GRID.CANVAS_WIDTH}px`,
-    height: `${GRID.CANVAS_HEIGHT}px`,
+    width: `${canvasWidth.value}px`,
+    height: `${canvasHeight.value}px`,
     position: 'relative' as const,
     overflow: 'hidden',
     borderRadius: '12px',
@@ -225,7 +257,7 @@ const canvasStyle = computed(() => {
 /** Posición del carrusel = primer bloque media */
 const carruselStyle = computed(() => {
   if (!mediaBlocks.value.length) return {}
-  return gridToStyle(mediaBlocks.value[0].gridPos)
+  return gridToStyle(mediaBlocks.value[0].gridPos, cellWidth.value, cellHeight.value)
 })
 
 const carruselMediaStyle = computed(() => ({
@@ -236,14 +268,14 @@ const carruselMediaStyle = computed(() => ({
 }))
 
 function getBlockPosStyle(block: Block): Record<string, string> {
-  const pos = gridToStyle(block.gridPos)
+  const pos = gridToStyle(block.gridPos, cellWidth.value, cellHeight.value)
   if (expandedBlockId.value === block.id) {
     return {
       position: 'absolute',
       left: '0',
       top: '0',
-      width: `${GRID.CANVAS_WIDTH}px`,
-      height: `${GRID.CANVAS_HEIGHT}px`,
+      width: `${canvasWidth.value}px`,
+      height: `${canvasHeight.value}px`,
       zIndex: '10',
       overflow: 'auto',
       padding: '16px',
