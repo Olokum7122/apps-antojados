@@ -100,7 +100,7 @@ export const API_ENDPOINTS = {
     checkedEvents: (instanceId: string) => `/api/v1/antojados/gt/instances/${encodeURIComponent(instanceId)}/checked/events`,
   },
   bizPosts: {
-    feed: '/api/v1/antojados/biz/feed',
+    feed: '/api/v1/antojados/feed',
     create: '/api/v1/antojados/biz/posts',
     detail: (bizPostId: string) => `/api/v1/antojados/biz/posts/${encodeURIComponent(bizPostId)}`,
   },
