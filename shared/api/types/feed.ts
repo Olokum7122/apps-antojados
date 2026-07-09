@@ -47,6 +47,10 @@ export interface FeedItem {
   feedType?: string | null
   eventGroupId?: string | null
   ratingVerdicts?: FeedRatingVerdict[]
+  // Campos del feed gateway (feed.md §11.6)
+  viewsCount?: number
+  sharesCount?: number
+  engagementScore?: number
 }
 
 export interface FeedListParams {

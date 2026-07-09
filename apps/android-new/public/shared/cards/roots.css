@@ -1,0 +1,82 @@
+/* ============================================================
+   roots.css — Temas de color para Vas Ir Card
+   Cada tema se activa con una clase en .main-container
+   ============================================================ */
+
+/* ─── Tema 1: DARK (actual) ─── */
+.canvas.t0 {
+  --canvas-bg: #0a0c12;
+  --glass-bg: rgba(20, 25, 38, 0.7);
+  --glass-blur: 18px;
+  --btn-bg: #f59e0b;
+  --btn-color: #0a0c12;
+  --badge-bg: #f97316;
+  --badge-color: #fff;
+  --text-primary: #fff;
+  --text-secondary: rgba(255,255,255,0.75);
+}
+
+/* ─── Tema 2: CIAN ─── */
+.canvas.t1 {
+  --canvas-bg: #0a1418;
+  --glass-bg: rgba(0, 200, 255, 0.45);
+  --glass-blur: 18px;
+  --btn-bg: #00c8ff;
+  --btn-color: #0a0c12;
+  --badge-bg: linear-gradient(135deg, #00c8ff, #00ff88);
+  --badge-color: #0a0c12;
+  --text-primary: #fff;
+  --text-secondary: rgba(255,255,255,0.75);
+}
+
+/* ─── Tema 3: INDIGO (sólido) ─── */
+.canvas.t2 {
+  --canvas-bg: #2a1050;
+  --glass-bg: rgba(99, 60, 255, 0.5);
+  --glass-blur: 18px;
+  --btn-bg: #633cff;
+  --btn-color: #fff;
+  --badge-bg: linear-gradient(135deg, #633cff, #b03cff);
+  --badge-color: #fff;
+  --text-primary: #fff;
+  --text-secondary: rgba(255,255,255,0.75);
+}
+
+/* ─── Tema 4: AMBAR (sólido) ─── */
+.canvas.t3 {
+  --canvas-bg: #4a2800;
+  --glass-bg: rgba(255, 180, 0, 0.5);
+  --glass-blur: 18px;
+  --btn-bg: #ffb400;
+  --btn-color: #0a0c12;
+  --badge-bg: linear-gradient(135deg, #ffb400, #ff6a00);
+  --badge-color: #0a0c12;
+  --text-primary: #fff;
+  --text-secondary: rgba(255,255,255,0.75);
+}
+
+/* ─── Tema 5: MIX1 (indigo + ámbar) ─── */
+.canvas.t4 {
+  --canvas-bg: #0e0814;
+  --glass-bg: rgba(40, 20, 80, 0.6);
+  --glass-blur: 18px;
+  --btn-bg: linear-gradient(135deg, #633cff, #ffb400);
+  --btn-color: #fff;
+  --badge-bg: linear-gradient(135deg, #ffb400, #633cff);
+  --badge-color: #fff;
+  --text-primary: #fff;
+  --text-secondary: rgba(255,255,255,0.75);
+}
+
+/* ─── Tema 6: MIX2 (indigo + cian) ─── */
+.canvas.t5 {
+  --canvas-bg: #080c14;
+  --glass-bg: rgba(20, 40, 80, 0.6);
+  --glass-blur: 18px;
+  --btn-bg: linear-gradient(135deg, #633cff, #00c8ff);
+  --btn-color: #fff;
+  --badge-bg: linear-gradient(135deg, #00c8ff, #633cff);
+  --badge-color: #fff;
+  --text-primary: #fff;
+  --text-secondary: rgba(255,255,255,0.75);
+}

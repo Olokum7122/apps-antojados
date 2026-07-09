@@ -17,10 +17,15 @@ const routes = [
             component: () => import('@antojados/ui/app/areas/antojo/components/VasIrPanel.vue'),
             children: [
               { path: '', redirect: 'gallery' },
-              // S1 nuevo - SponsorS1Page con channel='vas_ir'
-              { path: 'gallery', component: () => import('@antojados/ui/app/components/antojo/SponsorS1Page.vue'), props: { channel: 'vas_ir' } },
+              // S1 - SponsorVasIrPage con card-viewport Web Component (bizFeedService)
+              { path: 'gallery', component: () => import('@antojados/ui/app/components/antojo/SponsorVasIrPage.vue') },
+              // S2 - SponsorVasIrPage con sponsorId desde ruta
+              { path: 'negocio/:sponsor_id', component: () => import('@antojados/ui/app/components/antojo/SponsorVasIrPage.vue') },
+              // S3 - fullscreen post (SponsorVasIrPage con card-viewport)
+              { path: 'negocio/:sponsor_id/post/:post_id', component: () => import('@antojados/ui/app/components/antojo/SponsorVasIrPage.vue') },
               { path: 'catalogo', component: () => import('@antojados/ui/app/areas/antojo/components/vas-ir/CartaVasIr.vue') },
-              { path: 'fullscreen', component: () => import('@antojados/ui/app/areas/antojo/components/vas-ir/FullVasIr.vue') },
+              // fullscreen es S3 dentro del card-viewport, mismo page
+              { path: 'fullscreen', component: () => import('@antojados/ui/app/components/antojo/SponsorVasIrPage.vue') },
               { path: 'registro', redirect: '/antojo/mi-chamba/registro' },
               { path: 'e-firma', redirect: '/antojo/mi-chamba/e-firma' },
               { path: 'contrato', redirect: '/antojo/mi-chamba/contrato' },
@@ -37,18 +42,12 @@ const routes = [
             component: () => import('@antojados/ui/app/areas/antojo/components/ArrePanel.vue'),
             children: [
               { path: '', redirect: 'agenda' },
-              // S1 nuevo - SponsorS1Page con channel='arre'
-              { path: 'agenda', component: () => import('@antojados/ui/app/components/antojo/SponsorS1Page.vue'), props: { channel: 'arre' } },
-              // S2 nuevo - SponsorS1Page con sponsorId (filtrado) y channel='arre'
-              {
-                path: 'negocio/:publisher_id',
-                component: () => import('@antojados/ui/app/components/antojo/SponsorS1Page.vue'),
-                props: { channel: 'arre' },
-              },
-              {
-                path: 'negocio/:publisher_id/post/:post_id',
-                component: () => import('@antojados/ui/app/areas/antojo/components/arre/ArrePostFullscreenView.vue'),
-              },
+              // S1 - SponsorArrePage con card-viewport Web Component (bizFeedService)
+              { path: 'agenda', component: () => import('@antojados/ui/app/components/antojo/SponsorArrePage.vue') },
+              // S2 - SponsorArrePage con sponsorId desde ruta
+              { path: 'negocio/:sponsor_id', component: () => import('@antojados/ui/app/components/antojo/SponsorArrePage.vue') },
+              // S3 - fullscreen dentro del card-viewport
+              { path: 'negocio/:sponsor_id/post/:post_id', component: () => import('@antojados/ui/app/components/antojo/SponsorArrePage.vue') },
               {
                 path: 'publicar',
                 component: () => import('@antojados/ui/app/areas/antojo/components/arre/PublicarArreView.vue'),
@@ -165,16 +164,13 @@ const routes = [
         ],
       },
       { path: 'yo', component: () => import('pages/YoPage.vue') },
-      // S2 nuevo - SponsorS1Page con sponsorId (toma publisher_id de la ruta)
+      // S2 - las rutas bajo vas-ir/negocio y arre/negocio ya se resuelven arriba
       {
-        path: 'negocio/:publisher_id',
-        component: () => import('@antojados/ui/app/components/antojo/SponsorS1Page.vue'),
+        path: 'negocio/:sponsor_id',
+        component: () => import('@antojados/ui/app/components/antojo/SponsorVasIrPage.vue'),
       },
-      // S3 old - se mantiene igual
-      {
-        path: 'negocio/:publisher_id/post/:post_id',
-        component: () => import('@antojados/ui/app/areas/antojo/components/negocio/NegocioPostFullscreenView.vue'),
-      },
+      // S3 - card-viewport maneja fullscreen
+      { path: 'negocio/:sponsor_id/post/:post_id', component: () => import('@antojados/ui/app/components/antojo/SponsorVasIrPage.vue') },
       { path: 'diagnostico', component: () => import('pages/IndexPage.vue') }
     ],
   },

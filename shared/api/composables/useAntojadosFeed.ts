@@ -101,7 +101,7 @@ export function useAntojadosFeed(scope: AntojadosFeedScope) {
 
     try {
       const allPosts = await socialFeedService.list({
-        scope: scope === 'barrio' ? undefined : scope,
+        scope: (scope === 'barrio' || scope === 'desma') ? undefined : scope,
         limit: 200,
         page,
         cityCode: scope === 'barrio' && options.scopeLevel !== 'ciudad' ? undefined : (options.cityCode as string),
@@ -138,7 +138,7 @@ export function useAntojadosFeed(scope: AntojadosFeedScope) {
       }
 
       const allPosts = await socialFeedService.list({
-        scope: scope === 'barrio' ? undefined : scope,
+        scope: (scope === 'barrio' || scope === 'desma') ? undefined : scope,
         limit: 200,
         page: nextPage,
         cityCode: scope === 'barrio' && lastOptions.scopeLevel !== 'ciudad' ? undefined : (lastOptions.cityCode as string),

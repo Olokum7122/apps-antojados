@@ -1,0 +1,53 @@
+<!-- STAGE S1 (sin sponsorId) -->
+<div id="stageS1" class="stage-s1">
+  <!-- Glass P1 (250px, bottom 0) -->
+  <div class="glass-back" id="glassBack">
+    <div class="title" id="p1Title">{{titulo}}</div>
+  </div>
+
+  <!-- MediaBox (bottom 120px) — REUSADA también por S2 -->
+  <div class="media-box" id="mediaBox">
+    <img id="mainImage"
+      src="{{main_image}}"
+      alt="{{nombre_platillo}}"
+    />
+    <div class="carousel-dots" id="carouselDots">
+      {{carousel_dots}}
+    </div>
+    <div class="badge" id="badgeLabel">{{badge}}</div>
+    <div class="watermark">{{watermark}}</div>
+    <div class="platillo-name">{{nombre_platillo}}</div>
+  </div>
+
+  <!-- Botones (tema + sponsor) — visibles solo en S1 -->
+  <div class="card-actions" id="cardActions">
+    <button class="btn-theme" id="btnTheme" title="Cambiar tema"></button>
+    <button class="btn-sponsor" data-action="ver-sponsor" data-sponsor-id="{{sponsor_id}}">
+      Ver Sponsor →
+    </button>
+  </div>
+
+  <!-- Glass P2 (250px, bottom 0) -->
+  <div class="glass-front" id="glassP2">
+    <div class="front-title">{{titulo}}</div>
+    <div class="front-desc">{{descripcion}}</div>
+  </div>
+</div>
+
+<!-- STAGE S2 (con sponsorId) — overlay de comentarios + media box S1 -->
+<div id="stageS2" class="stage-s2" style="display:none">
+  <!-- Botón de retorno S2 → S1 (arriba izquierda) -->
+  <button class="s2-back" id="btnBackToS1" title="Volver">
+    <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 12H5"/><polyline points="12 19 5 12 12 5"/></svg>
+  </button>
+
+  <!-- Glass P3 (comentarios, 250px, bottom) con scroll y input -->
+  <div class="glass-comments" id="glassP3">
+    <div class="comments-list" id="commentsList">
+      {{comments_html}}
+    </div>
+    <div class="comments-input-row">
+      <input class="comments-input" id="commentInput" type="text" placeholder="Escribe un comentario..." />
+    </div>
+  </div>
+</div>
