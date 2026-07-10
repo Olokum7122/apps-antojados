@@ -1,4 +1,27 @@
 -- ============================================================
+-- SP: usp_biz_post_interactions_summary — Resumen de Interacciones Biz
+--
+-- ═══════════════════════════════════════════════════════════════════════════
+-- DOMINIO:      Feed de AntojadosMX — Interacciones de Negocios
+-- RESPONSABLE:  Regresar si el usuario ya dio like y los conteos
+--               de likes/comentarios para un biz_post.
+--
+-- NO HACE:
+--   - No cuenta shares, views, engagement_score
+--   - No valida que el post exista (regresa 0s si no existe)
+--   - No escribe en BD (solo lectura)
+--
+-- PARÁMETROS (según feed.md §5):
+--   @biz_post_id, @user_id (NULL — permite consulta anónima)
+--
+-- RETORNA:
+--   has_liked (BIT), likes_count (INT), comments_count (INT)
+--
+-- REFERENCIAS:
+--   - apps-antojados/docs/feed.md (Sección 5: SPs — Interacciones Biz)
+-- ═══════════════════════════════════════════════════════════════════════════
+--
+-- ============================================================
 -- SP: usp_biz_post_interactions_summary
 -- Regresa si el usuario ya dio like y el conteo de likes/comentarios
 -- ============================================================
@@ -31,3 +54,4 @@ BEGIN
         @comments_count AS comments_count;
 END;
 GO
+

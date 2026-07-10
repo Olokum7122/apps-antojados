@@ -386,15 +386,8 @@ async function submit() {
       user_id: session.userId,
       channel: channel,
       feed_type: channel,
-      venue_name: venueName.value?.trim() || 'Sin ubicacion',
-      caption: caption.value?.trim() || null,
-      description: caption.value?.trim() || null,
       media_url: uploaded.media_url || null,
-      media_thumbnail_url: uploaded.thumbnail_url || null,
       media_type: mediaType.value,
-      media_intake_id: uploaded.intake_id || null,
-      city_code: null,
-      scope_level: null,
       scope_code: null,
     })
 

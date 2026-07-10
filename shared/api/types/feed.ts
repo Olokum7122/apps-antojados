@@ -14,69 +14,66 @@ export interface FeedRatingVerdict {
   phrase: string
 }
 
+/**
+ * FeedItem — modelo unificado para el frontend.
+ *
+ * Viene del feed gateway (feed.md §11.6).
+ * biz_posts: los campos se mapean desde doc_json:
+ *   doc_json.badge        → postTypeLabel (PROMO, PLATILLO, DESCUENTO, EVENTO)
+ *   doc_json.price        → price
+ *   doc_json.descripciones → caption, title (primer elemento)
+ *   media_url + media[]   → mediaUrl, mediaGallery (thumb/feed/full)
+ */
 export interface FeedItem {
   id: string
-  authorHandle: string | null
-  author?: string | null
-  userId?: string | null
-  publisherUserId?: string | null
-  placeId?: string | null
-  place_id?: string | null
-  caption: string | null
-  venueName: string | null
-  venue?: string | null
+  channel: string | null
   mediaUrl: string | null
   mediaThumbUrl?: string | null
-  // DEBT-038: Variantes de media según Client Consumption Spec §5
-  mediaFullUrl?: string | null    // 1920px para fullscreen
-  videoUrl?: string | null        // 720p para reproducción en feed
-  video1080Url?: string | null    // 1080p para fullscreen
+  mediaFullUrl?: string | null
+  videoUrl?: string | null
+  video1080Url?: string | null
   mediaGallery?: string[]
   mediaType: string | null
+
+  // De doc_json:
+  postTypeLabel: string | null   // badge → PROMO, PLATILLO, etc.
+  caption: string | null         // descripciones[0]
+  title: string | null           // descripciones[0] (alias)
+  price: string | null           // doc_json.price
+  descripciones?: string[]       // doc_json.descripciones
+
   likesCount: number
   commentsCount: number
+  viewsCount: number
+  sharesCount: number
+  engagementScore: number
   createdAt: string | null
   durationSec?: number
+
+  hasLiked?: boolean
   comments?: FeedComment[]
-  momentTag?: string | null
-  body?: string | null
-  title?: string | null
-  channel?: string | null
-  postType?: string | null
-  postTypeLabel?: string | null
-  feedType?: string | null
-  eventGroupId?: string | null
   ratingVerdicts?: FeedRatingVerdict[]
-  // Campos del feed gateway (feed.md §11.6)
-  viewsCount?: number
-  sharesCount?: number
-  engagementScore?: number
+  ownerId?: string | null
 }
 
 export interface FeedListParams {
   page?: number
   limit?: number
-  cityCode?: string
-  scopeLevel?: string
-  scopeCode?: string | null
   userId?: string
-  publisherUserId?: string
   postId?: string
   scope?: AntojadosFeedScope | AntojoFeedScope
 }
 
 export interface BizFeedParams {
-  cityCode?: string
-  scopeLevel?: string
-  scopeCode?: string | null
-  postType?: BizPostType | null
   page?: number
   limit?: number
   userId?: string
-  publisherUserId?: string
   postId?: string
-  communityDepth?: number | null
   feedScope: BizFeedScope
+  ownerId?: string             // sponsor_id para filtrar por negocio
+  cityCode?: string            // city_code para filtro geo (scope_level='ciudad')
+  zoneCode?: string            // zone_code para filtro geo (scope_level='zona')
+  scopeLevel?: string          // scope_level para filtro geo
   lat?: number | null
   lng?: number | null
 }
@@ -85,14 +82,9 @@ export interface SocialSyncEvent {
   eventType: string
   userId: string
   postId?: string | null
-  placeId?: string | null
-  publisherUserId?: string | null
   targetUserId?: string | null
   scopeLevel?: string | null
   scopeCode?: string | null
   cityCode?: string | null
   feedScope?: string | null
-  channel?: string | null
-  payload?: Record<string, unknown>
 }
-

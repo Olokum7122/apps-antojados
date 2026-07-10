@@ -223,13 +223,7 @@ async function submit() {
       post_id: postId,
       user_id: session.userId,
       feed_scope: 'barrio',
-      venue_name: venueName.value.trim() || null,
-      caption: caption.value.trim() || null,
-      description: caption.value.trim() || null,
-      city_code: cityCode.value || session.cityCode || null,
-      scope_level: scopeLevel.value || null,
-      scope_code: scopeCode.value || null,
-      media_intake_id: uploaded.intake_id || null,
+      media_url: uploaded.media_url || null,
       media_type: mediaType.value,
     })
 

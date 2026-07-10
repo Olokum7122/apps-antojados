@@ -1,7 +1,7 @@
 import { httpClient } from '../../../http/client'
 import { API_ENDPOINTS } from '../../../http/endpoints'
 import { normalizeMediaUrl } from '../../../http/config/normalize-media-url'
-import type { BizFeedParams, BizFeedScope, BizPostType, FeedComment, FeedItem, FeedRatingVerdict } from '../../types/feed'
+import type { BizFeedParams, BizFeedScope, FeedItem } from '../../types/feed'
 
 // ─── Interfaz RAW del feed gateway (feed.md §11.6) ─────
 interface RawFeedPost {
@@ -101,16 +101,22 @@ function extractTitle(docJson: Record<string, unknown> | null): string | null {
 
 /**
  * Mapea un post del feed gateway (feed.md §11.6) a FeedItem.
+ * Lee doc_json: { badge, price, descripciones[] } (feed.md §7)
  */
 function mapBizPost(raw: RawFeedPost): FeedItem {
   const id = String(raw.id || '')
   if (!id) throw new Error('biz_post_missing_id')
 
   const mediaUrl = normalizeMediaUrl(raw.media_url)
-  const docJson = parseDocJson(raw.doc_json)
+  const docJson = parseDocJson(raw.doc_json) || {}
   const postType = extractPostType(docJson)
   const title = extractTitle(docJson)
   const caption = title
+  const badge = String(docJson.badge || '').toUpperCase()
+  const price = docJson.price ? String(docJson.price) : null
+  const descripciones: string[] = Array.isArray(docJson.descripciones)
+    ? docJson.descripciones.map(String)
+    : []
 
   // Construir mediaGallery desde raw.media[] (feed.md §11.6)
   const mediaGallery: string[] = []
@@ -130,32 +136,27 @@ function mapBizPost(raw: RawFeedPost): FeedItem {
 
   return {
     id,
-    publisherUserId: raw.owner_id || null,
     channel: raw.channel || null,
+    ownerId: raw.owner_id || null,
+
     mediaUrl,
     mediaGallery: mediaGallery.length > 0 ? mediaGallery : undefined,
     likesCount: toNumber(raw.likes_count, 0),
     commentsCount: toNumber(raw.comments_count, 0),
-    createdAt: raw.created_at || null,
-    title,
-    caption,
-    postType,
-    postTypeLabel: toPostTypeLabel(postType),
-    ratingVerdicts,
-    // defaults
-    authorHandle: null,
-    author: null,
-    userId: null,
-    placeId: null,
-    place_id: null,
-    venueName: null,
-    venue: null,
-    mediaType: null,
-    comments: [],
-    body: null,
     viewsCount: toNumber(raw.views_count, 0),
     sharesCount: toNumber(raw.shares_count, 0),
     engagementScore: toNumber(raw.engagement_score, 0),
+    createdAt: raw.created_at || null,
+    hasLiked: !!raw.has_liked,
+    title,
+    caption,
+    price,
+    descripciones,
+    postTypeLabel: badge || toPostTypeLabel(postType) || 'GENERAL',
+    ratingVerdicts,
+    // mediaType y comments se usan en sociales
+    mediaType: null,
+    comments: [],
   }
 }
 
@@ -163,67 +164,68 @@ export class BizFeedService {
   constructor(private readonly http = httpClient) {}
 
   async list(params: BizFeedParams): Promise<FeedItem[]> {
-    console.log('[TRACE biz-feed] list() LLAMADO params:', JSON.stringify(params))
-    console.log('[TRACE biz-feed] URL endpoint:', API_ENDPOINTS.bizPosts.feed)
-
-    // Solo pasar publisher_user_id si tiene valor (evitar filtro vacío que mata resultados)
-    const publisherId = params.publisherUserId?.trim() || undefined
-    const postId = params.postId?.trim() || undefined
-    const cityCode = params.cityCode?.trim() || undefined
+    // Resolver filtro geo según scope_level:
+    //   - 'mexico' → sin filtro geo
+    //   - 'zona'   → enviar zone_code (el Gateway filtra por zone_code en biz_posts/soc_posts)
+    //   - 'ciudad' → enviar city_code
     const scopeLevel = params.scopeLevel?.trim() || undefined
+    let cityCode: string | undefined
+    let zoneCode: string | undefined
+
+    if (scopeLevel === 'zona') {
+      zoneCode = params.zoneCode?.trim() || undefined
+    } else if (scopeLevel && scopeLevel !== 'mexico' && scopeLevel !== 'global') {
+      cityCode = params.cityCode?.trim() || undefined
+    }
 
     const response = await this.http.get<RawFeedResponse>(API_ENDPOINTS.bizPosts.feed, {
       params: {
-        city_code: cityCode,
-        scope_level: scopeLevel,
-        post_type: params.postType || undefined,
         limit: params.limit || 20,
         user_id: params.userId?.trim() || undefined,
-        publisher_user_id: publisherId,
-        biz_post_id: postId,
+        biz_post_id: params.postId?.trim() || undefined,
+        owner_id: params.ownerId?.trim() || undefined,
         feed_scope: params.feedScope,
+        city_code: cityCode,
+        zone_code: zoneCode,
+        scope_level: scopeLevel,
         lat: params.lat ?? undefined,
         lng: params.lng ?? undefined,
       },
     })
 
-    console.log('[TRACE biz-feed] RESPUESTA status:', response.status)
-    // El feedRouter devuelve { data: [...], cursor: {...}, meta: {...} } directamente
     const feedData = response.data
     if (!feedData || !Array.isArray(feedData.data)) {
-      console.log('[TRACE biz-feed] feedData.data NO es array')
       return []
     }
     return feedData.data.map(mapBizPost)
   }
 
   async listByPublisher(
-    publisherUserId: string,
+    ownerId: string,
     feedScope: BizFeedScope,
-    options: { postType?: BizPostType | null; limit?: number } = {},
+    options: { limit?: number } = {},
   ): Promise<FeedItem[]> {
     return this.list({
       feedScope,
-      publisherUserId,
-      postType: options.postType || undefined,
+      ownerId,
       limit: options.limit || 50,
     })
   }
 
-  async getById(postId: string, feedScope: BizFeedScope, publisherUserId?: string): Promise<FeedItem | null> {
-    const items = await this.list({ feedScope, publisherUserId, postId, limit: 20 })
+  async getById(postId: string, feedScope: BizFeedScope, ownerId?: string): Promise<FeedItem | null> {
+    const items = await this.list({ feedScope, ownerId, postId, limit: 20 })
     return items.find((item) => item.id === postId) || items[0] || null
   }
 
   async listAssociated(
     feedScope: BizFeedScope,
-    options: { excludeId?: string; publisherUserId?: string | null },
+    options: { excludeId?: string; ownerId?: string | null },
   ): Promise<FeedItem[]> {
     const items = await this.list({
       feedScope,
-      publisherUserId: options.publisherUserId || undefined,
+      ownerId: options.ownerId || undefined,
       limit: 30,
     })
-    return items.filter((item) => item.id !== options.excludeId)
+    return options.excludeId ? items.filter((item) => item.id !== options.excludeId) : items
   }
 }

@@ -1,33 +1,50 @@
 /**
  * mediaEngineClient.ts — Cliente HTTP para ATLX Media Engine V3.
  *
- * Implementa el contrato definido en 06_API_CONTRACT.md del Media Engine.
+ * ══════════════════════════════════════════════════════════════════════════════
+ * ARQUITECTURA: Gateway-Céntrica
  *
- * Endpoints:
- *   POST   /api/media/requests              -> createMediaRequest
- *   POST   /api/media/:mediaId/rights-origin -> registerRightsOrigin
- *   POST   /api/media/:mediaId/original      -> uploadOriginal (multipart)
- *   GET    /api/media/:mediaId               -> getMediaInfo
- *   GET    /api/media/:mediaId/ready-payload -> getReadyPayload
- *   GET    /api/media/:mediaId/policy        -> getPolicy
- *   POST   /api/media/:mediaId/cancel        -> cancelMedia
+ *   Apps → Gateway (api.antojadosmx.mx/api/media/* → proxy :4100) → Media Engine
+ *
+ *   El frontend NUNCA habla directo al Media Engine.
+ *   Todo el tráfico de media pasa por el Gateway como único punto de entrada.
+ *
+ * ══════════════════════════════════════════════════════════════════════════════
+ *
+ * Endpoints (vía Gateway proxy):
+ *   POST   /api/media/requests               -> createMediaRequest
+ *   POST   /api/media/:mediaId/rights-origin  -> registerRightsOrigin
+ *   POST   /api/media/:mediaId/original        -> uploadOriginal (multipart)
+ *   GET    /api/media/:mediaId                 -> getMediaInfo
+ *   GET    /api/media/:mediaId/ready-payload   -> getReadyPayload
+ *   GET    /api/media/:mediaId/policy           -> getPolicy
+ *   POST   /api/media/:mediaId/cancel           -> cancelMedia
  */
 
 import axios, { type AxiosInstance } from 'axios'
 
 // ─── Config ──────────────────────────────────────────────────────────────────
 
-function getEngineBaseUrl(): string {
-  const url =
-    import.meta.env.VITE_MEDIA_ENGINE_URL ||
-    import.meta.env.VITE_ME_URL ||
-    'http://localhost:4100'
-  return url.replace(/\/+$/, '')
+/**
+ * Obtiene la base URL del Media Engine a través del Gateway.
+ *
+ * ARQUITECTURA GATEWAY-CÉNTRICA:
+ *   Apps → Gateway (api.antojadosmx.mx) → Proxy /api/media/* → Media Engine (:4100)
+ *
+ * El frontend NUNCA habla directo al Engine.
+ * Se usa VITE_API_URL (Gateway) + /api/media como prefijo.
+ */
+function getGatewayMediaUrl(): string {
+  const apiUrl =
+    import.meta.env.VITE_API_URL ||
+    import.meta.env.VITE_API_BASE_URL ||
+    'http://localhost:8010'
+  return apiUrl.replace(/\/+$/, '') + '/api/media'
 }
 
 function createClient(): AxiosInstance {
   return axios.create({
-    baseURL: getEngineBaseUrl(),
+    baseURL: getGatewayMediaUrl(),
     timeout: 120_000,
     headers: { Accept: 'application/json' },
     maxContentLength: 500 * 1024 * 1024,

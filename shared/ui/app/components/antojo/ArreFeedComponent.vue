@@ -153,9 +153,9 @@ import { useAntojoFeed } from '@antojados/api/composables/useAntojoFeed'
 import { useLocationScope } from '@antojados/api/composables/useLocationScope'
 
 const router = useRouter()
-const { filteredPosts: eventPosts, load } = useAntojoFeed('arre')
-const explorerPosts = computed(() => eventPosts.value.filter(isExplorerPost))
-const legacyPosts = computed(() => eventPosts.value.filter((p) => !isExplorerPost(p)))
+const { posts, load } = useAntojoFeed('arre')
+const explorerPosts = computed(() => posts.value.filter(isExplorerPost))
+const legacyPosts = computed(() => posts.value.filter((p) => !isExplorerPost(p)))
 
 function isExplorerPost(post) {
   const composicion = post?.composicion
@@ -202,14 +202,13 @@ function loadFeed() {
   return load({
     cityCode: cityCode.value,
     scopeLevel: scopeLevel.value,
-    scopeCode: scopeCode.value,
   })
 }
 
 function onSelectPost(post) {
-  if (!post?.publisherUserId || post?.channel !== 'arre' || post?.postType !== 'event') return
+  if (!post?.ownerId || post?.channel !== 'arre' || post?.postTypeLabel !== 'EVENTO') return
   router.push({
-    path: `/antojo/arre/negocio/${post.publisherUserId}`,
+    path: `/antojo/arre/negocio/${post.ownerId}`,
     query: { post_id: post.id, source: 'arre_grid', channel: 'arre' },
   })
 }

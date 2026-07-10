@@ -19,7 +19,7 @@ interface RawReward extends Record<string, unknown> {
   points_cost?: number | string | null
   points?: number | string | null
   sponsor_id?: string | null
-  place_id?: string | null
+
   starts_at?: string | null
   ends_at?: string | null
   status?: string | null

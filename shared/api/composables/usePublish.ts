@@ -4,10 +4,16 @@
  * Orquesta el flujo completo:
  *   1. Validar sesion
  *   2. Subir media al engine
- *   3. Crear el post (social o biz)
+ *   3. Crear el post (social o biz) con los campos exactos de la BD real
  *   4. Notificar resultado
  *
- * DEBT-016: Elimina codigo duplicado en las 5 vistas de publicacion.
+ * Modelo de datos real (DDL SQL):
+ *   usp_publish_biz_post: @sponsor_id, @channel, @feed_type, @media_url, @doc_json
+ *   usp_publish_soc_post: @user_id,   @channel, @feed_type, @media_url, @doc_json
+ *
+ * NO existen: place_id, user_id, title, body, post_type,
+ *   publication_type, cta_label, cta_url, venue_name, caption, description,
+ *   city_code, scope_level, scope_code, media_intake_id
  */
 
 import { ref } from 'vue'
@@ -15,31 +21,25 @@ import { useQuasar } from 'quasar'
 import { publishService } from '@antojados/api/services'
 import { resolveMediaUploadStageLabel, uploadPublishMediaFlow } from '@antojados/api/services/media/media-publish-flow.service'
 import { getSharedSession } from '@antojados/api/storage/session.storage'
+import { useLocationScope } from '@antojados/api/composables/useLocationScope'
 import type { MediaType } from '@antojados/api/types/publish'
 
 export type PublishTarget = 'social' | 'biz'
 
 export interface SocialPublishConfig {
   target: 'social'
-  feedScope: 'barrio' | 'pachanga' | 'que-pex' | 'la-neta' | 'desma'
-  venueName?: string | null
-  caption?: string | null
-  description?: string | null
-  cityCode?: string | null
-  scopeLevel?: string | null
-  scopeCode?: string | null
+  channel: 'barrio' | 'pachanga' | 'que_pex' | 'neta' | 'desma'
+  feedType?: string
+  docJson?: Record<string, unknown> | null
   redirectSuccess?: (postId: string | null) => string
 }
 
 export interface BizPublishConfig {
   target: 'biz'
+  sponsorId: string
   channel: 'vas_ir' | 'arre'
-  postType: string
-  publicationType: string
-  title: string
-  body?: string | null
-  ctaLabel?: string | null
-  ctaUrl?: string | null
+  feedType?: string
+  docJson?: Record<string, unknown> | null
   redirectSuccess?: (bizPostId: string | null) => string
 }
 
@@ -75,9 +75,7 @@ export function usePublish() {
     media: PublishMediaInput | null,
     config: PublishConfig,
     options: {
-      /** Para override de ruta de redireccion */
       redirectTo?: string
-      /** Contexto amigable para errores */
       context?: string
       onStage?: (stage: string, detail?: string) => void
     } = {},
@@ -94,93 +92,68 @@ export function usePublish() {
         throw new Error('Necesitas iniciar sesion para publicar.')
       }
 
-      // 2. Validar que haya media cuando es social (biz puede ser opcional)
-      if (config.target === 'social' && !media?.base64 && !media?.file) {
-        throw new Error('Selecciona una foto o video para publicar.')
-      }
+      // 2. Obtener city_code y zone_code desde el estado geo persistido
+      const { cityCode: geoCityCode, zoneScopeCode: geoZoneCode } = useLocationScope(config.channel as any)
+      const cityCode = session.cityCode || geoCityCode.value || null
+      const zoneCode = geoZoneCode.value || null
 
-      // 3. Subir media al engine
+      // 3. Subir media al engine (si hay)
       let mediaUrl: string | undefined
-      let uploadedIntakeId: string | undefined
 
       if (media?.base64 || media?.file) {
-        const channel = media?.channel || (config.target === 'social' ? 'feed_post' : 'biz_post')
-        const entityId = media?.entityId || (config.target === 'biz' ? session.placeId || undefined : undefined)
-
-        const flowInput: {
-          base64: string
-          file?: File | null
-          mediaType: MediaType
-          channel: string
-          entityId?: string | null
-          entityContext?: string | null
-          context: string
-          onStage?: (stage: string, detail?: string) => void
-        } = {
+        const channel = media?.channel || 'feed_post'
+        const flowInput = {
           base64: media?.base64 || '',
           file: media?.file || null,
           mediaType: media?.mediaType || 'photo',
           channel,
-          entityId: entityId || null,
+          entityId: media?.entityId || null,
           entityContext: media?.entityContext || null,
           context: options.context || 'publicacion',
-          onStage: (stage, detail = '') => {
+          onStage: (stage: string, detail = '') => {
             updateStage(stage, detail)
             options.onStage?.(stage, detail)
           },
         }
 
         const result = await uploadPublishMediaFlow(flowInput)
-        mediaUrl = result.mediaUrl
-        uploadedIntakeId = result.uploaded.intake_id || undefined
+        mediaUrl = result.uploaded.feed_url || result.uploaded.media_url || undefined
       }
+
+      // 3. Construir doc_json solo con campos permitidos en la BD
+      const docJson = config.target === 'biz'
+        ? (config.docJson ? JSON.stringify(config.docJson) : null)
+        : (config.docJson ? JSON.stringify(config.docJson) : null)
 
       // 4. Crear el post
       if (config.target === 'social') {
-        const postId = `${config.feedScope}-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`
-
         const result = await publishService.createSocialPost({
-          post_id: postId,
           user_id: session.userId,
-          feed_scope: config.feedScope,
-          venue_name: config.venueName?.trim() || 'Sin ubicacion',
-          caption: config.caption?.trim() || null,
-          description: config.description?.trim() || null,
-          city_code: config.cityCode || session.cityCode || null,
-          scope_level: config.scopeLevel || null,
-          scope_code: config.scopeCode || null,
+          channel: config.channel,
+          feed_type: config.feedType || null,
           media_url: mediaUrl || null,
-          media_type: media?.mediaType || null,
-          media_intake_id: uploadedIntakeId || null,
+          doc_json: docJson,
+          city_code: cityCode,
+          zone_code: zoneCode,
         })
 
         $q.notify({ type: 'positive', message: 'Publicado.' })
-
-        const redirect = options.redirectTo || config.redirectSuccess?.(result.post_id) || `/red/${config.feedScope}`
+        const redirect = options.redirectTo || config.redirectSuccess?.(result.post_id) || `/red/${config.channel}`
         return { postId: result.post_id, success: true }
       }
 
       // Biz post
-      if (!session.placeId) {
-        throw new Error('Necesitas un negocio asignado para publicar.')
-      }
-
       const result = await publishService.createBizPost({
-        place_id: session.placeId,
-        publisher_user_id: session.userId,
+        sponsor_id: config.sponsorId,
         channel: config.channel,
-        post_type: config.postType,
-        publication_type: config.publicationType,
-        title: config.title,
-        body: config.body?.trim() || null,
+        feed_type: config.feedType || null,
         media_url: mediaUrl || null,
-        media_type: media?.mediaType || null,
-        cta_label: config.ctaLabel?.trim() || null,
-        cta_url: config.ctaUrl?.trim() || null,
+        doc_json: docJson,
+        city_code: cityCode,
+        zone_code: zoneCode,
       })
 
       $q.notify({ type: 'positive', message: 'Publicacion creada.' })
-
       const redirect = options.redirectTo || config.redirectSuccess?.(result.biz_post_id) || '/antojo'
       return { bizPostId: result.biz_post_id, success: true }
     } catch (error) {

@@ -1,7 +1,43 @@
 -- ============================================================
--- DDL: soc_post_interactions
--- Tabla de interacciones para posts sociales (soc_posts)
--- Estilo idéntico a biz_post_interactions
+-- DDL: soc_post_interactions — Interacciones de Posts Sociales
+--
+-- ═══════════════════════════════════════════════════════════════════════════
+-- DOMINIO:      Feed de AntojadosMX — Interacciones Sociales
+-- RESPONSABLE:  Definir la estructura física de la tabla
+--               soc_post_interactions, usada por los SPs de interacción
+--               (usp_soc_post_like, unlike, comment, view, summary)
+--               según feed.md §5.
+--
+-- NO HACE:
+--   - No gestiona interacciones de negocios (biz_post_interactions)
+--   - No incluye columnas legacy
+--
+-- NOTA: Esta tabla NO está documentada explícitamente en feed.md como
+-- las otras (biz_posts, biz_post_media, soc_posts, soc_post_media).
+-- Su estructura se infiere de los SPs en §5.
+--
+-- ⚠️ DEUDA DETECTADA EN AUDITORÍA:
+--   - feedService.js (línea ~84) usa 'target_post_id' como FK de
+--     soc_post_interactions, pero el DDL define la columna como 'post_id'.
+--     Esto causa que la subquery has_liked falle silenciosamente para soc_posts.
+--     Corrección pendiente en feedService.js: cambiar 'target_post_id' → 'post_id'.
+--
+-- COLUMNAS:
+--   interaction_id (PK), post_id (FK → soc_posts), user_id,
+--   interaction_type, content_text, parent_comment_id,
+--   moderation_status, created_at_client, received_at_server
+--
+-- ÍNDICES:
+--   PK_soc_post_interactions (clustered), IX_soc_post_interactions_post_id,
+--   IX_soc_post_interactions_user_id, IX_soc_post_interactions_parent (filtered)
+--
+-- REFERENCIAS:
+--   - apps-antojados/docs/feed.md (Sección 5: Stored Procedures — Interacciones Soc)
+--   - apps-antojados/docs/feed.md (Sección 6: Diferencias Biz vs Soc)
+--   - apps-antojados/docs/feed.auditoria.md (Deuda #1: target_post_id vs post_id)
+-- ═══════════════════════════════════════════════════════════════════════════
+--
+-- ⚠️ EJECUTAR CON PRECAUCIÓN: Usa IF NOT EXISTS para evitar sobrescritura
 -- ============================================================
 IF NOT EXISTS (SELECT * FROM sys.tables t JOIN sys.schemas s ON t.schema_id = s.schema_id WHERE s.name = 'antojados_core' AND t.name = 'soc_post_interactions')
 BEGIN
@@ -35,3 +71,4 @@ BEGIN
         WHERE parent_comment_id IS NOT NULL;
 END;
 GO
+

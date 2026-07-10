@@ -1,6 +1,22 @@
 -- ============================================================
--- SP: usp_soc_post_unlike
--- ============================================================
+-- SP: usp_soc_post_unlike — Quitar Like de un Post Social
+--
+-- ═══════════════════════════════════════════════════════════════════════════
+-- DOMINIO:      Feed de AntojadosMX — Interacciones Sociales
+-- RESPONSABLE:  Eliminar un like de soc_post_interactions y
+--               decrementar likes_count en soc_posts.
+--
+-- NO HACE:
+--   - No maneja likes (usp_soc_post_like)
+--   - No verifica que el like exista antes de eliminar
+--
+-- PARÁMETROS (según feed.md §5):
+--   @post_id, @user_id
+--
+-- REFERENCIAS:
+--   - apps-antojados/docs/feed.md (Sección 5: SPs — Interacciones Soc)
+-- ═══════════════════════════════════════════════════════════════════════════
+--
 CREATE OR ALTER PROCEDURE antojados_core.usp_soc_post_unlike
     @post_id NVARCHAR(64),
     @user_id NVARCHAR(64)
@@ -19,3 +35,4 @@ BEGIN
         WHERE post_id = @post_id;
 END;
 GO
+

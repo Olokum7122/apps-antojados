@@ -12,7 +12,6 @@ interface RawSponsor extends Record<string, unknown> {
   sponsor_id?: string
   id?: string
   user_id?: string | null
-  place_id?: string | null
   business_name?: string | null
   name?: string | null
   category?: string | null
@@ -30,7 +29,8 @@ function mapSponsor(raw: RawSponsor): Sponsor {
   return {
     sponsorId: String(raw.sponsor_id || raw.id || ''),
     userId: stringOrNull(raw.user_id),
-    placeId: stringOrNull(raw.place_id),
+
+    placeId: null,
     businessName: stringOrNull(raw.business_name) || stringOrNull(raw.name) || '',
     category: stringOrNull(raw.category),
     cityCode: stringOrNull(raw.city_code),

@@ -94,7 +94,7 @@ function syncHeroAction(eventType, payload) {
     eventType,
     postId: heroPost.value?.id,
     placeId: heroPost.value?.placeId || heroPost.value?.place_id,
-    publisherUserId: heroPost.value?.publisherUserId,
+    userId: heroPost.value?.userId,
     targetUserId: heroPost.value?.userId,
     scopeLevel: scopeLevel.value,
     scopeCode: scopeCode.value,

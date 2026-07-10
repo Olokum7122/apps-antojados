@@ -1,55 +1,49 @@
 import { computed, ref } from 'vue'
 import { bizFeedService } from '../services'
+import type { BizFeedParams } from '../types/feed'
 
 export function useAntojoFeed(scope: string) {
-  const posts = ref<Array<Record<string, unknown>>>([])
+  const posts = ref<import('../types/feed').FeedItem[]>([])
   const loading = ref(false)
   const error = ref('')
 
-  const filteredPosts = computed(() => {
-    if (scope === 'arre') {
-      return posts.value.filter((post: Record<string, unknown>) => post.channel === 'arre' || post.postType === 'event')
-    }
+  // filteredPosts eliminado — postType no existe en FeedItem (legacy).
+  // El filtrado se hace vía load() con el feedScope correcto.
 
-    return posts.value.filter((post: Record<string, unknown>) => post.channel !== 'arre' && post.postType !== 'event')
-  })
-
-  async function load(options: Record<string, string | undefined> = {}) {
+  async function load(options: Partial<BizFeedParams> = {}) {
     loading.value = true
     error.value = ''
 
-    console.log('[TRACE useAntojoFeed] load() INICIADO scope:', scope)
-    console.log('[TRACE useAntojoFeed] options:', JSON.stringify(options))
+    const feedScope = scope === 'arre' ? 'arre' : 'vas_ir'
 
     try {
-      console.log('[TRACE useAntojoFeed] llamando bizFeedService.list()...')
       const result = await bizFeedService.list({
-        feedScope: scope === 'arre' ? 'arre' : 'vas_ir',
-        limit: 30,
+        feedScope,
+        limit: options.limit || 30,
         cityCode: options.cityCode,
-        scopeLevel: options.scopeLevel,
-        scopeCode: options.scopeCode as string | undefined,
-        postType: options.postType || undefined,
+        zoneCode: options.zoneCode,
+        scopeLevel: options.scopeLevel as string | undefined,
+        ownerId: options.ownerId,
       })
-      console.log('[TRACE useAntojoFeed] RESULTADO:', result?.length, 'items')
       posts.value = result
     } catch (requestError) {
-      console.log('[TRACE useAntojoFeed] ERROR capturado:', requestError instanceof Error ? requestError.message : String(requestError))
       posts.value = []
       error.value =
         requestError instanceof Error ? requestError.message : 'No se pudo cargar el feed'
     } finally {
-      console.log('[TRACE useAntojoFeed] load() FINALIZADO, posts:', posts.value.length)
       loading.value = false
     }
   }
 
+  function refresh(options: Partial<BizFeedParams> = {}) {
+    return load(options)
+  }
+
   return {
     posts,
-    filteredPosts,
     loading,
     error,
     load,
+    refresh,
   }
 }
-

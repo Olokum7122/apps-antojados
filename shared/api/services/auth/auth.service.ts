@@ -1,4 +1,3 @@
-import type { AxiosInstance } from 'axios'
 import { httpClient } from '@antojados/http/client'
 import { API_ENDPOINTS } from '@antojados/http/endpoints'
 import { setTokens } from '@antojados/api/storage/token.storage'
@@ -27,7 +26,6 @@ interface LoginApiResponse {
   user_id?: string
   display_name?: string | null
   username?: string | null
-  place_id?: string | null
   city_code?: string | null
   avatar_url?: string | null
   bio?: string | null
@@ -68,7 +66,7 @@ function createId(prefix: string): string {
 }
 
 export class AuthService {
-  constructor(private readonly http: AxiosInstance = httpClient) {}
+  constructor(private readonly http = httpClient) {}
 
   // ─── Register ─────────────────────────────────────────────────────────────
 
@@ -86,7 +84,6 @@ export class AuthService {
       password_secret_ref: await sha256SecretRef(input.password),
       password_confirm_secret_ref: await sha256SecretRef(input.confirmPassword || input.password),
       marketing_opt_in: input.marketingOptIn ? 1 : 0,
-      place_id: input.placeId || null,
     }
 
     const { data } = await this.http.post<RegisterApiResponse>(API_ENDPOINTS.auth.register, payload)
@@ -98,7 +95,6 @@ export class AuthService {
       displayName: input.fullName,
       username: deriveUsername(input.email),
       cityCode: null,
-      placeId: input.placeId || null,
     })
 
     await sharedSessionService.setSession(session)
@@ -119,7 +115,6 @@ export class AuthService {
       password_secret_ref: await sha256SecretRef(input.password),
       password_confirm_secret_ref: await sha256SecretRef(input.confirmPassword || input.password),
       marketing_opt_in: input.marketingOptIn ? 1 : 0,
-      place_id: input.placeId || null,
       business_name: input.businessName || null,
       biz_type: input.bizType || null,
       city_code: input.cityCode || null,
@@ -144,7 +139,6 @@ export class AuthService {
       displayName: input.fullName,
       username: deriveUsername(input.username || input.email),
       cityCode: input.cityCode || null,
-      placeId: input.placeId || null,
       instanceIdHint: data.instance_id || null,
       tenantUserIdHint: data.tenant_user_id || null,
       instanceTypeHint: 'sponsor',
@@ -181,7 +175,6 @@ export class AuthService {
       displayName: input.fullName,
       username: deriveUsername(input.email),
       cityCode: null,
-      placeId: null,
       instanceIdHint: data.instance_id || null,
       tenantUserIdHint: data.tenant_user_id || null,
       instanceTypeHint: data.tenant_user_id ? 'sponsor' : 'user',
@@ -217,7 +210,6 @@ export class AuthService {
       displayName: data.display_name || null,
       username: data.username || null,
       cityCode: data.city_code || null,
-      placeId: data.place_id || null,
     })
 
     const profileResponse = await sharedProfileService.profile(session.userId, session.email)

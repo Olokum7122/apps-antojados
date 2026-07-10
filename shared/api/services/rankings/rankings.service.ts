@@ -52,7 +52,7 @@ function toNumber(value: unknown, fallback = 0): number {
 
 function mapRankingPlace(raw: RawRankingPlace): RankingItem {
   return {
-    placeId: String(raw.place_id || ''),
+    placeId: String(raw.id || ''),
     placeName: typeof raw.place_name === 'string' ? raw.place_name : 'Lugar',
     category: typeof raw.category === 'string' ? raw.category : null,
     cityCode: typeof raw.city_code === 'string' ? raw.city_code : null,
@@ -71,7 +71,6 @@ function mapSponsorMetric(raw: RawSponsorMetric): SponsorMetricItem {
     placeId: String(raw.place_id || ''),
     cityCode: typeof raw.city_code === 'string' ? raw.city_code : null,
     category: typeof raw.category === 'string' ? raw.category : null,
-    postType: typeof raw.post_type === 'string' ? raw.post_type : null,
     bizPostCount: toNumber(raw.biz_post_count, 0),
     impressionsTotal: toNumber(raw.impressions_total, 0),
     likesTotal: toNumber(raw.likes_total, 0),

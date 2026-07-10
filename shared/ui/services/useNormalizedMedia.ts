@@ -55,7 +55,7 @@ export function usePostMedia(postSource: () => Record<string, unknown> | null | 
   const post = computed(() => postSource() || {})
 
   const mediaSrc = computed(() => normalizeMediaUrl(post.value.mediaUrl ?? post.value.media_url ?? null))
-  const thumbSrc = computed(() => normalizeMediaUrl(post.value.mediaThumbUrl ?? post.value.media_thumbnail_url ?? post.value.thumbnailUrl ?? null))
+  const thumbSrc = computed(() => normalizeMediaUrl(post.value.mediaThumbUrl ?? post.value.thumbnailUrl ?? null))
   const fullSrc = computed(() => normalizeMediaUrl(post.value.mediaFullUrl ?? post.value.media_full_url ?? post.value.fullUrl ?? null))
   const gridSrc = computed(() => normalizeMediaUrl(post.value.gridUrl ?? post.value.grid_url ?? null))
   const storySrc = computed(() => normalizeMediaUrl(post.value.storyUrl ?? post.value.story_url ?? null))

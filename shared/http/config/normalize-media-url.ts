@@ -118,6 +118,17 @@ export function normalizeMediaUrl(url: unknown): string | null {
     return trimmed.replace(/^http:\/\//, 'https://')
   }
 
+  // ⚠️ URL sin protocolo (ej. "test.com/img.jpg" o "cdn.example.com/photo.jpg")
+  // Esto indica que la fuente de datos no está devolviendo URLs canónicas.
+  // Para evitar ERR_NAME_NOT_RESOLVED, se antepone https://
+  if (!trimmed.startsWith('https://') && !trimmed.startsWith('http://') && !trimmed.startsWith('/')) {
+    console.warn(
+      `[normalizeMediaUrl] URL sin protocolo detectada: "${trimmed}". Se antepone https://. ` +
+      'Revisar origen de datos — las URLs deben incluir protocolo.',
+    )
+    return `https://${trimmed}`
+  }
+
   return trimmed
 }
 

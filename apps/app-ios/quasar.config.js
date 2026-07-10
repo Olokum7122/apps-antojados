@@ -22,6 +22,10 @@ export default defineConfig((/* ctx */) => {
         const { execSync } = await import('node:child_process');
         console.log('[quasar] Sincronizando cards desde shared/ui/cards/...');
         execSync('node ' + resolve(workspaceRoot, 'scripts/sync-cards.mjs'), { stdio: 'inherit' });
+
+        console.log('[quasar] Sincronizando Gateway con Contabo...');
+        execSync('bash ' + resolve(workspaceRoot, 'scripts/sync-contabo.sh --no-restart'), { stdio: 'inherit' });
+        console.log('[quasar] Gateway sincronizado');
       },
       viteVuePluginOptions: {
         template: {

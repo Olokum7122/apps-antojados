@@ -1,3 +1,4 @@
+#!/usr/bin/env node
 /**
  * BizPostService — Consume el endpoint directo de biz/posts/:id
  * desde el Gateway (GET /api/v1/antojados/biz/posts/:biz_post_id).
@@ -6,15 +7,21 @@
  * CONTRATO: Único dominio permitido: https://api.antojadosmx.mx
  * ═══════════════════════════════════════════════════════════════
  *
- * Este service NO usa el DocumentPackage (legacy).
- * Expone datos limpios: docJson, feedType, mediaDetails, etc.
- * para que SponsorVasIrPage y card-viewport consuman directamente.
+ * SOLO campos del modelo feed.md Sección 1:
+ *   biz_post_id, sponsor_id, channel, feed_type, media_url, doc_json,
+ *   views_count, likes_count, comments_count, shares_count,
+ *   cta_clicks_count, taps_whatsapp_count, taps_maps_count,
+ *   engagement_score, status, created_at
+ *
+ * PROHIBIDO: place_id, user_id, post_type, publication_type,
+ *            title, body, cta_label, cta_url, starts_at, ends_at,
+ *            sponsored, sponsored_priority, venue_name, media_intake_id
  */
 import { httpClient } from '@antojados/http/client'
 import { normalizeMediaUrl } from '@antojados/http/config/normalize-media-url'
 import type { ApiResponse } from '@antojados/api/types/api'
 
-// ─── Interfaces ──────────────────────────────────────────────────
+// ─── Interfaces (solo campos de feed.md) ─────────────────────────
 
 export interface BizMediaDetail {
   media_id: string
@@ -42,43 +49,30 @@ export interface BizMediaDetail {
 
 export interface BizPostRaw {
   biz_post_id: string
-  place_id: string | null
-  publisher_user_id: string | null
-  post_type: string | null
+  sponsor_id: string | null
   channel: string | null
-  publication_type: string | null
-  title: string | null
-  body: string | null
+  feed_type: string | null
   media_url: string | null
-  media_type: string | null
-  cta_label: string | null
-  cta_url: string | null
-  starts_at: string | null
-  ends_at: string | null
-  sponsored: boolean
-  sponsored_priority: number
+  doc_json: string | null
+  media_urls: string[]
+  media_details: BizMediaDetail[]
   views_count: number
   likes_count: number
   comments_count: number
   shares_count: number
   cta_clicks_count: number
+  taps_whatsapp_count: number
+  taps_maps_count: number
+  engagement_score: number
   status: string | null
   created_at: string | null
-  updated_at: string | null
-  feed_type: string | null
-  doc_json: string | null
-  media_urls: string[]
-  media_details: BizMediaDetail[]
 }
 
 export interface BizPostCard {
   id: string
-  publisherUserId: string | null
+  sponsorId: string | null
   channel: string | null
-  postType: string | null
   feedType: string | null
-  title: string | null
-  body: string | null
   docJson: Record<string, unknown> | null
   mediaUrls: string[]
   mediaDetails: BizMediaDetail[]
@@ -127,12 +121,9 @@ function mapBizPost(raw: BizPostRaw): BizPostCard {
 
   return {
     id: raw.biz_post_id,
-    publisherUserId: raw.publisher_user_id,
+    sponsorId: raw.sponsor_id,
     channel: raw.channel,
-    postType: raw.publication_type || raw.post_type,
     feedType: raw.feed_type,
-    title: raw.title,
-    body: raw.body,
     docJson,
     mediaUrls,
     mediaDetails,
@@ -148,7 +139,7 @@ export class BizPostService {
   constructor(private readonly http = httpClient) {}
 
   /**
-   * Obtiene un biz post individual con docJson, feedType y mediaDetails.
+   * Obtiene un biz post individual.
    * GET /api/v1/antojados/biz/posts/:biz_post_id
    */
   async getById(bizPostId: string): Promise<BizPostCard | null> {
@@ -185,36 +176,6 @@ export class BizPostService {
       }))
     } catch (err) {
       console.error(`[BizPostService] Error fetching media for post ${bizPostId}:`, err)
-      return []
-    }
-  }
-
-  /**
-   * Obtiene múltiples biz posts (usado para feed/lista).
-   * GET /api/v1/antojados/biz/posts?publisher_user_id=&channel=
-   */
-  async listByPublisher(
-    publisherUserId: string,
-    channel: string,
-    options?: { limit?: number; postType?: string },
-  ): Promise<BizPostCard[]> {
-    try {
-      const response = await this.http.get<ApiResponse<BizPostRaw[]>>(
-        `/api/v1/antojados/biz/posts`,
-        {
-          params: {
-            publisher_user_id: publisherUserId,
-            channel,
-            post_type: options?.postType || undefined,
-            limit: options?.limit || 30,
-          },
-        },
-      )
-      const raws = response.data?.data || response.data
-      if (!Array.isArray(raws)) return []
-      return raws.map(mapBizPost)
-    } catch (err) {
-      console.error(`[BizPostService] Error listing posts for ${publisherUserId}:`, err)
       return []
     }
   }

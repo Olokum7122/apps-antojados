@@ -27,7 +27,7 @@ export interface MediaUploadResult {
   status?: string | null
   error_msg?: string | null
 
-  // ── Legacy fields (backward compat) ──
+  // Variant URLs
   media_url?: string | null
   media_thumbnail_url?: string | null
 
@@ -54,19 +54,13 @@ export interface MediaUploadResult {
 }
 
 export interface BizPostCreateInput {
-  place_id: string
-  publisher_user_id: string
+  sponsor_id: string
   channel: BizPostChannel
-  post_type: string
-  publication_type: string
-  title: string
-  body?: string | null
+  feed_type?: string | null
   media_url?: string | null
-  media_type?: MediaType | null
-  cta_label?: string | null
-  cta_url?: string | null
-  starts_at?: string | null
-  ends_at?: string | null
+  doc_json?: string | null
+  city_code?: string | null
+  zone_code?: string | null
 }
 
 export interface BizPostCreateResult {
@@ -74,19 +68,13 @@ export interface BizPostCreateResult {
 }
 
 export interface SocialPostCreateInput {
-  post_id?: string | null
   user_id: string
-  feed_scope: SocialPostScope
-  caption?: string | null
-  description?: string | null
-  venue_name?: string | null
+  channel: string
+  feed_type?: string | null
   media_url?: string | null
-  media_thumbnail_url?: string | null
-  media_type?: MediaType | null
-  media_intake_id?: string | null
+  doc_json?: string | null
   city_code?: string | null
-  scope_level?: string | null
-  scope_code?: string | null
+  zone_code?: string | null
 }
 
 export interface SocialPostCreateResult {

@@ -46,6 +46,14 @@ export interface FeedScopeState {
   scopeCode: string | null
   scopeLabel: string
   pendingScopeLevel: ScopeLevel | null
+  /** Código de ciudad propio del feed (evita mezclar entre canales) */
+  cityCode: string | null
+  cityScopeCode: string | null
+  cityLabel: string
+  /** Código de zona propio del feed */
+  zoneCode: string | null
+  zoneScopeCode: string | null
+  zoneLabel: string
 }
 
 export function createGeoState(): GeoAppState {
@@ -65,3 +73,4 @@ export function createGeoState(): GeoAppState {
     feedScopes: {} as Record<LocationFeedKey, FeedScopeState>,
   }) as GeoAppState
 }
+

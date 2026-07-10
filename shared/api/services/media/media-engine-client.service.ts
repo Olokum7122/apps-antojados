@@ -254,10 +254,9 @@ export function toLegacyUploadResult(payload: ReadyPayload, mediaId: string): Me
     status: 'done',
     error_msg: null,
 
-    // Legacy fields
+    // Variant URLs (feed.md: biz_posts.media_url, biz_post_media.feed_url/thumb_url)
     media_url: payload.feedUrl || payload.fullUrl || payload.thumbUrl || null,
     media_thumbnail_url: payload.thumbUrl || payload.gridUrl || null,
-
     // Image Variants
     thumb_url: payload.thumbUrl || null,
     grid_url: payload.gridUrl || null,

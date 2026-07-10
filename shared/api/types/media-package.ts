@@ -145,7 +145,7 @@ export interface MediaUploadResult {
   intakeId: string
   status: string
   errorMsg: string | null
-  // Legacy fields (from original media.service.ts interface)
+  // Variant URLs
   mediaUrl: string | null
   mediaThumbnailUrl: string | null
   thumbUrl: string | null

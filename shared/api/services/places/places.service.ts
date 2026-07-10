@@ -1,4 +1,3 @@
-import type { AxiosInstance } from 'axios'
 import { API_ENDPOINTS } from '@antojados/http/endpoints'
 import type { FeedItem } from '@antojados/api/types/feed'
 import type { GooglePlaceCandidate, Place } from '@antojados/api/types/place'
@@ -19,7 +18,8 @@ function toNumber(value: unknown): number | null {
 function mapPlace(raw: unknown): Place {
   const row = asRecord(raw)
   return {
-    placeId: String(row.place_id || row.id || ''),
+
+    placeId: String(row.id || ''),
     name: String(row.name || row.place_name || ''),
     category: typeof row.category === 'string' ? row.category : null,
     cityCode: typeof row.city_code === 'string' ? row.city_code : null,
@@ -41,7 +41,7 @@ function mapCandidate(raw: unknown): GooglePlaceCandidate {
 }
 
 export class PlacesService {
-  constructor(private readonly http: AxiosInstance) {}
+  constructor(private readonly http: import('axios').AxiosInstance) {}
 
   async list(params: Record<string, unknown> = {}): Promise<Place[]> {
     const { data } = await this.http.get<{ data?: unknown[] }>(API_ENDPOINTS.places.list, { params })

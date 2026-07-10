@@ -146,7 +146,7 @@ function syncAction(eventType, payload) {
     eventType,
     postId: post.value?.id,
     placeId: post.value?.placeId || post.value?.place_id,
-    publisherUserId: post.value?.publisherUserId,
+    userId: post.value?.userId,
     targetUserId: post.value?.userId,
     scopeLevel: scopeLevel.value,
     scopeCode: scopeCode.value,

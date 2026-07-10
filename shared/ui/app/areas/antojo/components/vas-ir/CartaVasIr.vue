@@ -57,7 +57,7 @@ import { useLocationScope } from '@antojados/api/composables/useLocationScope'
 const spotsCount = ref(0)
 const posts = ref([])
 const errorMessage = ref('')
-const { cityCode, cityLabel, scopeLevel, scopeCode, scopeOptions, selectScope } = useLocationScope('vas_ir')
+const { cityCode, cityLabel, scopeLevel, scopeCode, scopeOptions, selectScope, requestDeviceGeo } = useLocationScope('vas_ir')
 
 const columns = [
   { key: 'preview', label: 'Carta' },
@@ -94,6 +94,8 @@ async function loadFeed() {
 }
 
 onMounted(async () => {
+  // Forzar detección GPS al montar el feed para obtener scope ciudad real
+  void requestDeviceGeo(true, false)
   await loadFeed()
 })
 

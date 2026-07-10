@@ -5,20 +5,6 @@
     <div class="title" id="p1Title">{{titulo}}</div>
   </div>
 
-  <!-- MediaBox (bottom 120px) — REUSADA también por S2 -->
-  <div class="media-box" id="mediaBox">
-    <img id="mainImage"
-      src="{{main_image}}"
-      alt="{{nombre_platillo}}"
-    />
-    <div class="carousel-dots" id="carouselDots">
-      {{carousel_dots}}
-    </div>
-    <div class="badge" id="badgeLabel">{{badge}}</div>
-    <div class="watermark">{{watermark}}</div>
-    <div class="platillo-name">{{nombre_platillo}}</div>
-  </div>
-
   <!-- Botones (tema + sponsor) — visibles solo en S1 -->
   <div class="card-actions" id="cardActions">
     <button class="btn-theme" id="btnTheme" title="Cambiar tema"></button>
@@ -32,6 +18,20 @@
     <div class="front-title">{{titulo}}</div>
     <div class="front-desc">{{descripcion}}</div>
   </div>
+</div>
+
+<!-- MediaBox COMPARTIDA entre S1 y S2 — fuera de ambos stages -->
+<div class="media-box" id="mediaBox">
+  <img id="mainImage"
+    src="{{main_image}}"
+    alt="{{nombre_platillo}}"
+  />
+  <div class="carousel-dots" id="carouselDots">
+    {{carousel_dots}}
+  </div>
+  <div class="badge" id="badgeLabel">{{badge}}</div>
+  <div class="watermark">{{watermark}}</div>
+  <div class="platillo-name">{{nombre_platillo}}</div>
 </div>
 
 <!-- STAGE S2 (con sponsorId) — overlay de comentarios + media box S1 -->

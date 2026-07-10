@@ -104,13 +104,6 @@ async function onRequest(config: InternalAxiosRequestConfig): Promise<InternalAx
   const token = await getAccessToken()
   const platform = Capacitor.getPlatform()
 
-  console.log('[TRACE interceptor] onRequest DISPARADO')
-  console.log('[TRACE interceptor] method:', config.method)
-  console.log('[TRACE interceptor] url:', config.url)
-  console.log('[TRACE interceptor] baseURL:', config.baseURL)
-  console.log('[TRACE interceptor] platform:', platform)
-  console.log('[TRACE interceptor] token exists:', !!token)
-
   config.headers.set('Accept', 'application/json')
   config.headers.set('X-App-Version', apiConfig.appVersion)
   config.headers.set('X-App-Env', apiConfig.appEnv)
@@ -129,16 +122,12 @@ async function onRequest(config: InternalAxiosRequestConfig): Promise<InternalAx
 }
 
 function onResponse(response: AxiosResponse): AxiosResponse {
-  console.log('[TRACE interceptor] onResponse DISPARADO status:', response.status)
   return response
 }
 
 async function onResponseError(http: AxiosInstance, error: AxiosError): Promise<AxiosResponse> {
   const status = error.response?.status || 0
   const originalRequest = error.config as RetriableRequestConfig | undefined
-
-  console.log('[TRACE interceptor] onResponseError DISPARADO status:', status)
-  console.log('[TRACE interceptor] error message:', error.message)
 
   if (status !== 401 || !originalRequest || originalRequest._retry) {
     throw normalizeApiError(error)

@@ -35,6 +35,23 @@ const CONFIG = {
     { pattern: /:4100/, severity: 'HIGH', label: 'puerto media engine' },
     { pattern: /:8010/, severity: 'HIGH', label: 'puerto API legacy' },
     { pattern: /:4101/, severity: 'MEDIUM', label: 'puerto explorer API' },
+    // Campos legacy que NO existen en feed.md (Sección 1, 5)
+    { pattern: /\bpublisher_user_id\b/, severity: 'HIGH', label: 'campo legacy publisher_user_id' },
+    { pattern: /\bsponsor_user_id\b/, severity: 'HIGH', label: 'campo legacy sponsor_user_id' },
+    { pattern: /\bpost_type\b/, severity: 'HIGH', label: 'campo legacy post_type' },
+    { pattern: /\bpublication_type\b/, severity: 'HIGH', label: 'campo legacy publication_type' },
+    { pattern: /\bvenue_name\b/, severity: 'HIGH', label: 'campo legacy venue_name' },
+    { pattern: /\bmedia_intake_id\b/, severity: 'HIGH', label: 'campo legacy media_intake_id' },
+    // place_id: SOLO permitido en soc_places (maps), maps service, o icono maps
+    // Prohibido en auth, session, register, posts, publish, cualquier otro lado
+    { pattern: /\bplace_id\b/, severity: 'CRITICAL', label: 'place_id solo en soc_places/maps' },
+    { pattern: /\bplaceId\b/, severity: 'CRITICAL', label: 'placeId solo en soc_places/maps (camelCase)' },
+    // tenant_id: SOLO ligado a sys_instancia donde instance_type='sponsor'
+    // Prohibido en auth, session, register, places, posts, publish
+    { pattern: /\btenant_id\b/, severity: 'CRITICAL', label: 'tenant_id solo en sys_instancia' },
+    { pattern: /\btenantId\b/, severity: 'CRITICAL', label: 'tenantId solo en sys_instancia (camelCase)' },
+    { pattern: /\btenant_user_id\b/, severity: 'CRITICAL', label: 'tenant_user_id solo en sys_instancia' },
+    { pattern: /\btenantUserId\b/, severity: 'CRITICAL', label: 'tenantUserId solo en sys_instancia' },
   ],
 
   // Directorios siempre excluidos
@@ -56,6 +73,45 @@ const CONFIG = {
     'normalize-media-url.js',
     'guardian-core.mjs',
     'docs/Contrato_Restrictivo_HTTP_Render_Seguro_v1.md',
+  ],
+
+  // Archivos donde place_id/placeId está PERMITIDO (solo soc_places y maps)
+  PLACE_ID_ALLOWED_FILES: [
+    'shared/api/services/places',
+    'shared/api/types/places',
+    'shared/api/services/maps',
+    'shared/ui/components/maps',
+    'sql/antojados-core/soc_places',
+    'docs/09_DATABASE_SCHEMA.md',
+    // Backend: solo archivos que manejan soc_places directamente
+    'services/antojados/placesMapper.js',
+    'services/antojados/placesResolver.js',
+    // auth_identities tiene columna place_id (violacion DB-V001 documentada)
+    'services/antojados/authSocialResolver.js',
+    'services/antojados/authResolver.js',
+  ],
+
+  // Archivos donde tenant_id/tenantId está PERMITIDO (solo sys_instancia)
+  TENANT_ID_ALLOWED_FILES: [
+    'shared/api/services/instance',
+    'shared/api/types/instance',
+    'sql/antojados-core/sys_instancia',
+    'sql/antojados-core/biz_tenants',
+    'sql/antojados-core/biz_tenant',
+    'docs/09_DATABASE_SCHEMA.md',
+    // Backend: solo archivos que manejan sys_instancia directamente
+    'infra/dorado/tenantsCrudDorado.js',
+    // tenant_user_id es lo mismo que sponsor_id (nombrado mal historicamente)
+    'services/antojados/authSponsorResolver.js',
+    'services/antojados/authSocialResolver.js',
+    'services/antojados/bizMapper.js',
+    'services/antojados/bizResolver.js',
+    'services/antojados/equipo.service.js',
+    'services/antojados/equipoMapper.js',
+    'services/antojados/equipoResolver.js',
+    'services/antojados/analyticsResolver.js',
+    'routes/v1/antojados/biz.routes.js',
+    'routes/v1/antojados/equipo.routes.js',
   ],
 
   // Líneas permitidas (console.log dev, defaults de servidor, comments)
@@ -153,6 +209,26 @@ function isAllowedFile(filePath) {
   return CONFIG.ALLOWED_FILES.some(allowed => normalized.endsWith(allowed));
 }
 
+function isPlaceIdAllowedFile(filePath) {
+  const normalized = filePath.replace(/\\/g, '/');
+  return CONFIG.PLACE_ID_ALLOWED_FILES.some(allowed => normalized.includes(allowed));
+}
+
+function isTenantIdAllowedFile(filePath) {
+  const normalized = filePath.replace(/\\/g, '/');
+  return CONFIG.TENANT_ID_ALLOWED_FILES.some(allowed => normalized.includes(allowed));
+}
+
+function isPlaceIdPattern(forbidden) {
+  const label = forbidden.label || '';
+  return label.includes('place_id') || label.includes('placeId');
+}
+
+function isTenantIdPattern(forbidden) {
+  const label = forbidden.label || '';
+  return label.includes('tenant_id') || label.includes('tenantId') || label.includes('tenant_user_id') || label.includes('tenantUserId');
+}
+
 function isAllowedLine(line) {
   const trimmed = line.trim();
   return CONFIG.ALLOWED_LINES.some(allowed => trimmed === allowed || trimmed.includes(allowed));
@@ -199,10 +275,16 @@ function scanFile(filePath, relativePath) {
     if (isAllowedLine(line)) continue;
 
     for (const forbidden of CONFIG.FORBIDDEN_PATTERNS) {
-      if (forbidden.pattern.test(line)) {
-        addViolation(relativePath, forbidden.label, forbidden.severity, i + 1);
-        break;
-      }
+      if (!forbidden.pattern.test(line)) continue;
+
+      // Excepcion: place_id/placeId permitido solo en archivos de places/maps
+      if (isPlaceIdPattern(forbidden) && isPlaceIdAllowedFile(relativePath)) continue;
+
+      // Excepcion: tenant_id/tenantId permitido solo en archivos de instancia
+      if (isTenantIdPattern(forbidden) && isTenantIdAllowedFile(relativePath)) continue;
+
+      addViolation(relativePath, forbidden.label, forbidden.severity, i + 1);
+      break;
     }
   }
 }

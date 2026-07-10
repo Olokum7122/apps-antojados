@@ -1,4 +1,3 @@
-import type { AxiosInstance } from 'axios'
 import { httpClient } from '@antojados/http/client'
 import { API_ENDPOINTS } from '@antojados/http/endpoints'
 import type { ApiResponse } from '@antojados/api/types/api'
@@ -76,13 +75,13 @@ function mapAuthUser(profile: AuthUserProfile, session?: TragonSession | null): 
     instanceType: session?.instanceType || null,
     instanceId: session?.instanceId || null,
     tenantUserId: session?.tenantUserId || null,
-    placeId: session?.placeId || null,
+    placeId: null,
     cityCode: profile.cityCode || session?.cityCode || null,
   }
 }
 
 export class ProfileService {
-  constructor(private readonly http: AxiosInstance = httpClient) {}
+  constructor(private readonly http = httpClient) {}
 
   async profile(userId: string, emailHint?: string): Promise<ApiResponse<AuthUserProfile>> {
     const { data } = await this.http.get<ProfileApiResponse>(API_ENDPOINTS.auth.profile(userId))
@@ -121,3 +120,4 @@ export const sharedProfileService = new ProfileService(httpClient)
 export async function getProfile(userId: string): Promise<AuthUser> {
   return sharedProfileService.getProfile(userId)
 }
+

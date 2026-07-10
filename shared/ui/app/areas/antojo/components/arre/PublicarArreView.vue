@@ -241,9 +241,13 @@ import FeedFlowOrchestratorBase from '@antojados/ui/base/FeedFlowOrchestratorBas
 import { httpClient, publishService } from '@antojados/api/services'
 import { readPublishMediaFile } from '@antojados/api/composables/usePublishMedia'
 import { getSharedSession } from '@antojados/api/storage/session.storage'
+import { useLocationScope } from '@antojados/api/composables/useLocationScope'
 
 const $q = useQuasar()
 const router = useRouter()
+
+// Geo scope para obtener cityCode y zoneCode de la ubicación persistida
+const { cityCode: geoCityCode, zoneScopeCode: geoZoneCode } = useLocationScope('arre')
 
 // ─── P3: Estilos (Drafts) ──────────────────────────────────────────
 const styleDialogOpen = ref(false)
@@ -368,11 +372,12 @@ async function submit() {
 
   try {
     const session = await getSharedSession()
-    if (!session?.userId || !session?.placeId) {
-      throw new Error('Necesitas una sesion sponsor con negocio asignado para publicar.')
+    if (!session?.userId) {
+      throw new Error('Necesitas iniciar sesion para publicar.')
     }
 
-    const mediaUrls = []
+    // Subir media al Engine (1 o N archivos)
+    let mediaUrl = null
     const mediaItemsPayload = []
     let uploadedCount = 0
 
@@ -383,15 +388,15 @@ async function submit() {
         base64: item.base64,
         mediaType: item.mediaType,
         channel: 'biz_post',
-        entityId: session.placeId,
+        entityId: session.userId,
         entityContext: `antojo.arre.${item.mediaType}`,
       })
-      mediaUrls.push(uploaded.media_url || '')
+
+      if (i === 0) mediaUrl = uploaded.feed_url || uploaded.media_url || null
       mediaItemsPayload.push({
-        mediaAssetId: uploaded.media_asset_id || null,
         mediaType: item.mediaType,
-        thumbUrl: uploaded.thumbnail_url || null,
-        feedUrl: uploaded.media_url || null,
+        thumbUrl: uploaded.thumb_url || null,
+        feedUrl: uploaded.feed_url || null,
         fullUrl: uploaded.full_url || null,
       })
       uploadedCount++
@@ -399,43 +404,35 @@ async function submit() {
 
     if (!uploadedCount) throw new Error('No se pudo subir ningun archivo de media.')
 
-    const feedType = packageType.value === 'publicitypackage' ? 'publicity' : 'general'
-    const bodyText = [eventDesc1.value, eventDesc2.value, eventDesc3.value].filter(Boolean).join('\n')
+    const bodyText = [eventDesc1.value, eventDesc2.value, eventDesc3.value].filter(Boolean).join(' | ')
 
-    const contentPayload = {
-      tipoContent: 'event',
-      title: eventTitle.value || 'Evento Arre',
-      body: bodyText || null,
-      price: eventPrice.value || null,
+    // Construir doc_json solo con los campos permitidos en biz_posts:
+    // badge, price, descripciones[]
+    const docJson = JSON.stringify({
       badge: 'EVENTO',
-      media_url: mediaUrls[0],
-      media_type: mediaItems.value[0]?.mediaType || 'photo',
-      mediaItems: mediaItemsPayload,
-      template_code: 'full-frame',
-      body_style_code: 'retro',
-      effects: [],
-    }
+      price: eventPrice.value || null,
+      descripciones: [
+        eventTitle.value || 'Evento Arre',
+        ...(bodyText ? [bodyText] : []),
+      ].filter(Boolean),
+    })
 
-    const draftId = selectedDraft.value?.id_post || null
+    // Obtener city_code y zone_code desde el estado geo persistido
+    const cityCode = session.cityCode || geoCityCode.value || null
+    const zoneCode = session.zoneCode || geoZoneCode.value || null
 
     const result = await publishService.createBizPost({
-      place_id: session.placeId,
-      publisher_user_id: session.userId,
+      sponsor_id: session.userId,
       channel: 'arre',
-      post_type: 'event',
-      publication_type: 'event',
-      title: eventTitle.value.trim() || 'Evento Arre',
-      body: bodyText || null,
-      media_url: mediaUrls[0],
-      media_type: mediaItems.value[0]?.mediaType || 'photo',
-      content_payload: { ...contentPayload, draft_id: draftId },
-      feed_type: feedType,
-      package_type: packageType.value,
-      draft_id: draftId,
+      feed_type: 'event',
+      media_url: mediaUrl,
+      doc_json: docJson,
+      city_code: cityCode,
+      zone_code: zoneCode,
     })
 
     $q.notify({ type: 'positive', message: 'Evento publicado.' })
-    router.replace(result.biz_post_id ? `/antojo/arre/negocio/${session.userId}/post/${result.biz_post_id}` : '/antojo/arre/agenda')
+    router.replace('/antojo/arre/agenda')
   } catch (error) {
     $q.notify({ type: 'negative', message: error?.message || 'No se pudo publicar el evento.' })
   } finally {

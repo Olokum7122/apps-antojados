@@ -86,4 +86,6 @@ export const eventBus = createEventBus()
 export const GeoEvents = {
   PERMISSION_REQUEST: 'geo:permission-request',
   CITY_CHANGE_REQUEST: 'geo:city-change-request',
+  /** Se dispara cuando el usuario acepta el cambio de ciudad detectado por GPS */
+  CITY_CHANGE_ACCEPTED: 'geo:city-change-accepted',
 } as const

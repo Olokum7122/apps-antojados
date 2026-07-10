@@ -137,6 +137,8 @@ NO CUBRE:
 | `sponsor_id` | `NVARCHAR(64)` | | | | ID del negocio/sponsor |
 | `channel` | `NVARCHAR(30)` | | | | Canal de publicación |
 | `feed_type` | `NVARCHAR(30)` | | | `NULL` | Tipo de feed (`general`, `publicity`, `explorador`) |
+| `city_code` | `NVARCHAR(20)` | | | `NULL` | Código de ciudad (ej. `MTY`, `CDMX`, `GDL`) para filtro geo. Si es `NULL`, el post aplica a nivel `mexico`. |
+| `zone_code` | `NVARCHAR(20)` | | | `NULL` | Código de zona metropolitana (ej. `ZMVM`, `ZMGD`) para filtro geo por zona. Si es `NULL`, el post aplica solo a nivel `ciudad` o `mexico`. |
 | `media_url` | `NVARCHAR(500)` | | | `NULL` | URL de media principal |
 | `doc_json` | `NVARCHAR(MAX)` | | | `NULL` | JSON con `badge`, `price`, `descripciones` |
 | `views_count` | `INT` | | | `0` | Vistas |
@@ -157,6 +159,8 @@ NO CUBRE:
 | `PK_biz_posts` (clustered) | `biz_post_id` |
 | `IX_biz_posts_sponsor_id` | `sponsor_id` |
 | `IX_biz_posts_channel` | `channel` |
+| `IX_biz_posts_city_code` | `city_code` |
+| `IX_biz_posts_zone_code` | `zone_code` |
 | `IX_biz_posts_status` | `status` |
 | `IX_biz_posts_created_at` | `created_at DESC` |
 
@@ -199,6 +203,8 @@ NO CUBRE:
 | `user_id` | `NVARCHAR(64)` | | | | ID del usuario |
 | `channel` | `NVARCHAR(30)` | | | | Canal de publicación |
 | `feed_type` | `NVARCHAR(30)` | | | `NULL` | Tipo de feed |
+| `city_code` | `NVARCHAR(20)` | | | `NULL` | Código de ciudad (ej. `MTY`, `CDMX`, `GDL`) para filtro geo. Si es `NULL`, el post aplica a nivel `mexico`. |
+| `zone_code` | `NVARCHAR(20)` | | | `NULL` | Código de zona metropolitana (ej. `ZMVM`, `ZMGD`) para filtro geo por zona. Si es `NULL`, el post aplica solo a nivel `ciudad` o `mexico`. |
 | `media_url` | `NVARCHAR(500)` | | | `NULL` | URL de media principal |
 | `doc_json` | `NVARCHAR(MAX)` | | | `NULL` | JSON con datos extra |
 | `views_count` | `INT` | | | `0` | Vistas |
@@ -216,6 +222,8 @@ NO CUBRE:
 |---|---|
 | `IX_soc_posts_user_id` | `user_id` |
 | `IX_soc_posts_channel` | `channel` |
+| `IX_soc_posts_city_code` | `city_code` |
+| `IX_soc_posts_zone_code` | `zone_code` |
 | `IX_soc_posts_status` | `status` |
 | `IX_soc_posts_created_at` | `created_at DESC` |
 
@@ -254,8 +262,8 @@ NO CUBRE:
 
 | SP | Inputs | Output | Crea UUID |
 |---|---|---|---|
-| `usp_publish_biz_post` | `@sponsor_id, @channel, @feed_type, @media_url, @doc_json` | `@biz_post_id OUTPUT` | `LOWER(NEWID())` |
-| `usp_publish_soc_post` | `@user_id, @channel, @feed_type, @media_url, @doc_json` | `@post_id OUTPUT` | `LOWER(NEWID())` |
+| `usp_publish_biz_post` | `@sponsor_id, @channel, @feed_type, @city_code, @zone_code, @media_url, @doc_json` | `@biz_post_id OUTPUT` | `LOWER(NEWID())` |
+| `usp_publish_soc_post` | `@user_id, @channel, @feed_type, @city_code, @zone_code, @media_url, @doc_json` | `@post_id OUTPUT` | `LOWER(NEWID())` |
 
 ### Media Attach
 
@@ -292,6 +300,7 @@ NO CUBRE:
 |---|---|---|
 | Owner | `sponsor_id` (negocio) | `user_id` (usuario) |
 | Métricas extra | `taps_whatsapp_count`, `taps_maps_count` | No tiene |
+| Campos geo | `city_code`, `zone_code` | `city_code`, `zone_code` |
 | Media table | `biz_post_media.sponsor_id` | `soc_post_media.user_id` |
 | Interacciones table | `biz_post_interactions` | `soc_post_interactions` |
 
@@ -678,16 +687,29 @@ feed_scope                    → Define QUÉ canales se sirven (modal/canal esp
   └── 'desma'                → soc_posts WHERE channel = 'desma' (solo shorts video)
 
 city_scope / scope_level      → Define QUÉ contenido es visible (filtro geo)
-  │
-  ├── scope_level = 'ciudad' → filtrar por ciudad del sponsor/user
-  ├── scope_level = 'zona'   → filtrar por zona metropolitana
-  ├── scope_level = 'mexico' → todo el país
-  └── scope_level = 'global' → todo (futuro, sin filtro)
+│
+│ Los posts tienen `city_code` y `zone_code` como columnas.
+│ El Gateway filtra según scope_level:
+│
+├── scope_level = 'ciudad' → WHERE city_code = @city_code
+│     (el zone_code se ignora, solo importa la ciudad exacta)
+│
+├── scope_level = 'zona'   → WHERE zone_code = @zone_code
+│     (el city_code se ignora, cualquier ciudad dentro de la zona)
+│
+├── scope_level = 'mexico' → sin filtro geo (todo el país)
+│     (se ignoran city_code y zone_code)
+│
+└── scope_level = 'global' → sin filtro geo (todo, futuro)
+
+NOTA: Un post con city_code='MTY' y zone_code='ZMVM' aparece
+tanto en filtro 'ciudad' (MTY) como en 'zona' (ZMVM).
+Esto es correcto: MTY pertenece a la Zona Metropolitana del Valle de México.
 
 scoring (orden dentro del canal)
-  ├── Por defecto: created_at DESC (más recientes primero)
-  ├── popular=true: engagement_score DESC, created_at DESC
-  └── (futuro) preferencias + afinidad del usuario
+├── Por defecto: created_at DESC (más recientes primero)
+├── popular=true: engagement_score DESC, created_at DESC
+└── (futuro) preferencias + afinidad del usuario
 ```
 
 ### 11.3 Mapeo feed_scope → canales y tablas
@@ -717,7 +739,8 @@ scoring (orden dentro del canal)
 
 | Parámetro | Tipo | Default | Descripción |
 |-----------|------|---------|-------------|
-| `city_code` | string | contexto geo del usuario | Filtro por ciudad (`MTY`, `CDMX`, `GDL`, etc.) |
+| `city_code` | string | contexto geo del usuario | Filtro por ciudad (`MTY`, `CDMX`, `GDL`, etc.). Se usa cuando `scope_level=ciudad`. |
+| `zone_code` | string | `null` | Filtro por zona metropolitana (`ZMVM`, `ZMGD`, etc.). Se usa cuando `scope_level=zona`. |
 | `scope_level` | string | `'ciudad'` | Nivel geográfico (`ciudad`, `zona`, `mexico`, `global`) |
 | `cursor` | string | `null` | Cursor para paginación (base64 de `created_at` + `post_id`) |
 | `limit` | int | `20` | Posts por página (max `50`) |
@@ -841,3 +864,28 @@ Este archivo es la **única fuente de verdad** para:
 - `FEED_SCOPE_MAP` — mapeo feed_scope → tabla, canales y tipo
 
 No se replica el código aquí para evitar desincronización.
+
+## 12. Avance — Último chat (Media Engine + Gateway)
+
+### ✅ Logrado
+
+| Capa | Qué se hizo | Detalle |
+|---|---|---|
+| Policy Evaluator (Media Engine) | Fail-open implementado | `canProcess()`, `canPublish()`, `canDownload()`, `canShare()` retornan `true` siempre. `requiresAdminReview()` retorna `false` siempre. El Engine **nunca bloquea contenido** por derechos de autor ausentes. |
+| Watermark automático (Media Engine) | Logica de watermark implementada | Sin watermark externo → se aplica `bitmap.png` (opacidad 0.3, posición bottom_left, margen 20px). Con watermark externo detectado → NO se aplica watermark de Antojados, se preserva el externo. Contenido demo → sin watermark. |
+| bitmap.png | Copiado a assets | `media-engine/src/assets/watermark/bitmap.png`, `apps-antojados/apps/android-new/public/watermark/bitmap.png`, `apps-antojados/apps/app-ios/public/watermark/bitmap.png` |
+| SP `usp_publish_biz_post` | Liberado de bloqueo `RIGHTS_ORIGIN_REQUIRED` | Ya no requiere derechos registrados para subir original. Si no hay derechos, registra warning pero no bloquea el INSERT. |
+| `biz.routes.js` (Gateway) | Rutas POST/GET reescritas | Eliminadas validaciones legacy (`title`, `post_type`, `publication_type`, `publisher_user_id`). Solo recibe los 5 campos de feed.md: `sponsor_id`, `channel`, `feed_type`, `media_url`, `doc_json`. GET usa `sponsor_id` en lugar de `publisher_user_id`. |
+| `bizResolver.js` (Gateway) | `publishBizPost` corregido | Solo pasa los 5 parámetros del SP (`sponsor_id`, `channel`, `feed_type`, `media_url`, `doc_json`). Sin inputs legacy (title, body, post_type, etc.). |
+
+### 🔴 Próximos pasos
+
+| # | Pendiente | Detalle |
+|---|-----------|---------|
+| 1 | **Gateway caído en puerto 8010** | Tras sincronizar archivos a Contabo, `api_antojados` (PM2) dejó de escuchar en `:8010`. Diagnosticar con `pm2 logs api_antojados --err`. |
+| 2 | **`bizResolver.js` desincronizado en Contabo** | En Contabo hay versión legacy con 18 `.input()`. Subir el `bizResolver.js` correcto (5 inputs) y reiniciar PM2. |
+| 3 | **SPs de Antojados DB** | Verificar que `usp_publish_biz_post` y `sp_biz_post_media_attach` en `ATLX_ANTOJADOS_APP` tengan los parámetros exactos de feed.md. |
+| 4 | **Worker Media Engine** | Verificar que procese watermark (bitmap.png, opacidad 0.3, bottom_left) y que variantes thumb/feed/full se generen y sirvan por HTTP en `/media/YYYY/MM/uuid/`. |
+| 5 | **Smoke test end-to-end** | Flujo completo: (1) POST /api/media/requests → (2) POST /api/media/:mediaId/rights-origin → (3) POST /api/media/:mediaId/original → (4) esperar ready (worker) → (5) POST /api/v1/antojados/biz/posts con `media_intake_id` → (6) GET /biz/posts/:id/media para thumb/feed/full. |
+| 6 | **Frontend cargando posts** | Que el frontend (app Android/iOS) pueda renderizar posts de biz con media procesada por el Engine en `card-viewport`. Verificar `media_url`, `thumb_url`, `feed_url`, `full_url`. |
+| 7 | **Seed de datos demo vía Engine** | Reemplazar seeds directos a Unsplash por el flujo real: subir imagen → Engine procesa → Gateway publica con `media_intake_id`. |

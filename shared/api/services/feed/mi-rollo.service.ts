@@ -1,4 +1,3 @@
-import type { AxiosInstance } from 'axios'
 import { API_ENDPOINTS } from '@antojados/http/endpoints'
 import type { ApiResponse } from '@antojados/api/types/api'
 
@@ -54,9 +53,7 @@ interface RawUserSummary extends Record<string, unknown> {
 
 interface RawPost extends Record<string, unknown> {
   post_id?: string
-  description?: string
   dish_name?: string
-  venue_name?: string
   feed_type?: string
   post_status?: string
   likes_count?: number | string
@@ -74,10 +71,9 @@ interface RawFollow extends Record<string, unknown> {
 }
 
 interface RawSave extends Record<string, unknown> {
-  save_id?: string
-  place_id?: string
-  place_name?: string
-  created_at?: string
+    save_id?: string
+    place_name?: string
+    created_at?: string
 }
 
 function toNumber(value: unknown, fallback = 0): number {
@@ -120,7 +116,7 @@ function mapSummary(raw: RawUserSummary): MiRolloSummary {
 }
 
 export class MiRolloService {
-  constructor(private readonly http: AxiosInstance) {}
+  constructor(private readonly http: import('axios').AxiosInstance) {}
 
   async getSummary(userId: string): Promise<MiRolloSummary | null> {
     const response = await this.http.get<ApiResponse<RawUserSummary>>(API_ENDPOINTS.rankings.userSummary, {
@@ -153,7 +149,6 @@ export class MiRolloService {
 
     return rows.map((row, index) => {
       const publishedAt = typeof row.published_at === 'string' ? row.published_at : null
-      const venue = typeof row.venue_name === 'string' ? row.venue_name : 'Sin lugar'
       const dish = typeof row.dish_name === 'string' ? row.dish_name : 'Publicacion'
       const comments = toNumber(row.comments_count, 0)
       const likes = toNumber(row.likes_count, 0)
@@ -161,7 +156,7 @@ export class MiRolloService {
       return {
         id: String(row.post_id || `post-${index}`),
         post: dish,
-        detail: `${venue} · ${likes} likes · ${comments} comentarios`,
+        detail: `${likes} likes · ${comments} comentarios`,
         status: typeof row.post_status === 'string' ? row.post_status : 'active',
         when: toRelativeDate(publishedAt),
         sortDate: publishedAt || '',

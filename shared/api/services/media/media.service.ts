@@ -98,10 +98,9 @@ export function resolveUploadedMediaUrl(result: MediaUploadResult): string | nul
     result.video_1080_url ||
     result.feed_url ||
     result.full_url ||
-    result.media_url ||
-    result.thumb_url ||
-    result.media_thumbnail_url ||
-    null
+        result.media_url ||
+      result.thumb_url ||
+      null
 }
 
 export function requireUploadedMediaUrl(result: MediaUploadResult, context = 'media'): string {

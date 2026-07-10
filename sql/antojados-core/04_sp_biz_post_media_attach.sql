@@ -1,5 +1,31 @@
 -- ============================================================
--- SP: sp_biz_post_media_attach
+-- SP: sp_biz_post_media_attach — Adjuntar Multimedia a Post de Negocio
+--
+-- ═══════════════════════════════════════════════════════════════════════════
+-- DOMINIO:      Feed de AntojadosMX — Multimedia de Posts de Negocios
+-- RESPONSABLE:  Insertar un registro multimedia (thumb/feed/full)
+--               en biz_post_media, vinculado a un biz_post existente.
+--
+-- NO HACE:
+--   - No publica el post (lo hace usp_publish_biz_post)
+--   - No procesa media (lo hace Media Engine)
+--   - No recibe parámetros legacy
+--
+-- PARÁMETROS (según feed.md §5):
+--   @post_id, @sponsor_id, @media_type (DEFAULT 'photo'),
+--   @media_url, @sort_order (DEFAULT 0), @asset_id (NULL),
+--   @thumb_url (NULL), @feed_url (NULL), @full_url (NULL)
+--
+-- REGLAS (feed.md):
+--   §4: asset_id es el mediaId del Media Engine
+--   §6: thumb/feed/full son la interfaz estable; el Gateway
+--       no se entera de los perfiles de procesamiento
+--
+-- REFERENCIAS:
+--   - apps-antojados/docs/feed.md (Sección 2: biz_post_media)
+--   - apps-antojados/docs/feed.md (Sección 5: SPs — Media Attach)
+-- ═══════════════════════════════════════════════════════════════════════════
+--
 -- Solo columnas FINALES de biz_post_media
 -- ============================================================
 CREATE OR ALTER PROCEDURE antojados_core.sp_biz_post_media_attach
@@ -46,3 +72,4 @@ BEGIN
     );
 END;
 GO
+

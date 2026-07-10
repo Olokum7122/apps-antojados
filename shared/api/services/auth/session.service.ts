@@ -162,7 +162,7 @@ export class SessionService {
     displayName: string | null
     username: string | null
     cityCode: string | null
-    placeId: string | null
+    
     instanceIdHint?: string | null
     tenantUserIdHint?: string | null
     instanceTypeHint?: AuthInstanceType

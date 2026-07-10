@@ -141,8 +141,8 @@ const railActions = [
   { key: 'maps', label: 'Maps', icon: 'map', count: 0 },
 ]
 
-function onRailAction(action: string) {
-  console.log('[rail] action:', action)
+function onRailAction(_action: string) {
+  // Future: handle like, share, maps, etc.
 }
 
 const showTypeFilter = ref(false)
@@ -156,6 +156,7 @@ const error = ref('')
 const {
   scopeLevel, scopeCode, scopeLabel, searchValue, suggestions,
   scopeOptions, selectScope, selectCityByCode, selectSuggestion,
+  zoneScopeCode,
 } = useLocationScope(CHANNEL)
 
 const postTypes = [
@@ -179,18 +180,38 @@ const filteredCardPosts = computed(() => {
 function loadFeed() {
   loading.value = true
   error.value = ''
+
+  // Verificar que este Page sigue activo (previene race conditions con el singleton useLocationScope)
+  if (!route.path.includes('/antojo/arre/')) {
+    loading.value = false
+    return
+  }
+
   const sponsorId = publisherId.value
   const feedScope = CHANNEL as 'arre'
   const loadPromise = sponsorId
     ? bizFeedService.listByPublisher(sponsorId, feedScope, { limit: 30 })
-    : bizFeedService.list({ feedScope, limit: 30, cityCode: scopeCode.value || undefined, scopeLevel: scopeLevel.value || undefined })
+    : bizFeedService.list({
+        feedScope,
+        limit: 30,
+        cityCode: scopeLevel.value === 'ciudad' ? (scopeCode.value || undefined) : undefined,
+        zoneCode: scopeLevel.value === 'zona' ? (zoneScopeCode.value || undefined) : undefined,
+        scopeLevel: scopeLevel.value || undefined,
+        ownerId: undefined,
+      })
   loadPromise
-    .then((result) => { posts.value = result })
-    .catch((err) => {
-      error.value = err instanceof Error ? err.message : 'No se pudo cargar el feed'
-      posts.value = []
+    .then((result) => {
+      if (route.path.includes('/antojo/arre/')) posts.value = result
     })
-    .finally(() => { loading.value = false })
+    .catch((err) => {
+      if (route.path.includes('/antojo/arre/')) {
+        error.value = err instanceof Error ? err.message : 'No se pudo cargar el feed'
+        posts.value = []
+      }
+    })
+    .finally(() => {
+      if (route.path.includes('/antojo/arre/')) loading.value = false
+    })
 }
 
 function onVerSponsor(event: CustomEvent) {
@@ -212,7 +233,7 @@ function refreshFeed() { loadFeed() }
 function onSelectType(type: string) { selectedType.value = selectedType.value === type ? '' : type }
 function onSelectCity(code: string) { selectCityByCode(code); isCityPickerOpen.value = false }
 
-watch([scopeLevel, scopeCode, selectedType, publisherId], () => { loadFeed() })
+watch([scopeLevel, scopeCode, zoneScopeCode, selectedType, publisherId], () => { loadFeed() })
 onMounted(() => { loadFeed() })
 </script>
 
@@ -227,6 +248,15 @@ onMounted(() => { loadFeed() })
 .sponsor-arre-page__loading { display: flex; flex-direction: column; align-items: center; gap: 16px; padding: 16px 0; width: 100%; max-width: 400px; }
 .sponsor-arre-page__skeleton { width: 100%; height: 350px; border-radius: 28px; background: linear-gradient(90deg,#1a1d2e 0%,#2a2d3e 50%,#1a1d2e 100%); background-size: 200% 100%; animation: skeletonPulse 1000ms ease-in-out infinite; }
 @keyframes skeletonPulse { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
+.sponsor-arre-page__rail {
+  position: fixed;
+  bottom: 100px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 2500;
+  width: auto;
+  max-width: calc(100% - 32px);
+}
 .slide-down-enter-active, .slide-down-leave-active { transition: all 0.18s ease; }
 .slide-down-enter-from, .slide-down-leave-to { opacity: 0; transform: translateY(-6px); }
 </style>

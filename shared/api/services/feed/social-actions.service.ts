@@ -1,9 +1,8 @@
-import type { AxiosInstance } from 'axios'
 import { API_ENDPOINTS } from '@antojados/http/endpoints'
 import type { SocialSyncEvent } from '@antojados/api/types/feed'
 
 export class SocialActionsService {
-  constructor(private readonly http: AxiosInstance) {}
+  constructor(private readonly http: import('axios').AxiosInstance) {}
 
   async syncEvents(events: SocialSyncEvent[]): Promise<void> {
     if (!Array.isArray(events) || events.length === 0) return
@@ -17,16 +16,9 @@ export class SocialActionsService {
         user_id: event.userId,
         event_ts: new Date().toISOString(),
         post_id: event.postId || undefined,
-        place_id: event.placeId || undefined,
-        publisher_user_id: event.publisherUserId || undefined,
         target_user_id: event.targetUserId || undefined,
-        scope_level: event.scopeLevel || undefined,
-        scope_code: event.scopeCode || undefined,
-        city_code: event.cityCode || undefined,
-        feed_scope: event.feedScope || undefined,
-        channel: event.channel || undefined,
-        payload: event.payload || undefined,
       })),
     })
   }
 }
+

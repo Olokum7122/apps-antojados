@@ -291,9 +291,13 @@ import FeedFlowOrchestratorBase from '@antojados/ui/base/FeedFlowOrchestratorBas
 import { httpClient, publishService } from '@antojados/api/services'
 import { readPublishMediaFile } from '@antojados/api/composables/usePublishMedia'
 import { getSharedSession } from '@antojados/api/storage/session.storage'
+import { useLocationScope } from '@antojados/api/composables/useLocationScope'
 
 const $q = useQuasar()
 const router = useRouter()
+
+// Geo scope para obtener cityCode y zoneCode de la ubicación persistida
+const { cityCode: geoCityCode, zoneScopeCode: geoZoneCode } = useLocationScope('vas_ir')
 
 // ─── Steps ──────────────────────────────────────────────────────────────
 const steps = [
@@ -466,12 +470,12 @@ async function submit() {
 
   try {
     const session = await getSharedSession()
-    if (!session?.userId || !session?.placeId) {
-      throw new Error('Necesitas una sesion sponsor con negocio asignado para publicar.')
+    if (!session?.userId) {
+      throw new Error('Necesitas iniciar sesion para publicar.')
     }
 
-    // Subir media al Engine (1 o N archivos)
-    const mediaUrls = []
+    // Subir media al Engine (1 o N archivos) y obtener feed_url
+    let mediaUrl = null
     const mediaItemsPayload = []
     let uploadedCount = 0
 
@@ -480,22 +484,20 @@ async function submit() {
       const file = mediaFiles.value[i]
       if (!file) continue
 
-      // Usar el engine service via media-publish-flow
       const { mediaService } = await import('@antojados/api/services')
       const uploaded = await mediaService.uploadMedia({
         base64: item.base64,
         mediaType: item.mediaType,
         channel: 'biz_post',
-        entityId: session.placeId,
+        entityId: session.userId,
         entityContext: `antojo.vas_ir.${item.mediaType}`,
       })
 
-      mediaUrls.push(uploaded.media_url || '')
+      if (i === 0) mediaUrl = uploaded.feed_url || uploaded.media_url || null
       mediaItemsPayload.push({
-        mediaAssetId: uploaded.media_asset_id || null,
         mediaType: item.mediaType,
-        thumbUrl: uploaded.thumbnail_url || null,
-        feedUrl: uploaded.media_url || null,
+        thumbUrl: uploaded.thumb_url || null,
+        feedUrl: uploaded.feed_url || null,
         fullUrl: uploaded.full_url || null,
       })
       uploadedCount++
@@ -503,45 +505,33 @@ async function submit() {
 
     if (!uploadedCount) throw new Error('No se pudo subir ningun archivo de media.')
 
-    // Construir payload del content para Explorer
-    const feedType = packageType.value === 'publicitypackage' ? 'publicity' : 'general'
-    const contentPayload = {
-      tipoContent: packageType.value === 'publicitypackage' ? selectedBadge.value : 'general',
-      title: previewTitle.value,
-      body: previewDesc.value,
-      price: packageType.value === 'publicitypackage' ? pubPrice.value || null : null,
+    // Construir doc_json solo con los campos permitidos en biz_posts:
+    // badge, price, descripciones[] (según DDL real y regla de negocio #2)
+    const docJson = JSON.stringify({
       badge: badgeLabel.value,
-      media_url: mediaUrls[0],
-      media_type: mediaItems.value[0]?.mediaType || 'photo',
-      mediaItems: mediaItemsPayload,
-      // Template/look/filter se asignaran en P3 (siguiente iteracion)
-      template_code: 'full-frame',
-      body_style_code: 'retro',
-      effects: [],
-    }
+      price: packageType.value === 'publicitypackage' ? (pubPrice.value || null) : null,
+      descripciones: [
+        previewTitle.value,
+        ...(previewDesc.value ? [previewDesc.value] : []),
+      ].filter(Boolean),
+    })
 
-    // Publicar en Antojados DB + Explorer DB
-    const draftId = selectedDraft.value?.id_post || null
+    // Obtener city_code y zone_code desde el estado geo persistido
+    const cityCode = session.cityCode || geoCityCode.value || null
+    const zoneCode = session.zoneCode || geoZoneCode.value || null
 
     const result = await publishService.createBizPost({
-      place_id: session.placeId,
-      publisher_user_id: session.userId,
+      sponsor_id: session.userId,
       channel: 'vas_ir',
-      post_type: selectedType.value,
-      publication_type: selectedType.value,
-      title: previewTitle.value,
-      body: previewDesc.value || null,
-      media_url: mediaUrls[0],
-      media_type: mediaItems.value[0]?.mediaType || 'photo',
-      // Datos para Explorer
-      content_payload: { ...contentPayload, draft_id: draftId },
-      feed_type: feedType,
-      package_type: packageType.value,
-      draft_id: draftId,
+      feed_type: selectedType.value || null,
+      media_url: mediaUrl,
+      doc_json: docJson,
+      city_code: cityCode,
+      zone_code: zoneCode,
     })
 
     $q.notify({ type: 'positive', message: 'Publicacion creada.' })
-    router.replace(result.biz_post_id ? `/negocio/${session.userId}/post/${result.biz_post_id}` : '/antojo/vas-ir/gallery')
+    router.replace(result.biz_post_id ? `/antojo/vas-ir/gallery` : '/antojo/vas-ir/gallery')
   } catch (error) {
     $q.notify({ type: 'negative', message: error?.message || 'No se pudo publicar.' })
   } finally {

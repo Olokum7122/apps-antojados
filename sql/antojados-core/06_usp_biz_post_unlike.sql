@@ -1,6 +1,25 @@
 -- ============================================================
--- SP: usp_biz_post_unlike
--- ============================================================
+-- SP: usp_biz_post_unlike — Quitar Like de un Post de Negocio
+--
+-- ═══════════════════════════════════════════════════════════════════════════
+-- DOMINIO:      Feed de AntojadosMX — Interacciones de Negocios
+-- RESPONSABLE:  Eliminar un like de biz_post_interactions y
+--               decrementar likes_count en biz_posts.
+--
+-- NO HACE:
+--   - No maneja likes (usp_biz_post_like)
+--   - No verifica que el like exista antes de eliminar
+--
+-- PARÁMETROS (según feed.md §5):
+--   @biz_post_id, @user_id
+--
+-- NOTA: No usa UPDLOCK porque DELETE es idempotente y no requiere
+--       bloqueo pesimista. Si no existe el like, @@ROWCOUNT = 0.
+--
+-- REFERENCIAS:
+--   - apps-antojados/docs/feed.md (Sección 5: SPs — Interacciones Biz)
+-- ═══════════════════════════════════════════════════════════════════════════
+--
 CREATE OR ALTER PROCEDURE antojados_core.usp_biz_post_unlike
     @biz_post_id NVARCHAR(64),
     @user_id     NVARCHAR(64)
@@ -19,3 +38,4 @@ BEGIN
         WHERE biz_post_id = @biz_post_id;
 END;
 GO
+

@@ -60,7 +60,7 @@ export async function persistDeviceCity(
     await authService.updateProfile(session.userId, { cityCode: city.cityCode })
   } catch {
     // Device geo must not block feed loading when profile persistence is unavailable.
-}
+  }
 }
 
 /**
@@ -105,6 +105,21 @@ export async function acceptDetectedDeviceCity(
 ): Promise<void> {
   await persistDeviceCity(city, true)
   state.deviceContext = context
+  // Notificar que la ciudad fue aceptada para que los feeds se refresquen
+  eventBus.emit(GeoEvents.CITY_CHANGE_ACCEPTED, { city, context })
+}
+
+/**
+ * Determina si el estado tiene bars de ciudad/zone resueltos
+ * por GPS (deviceContext con deviceResolved=true) o solo datos
+ * del contexto API sin GPS.
+ */
+function hasRealBars(state: GeoAppState): boolean {
+  const ctx = state.deviceContext?.context
+  // Solo consideramos "reales" si el dispositivo fue resuelto por GPS
+  const deviceResolved = ctx?.deviceResolved === true
+  const hasCodes = Boolean(state.cityScopeCode && state.zoneScopeCode)
+  return hasCodes && deviceResolved
 }
 
 export async function requestDeviceLocation(
@@ -113,8 +128,9 @@ export async function requestDeviceLocation(
   onlyIfMissing = false,
 ): Promise<boolean> {
   const now = Date.now()
-  const hasBars = Boolean(state.cityScopeCode && state.zoneScopeCode)
-  if (onlyIfMissing && hasBars) return false
+  // Usar hasRealBars en vez de solo verificar existencia de códigos
+  const barsResolved = hasRealBars(state)
+  if (onlyIfMissing && barsResolved) return false
   if (deviceLocationPromise) return deviceLocationPromise
   if (!force && now - lastDeviceLocationAttemptAt < MIN_DETECTION_INTERVAL_MS) return false
 

@@ -116,7 +116,6 @@ export interface ExplorerFeedItem {
   composicion: Composicion
   title: string
   media_url?: string
-  media_thumbnail_url?: string
   media_feed_url?: string
   media_full_url?: string
   media_type?: string

@@ -1,6 +1,28 @@
 -- ============================================================
--- SP: usp_soc_post_like
--- ============================================================
+-- SP: usp_soc_post_like — Dar Like a un Post Social
+--
+-- ═══════════════════════════════════════════════════════════════════════════
+-- DOMINIO:      Feed de AntojadosMX — Interacciones Sociales
+-- RESPONSABLE:  Insertar un like en soc_post_interactions con
+--               UPDLOCK/HOLDLOCK para prevenir duplicados, e
+--               incrementar likes_count en soc_posts.
+--
+-- NO HACE:
+--   - No maneja unlikes (usp_soc_post_unlike)
+--   - No maneja comentarios (usp_soc_post_comment)
+--   - No verifica que el post exista o esté activo
+--
+-- PARÁMETROS (según feed.md §5):
+--   @post_id, @user_id
+--
+-- NOTA: Usa columna post_id (no target_post_id).
+--       Ver deuda en feedService.js línea ~84 que usa target_post_id.
+--
+-- REFERENCIAS:
+--   - apps-antojados/docs/feed.md (Sección 5: SPs — Interacciones Soc)
+--   - sql/antojados-core/14_ddl_soc_post_interactions.sql
+-- ═══════════════════════════════════════════════════════════════════════════
+--
 CREATE OR ALTER PROCEDURE antojados_core.usp_soc_post_like
     @post_id NVARCHAR(64),
     @user_id NVARCHAR(64)
@@ -29,3 +51,4 @@ BEGIN
     END;
 END;
 GO
+

@@ -625,13 +625,7 @@ async function uploadSelectedDesmaVideo(result) {
       post_id: postId,
       user_id: session.userId,
       feed_scope: 'desma',
-      venue_name: selectedVideoName.value || null,
-      caption: selectedVideoName.value,
-      description: selectedVideoName.value,
-      city_code: cityCode.value || session.cityCode || null,
-      scope_level: scopeLevel.value || null,
-      scope_code: scopeCode.value || null,
-      media_intake_id: uploaded.intake_id || null,
+      media_url: uploaded.media_url || null,
       media_type: 'video',
     })
     return { session, uploaded, postId: created.post_id || null }

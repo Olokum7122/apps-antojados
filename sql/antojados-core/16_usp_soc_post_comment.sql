@@ -1,6 +1,25 @@
 -- ============================================================
--- SP: usp_soc_post_comment
--- ============================================================
+-- SP: usp_soc_post_comment — Comentar / Responder en Post Social
+--
+-- ═══════════════════════════════════════════════════════════════════════════
+-- DOMINIO:      Feed de AntojadosMX — Interacciones Sociales
+-- RESPONSABLE:  Insertar un comentario o respuesta en
+--               soc_post_interactions e incrementar comments_count
+--               en soc_posts.
+--
+-- NO HACE:
+--   - No maneja likes/unlikes
+--   - No valida que el post exista
+--   - No maneja moderación (status siempre 'approved')
+--
+-- PARÁMETROS (según feed.md §5):
+--   @post_id, @user_id, @interaction_type, @parent_comment_id (NULL),
+--   @content_text (max 2000), @created_at_client (NULL), @interaction_id OUTPUT
+--
+-- REFERENCIAS:
+--   - apps-antojados/docs/feed.md (Sección 5: SPs — Interacciones Soc)
+-- ═══════════════════════════════════════════════════════════════════════════
+--
 CREATE OR ALTER PROCEDURE antojados_core.usp_soc_post_comment
     @post_id             NVARCHAR(64),
     @user_id             NVARCHAR(64),
@@ -29,3 +48,4 @@ BEGIN
     SET @interaction_id = @id;
 END;
 GO
+

@@ -17,14 +17,9 @@ interface RawFeedItem extends Record<string, unknown> {
   author_handle?: string
   author?: string
   user_id?: string
-  publisher_user_id?: string
-  place_id?: string
-  caption?: string
-  description?: string
-  venue_name?: string
-  venue?: string
+
+
   media_url?: string
-  media_thumbnail_url?: string
   media_full_url?: string
   media_type?: string
   video_720_url?: string
@@ -187,34 +182,18 @@ function mapFeedItem(raw: RawFeedItem): FeedItem {
     throw new Error('feed_item_missing_id')
   }
 
-  const caption =
-    typeof raw.caption === 'string'
-      ? raw.caption
-      : typeof raw.description === 'string'
-        ? raw.description
-        : null
   const mediaUrl = normalizeMediaUrl(raw.media_url)
   const mediaType = normalizeMediaType(raw.media_type)
-  const mediaThumbUrl =
-    normalizeMediaUrl(raw.media_thumbnail_url) ||
-    (mediaType === 'video' ? mediaUrl : buildImageFeedThumb(mediaUrl))
+  const mediaThumbUrl = mediaType === 'video' ? mediaUrl : buildImageFeedThumb(mediaUrl)
 
   return {
     id,
     authorHandle: typeof raw.author_handle === 'string' ? raw.author_handle : null,
     author: typeof raw.author === 'string' ? raw.author : null,
     userId: typeof raw.user_id === 'string' ? raw.user_id : null,
-    publisherUserId: typeof raw.publisher_user_id === 'string' ? raw.publisher_user_id : null,
-    placeId: typeof raw.place_id === 'string' ? raw.place_id : null,
-    place_id: typeof raw.place_id === 'string' ? raw.place_id : null,
     caption,
-    venueName:
-      typeof raw.venue_name === 'string'
-        ? raw.venue_name
-        : typeof raw.venue === 'string'
-          ? raw.venue
-          : null,
-    venue: typeof raw.venue === 'string' ? raw.venue : null,
+    venueName: null,
+    venue: null,
     mediaUrl,
     mediaThumbUrl,
     mediaFullUrl: normalizeMediaUrl(raw.media_full_url) || null,
@@ -272,33 +251,26 @@ export class SocialFeedService {
   constructor(private readonly http = httpClient) {}
 
   async list(params: FeedListParams): Promise<FeedItem[]> {
-    console.log(`[TRACE:socialFeed.list] scope=${params.scope}, userId=${params.userId}, postId=${params.postId}`)
     const response = await this.http.get<ApiResponse<RawFeedItem[]>>(API_ENDPOINTS.socialPosts.feed, {
       params: {
         page: params.page || 1,
         limit: params.limit || 20,
-        city_code: params.cityCode,
-        scope_level: params.scopeLevel,
-        scope_code: params.scopeCode ?? undefined,
         user_id: params.userId,
-        publisher_user_id: params.publisherUserId,
+        user_id: params.userId,
         post_id: params.postId,
         feed_type: params.scope || undefined,
       },
     })
 
     const rawItems = Array.isArray(response.data.data) ? response.data.data : []
-    // Validar canal: solo posts cuyo channel coincida con el scope solicitado
     const filtered = rawItems.filter((raw) => {
       const sourceChannel = raw.channel || raw.feed_type || null
       const requestedChannel = params.scope || null
       if (requestedChannel && sourceChannel && sourceChannel !== requestedChannel) {
-        console.warn(`[TRACE:socialFeed.list] channel mismatch: requested=${requestedChannel}, source=${sourceChannel}, postId=${raw.id || raw.post_id}`)
         return false
       }
       return true
     })
-    console.log(`[TRACE:socialFeed.list] raw=${rawItems.length}, after channel filter=${filtered.length}`)
     return filtered.map(mapFeedItem)
   }
 
@@ -332,15 +304,14 @@ export class SocialFeedService {
     options: {
       excludeId?: string
       eventGroupId?: string | null
-      placeId?: string | null
       userId?: string | null
-      publisherUserId?: string | null
+      userId?: string | null
     },
   ): Promise<FeedItem[]> {
     const response = await this.list({
       scope,
       userId: options.userId || undefined,
-      publisherUserId: options.publisherUserId || undefined,
+      userId: options.userId || undefined,
       limit: 20,
     })
 
@@ -357,16 +328,12 @@ export class SocialFeedService {
         return item.eventGroupId === options.eventGroupId
       }
 
-      if (options.placeId) {
-        return item.placeId === options.placeId || item.place_id === options.placeId
-      }
-
       if (options.userId) {
         return item.userId === options.userId
       }
 
-      if (options.publisherUserId) {
-        return item.publisherUserId === options.publisherUserId
+      if (options.userId) {
+        return item.userId === options.userId
       }
 
       return true
